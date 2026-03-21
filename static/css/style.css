@@ -1,0 +1,85 @@
+
+/* 基础样式 */
+body {
+    padding-top: 0px;
+    display: block;
+    margin: 0px;
+}
+
+/* CKEditor内容样式 4月28日晚先测试，待完善 */ 
+
+/* .ck-content {
+    min-height: 200px;
+    padding: 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+} */
+
+/* 知识点卡片样式 */
+.knowledge-card {
+    transition: transform 0.2s;
+    margin-bottom: 20px;
+}
+
+.knowledge-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .card-columns {
+        column-count: 1;
+    }
+}
+
+/* 面包屑导航 */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0.75rem 0;
+}
+
+/* 难度级别标签 */
+.badge-difficulty-easy {
+    background-color: #28a745;
+}
+
+.badge-difficulty-medium {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.badge-difficulty-hard {
+    background-color: #dc3545;
+}
+
+/* 知识点详情页样式 */
+.knowledge-meta {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+/* 关联资源卡片 */
+.resource-card {
+    margin-bottom: 15px;
+}
+
+.resource-card .card-header {
+    font-size: 1rem;
+    padding: 0.5rem 1rem;
+}
+
+/* 分页样式 */
+.pagination {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.pagination .step-links {
+    display: inline-block;
+}
+
+.pagination .current {
+    margin: 0 15px;
+}
+

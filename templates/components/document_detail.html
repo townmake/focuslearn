@@ -1,0 +1,33 @@
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="document-container">
+    <h2>{{ document.title }}</h2>
+    <div class="document-viewer">
+        {% if document.file.url|lower|slice:"-4:" == ".pdf" %}
+            <embed src="{{ document.file.url }}" type="application/pdf" width="100%" height="600px">
+        {% else %}
+            <a href="{{ document.file.url }}" class="btn btn-primary" download>下载文档</a>
+        {% endif %}
+    </div>
+    
+    <!-- 引入评论组件 -->
+    {% include "courses/comment_component.html" with comment_type="documents" type_id=document.id %}
+</div>
+
+<style>
+.document-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.document-viewer {
+    margin-top: 20px;
+    min-height: 300px;
+    border: 1px solid #ddd;
+    padding: 10px;
+}
+</style>
+{% endblock %}

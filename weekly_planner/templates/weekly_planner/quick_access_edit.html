@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}编辑便捷记录{% endblock %}
+
+{% block content %}
+<div class="ant-page-container">
+
+    <div class="ant-page-header-heading">
+        <span class="ant-page-header-heading-title">编辑便捷记录</span>
+    </div>
+    <div class="ant-card">
+        <div class="ant-card-body">
+            <form method="post" enctype="multipart/form-data" class="ant-form">
+                {% csrf_token %}
+                <div class="ant-form-item">
+                <label class="ant-form-label">详情描述</label>
+                    <div id="editor-ex-content" style="width:100%; max-width:1200px;height:fit-content; min-height: 345px;border:1px solid #ddd; border-radius:4px;"frameborder="0"></div>
+                </div>
+                <input type="hidden" id="description" name="description" value="{{ form.description.value|default_if_none:'' }}"> 
+
+                <div class="ant-form-item">
+                    <label class="ant-form-label">标题</label>
+                    <div class="ant-form-item-control">
+                        {{ form.title }}
+                    </div>
+                </div>
+                
+                <div class="ant-form-item">
+                    <label class="ant-form-label">位置序号</label>
+                    <div class="ant-form-item-control">
+                        {{ form.position }}
+                        <div class="ant-form-text">数字越小排序越前</div>
+                    </div>
+                </div>
+                
+                <div class="ant-form-item">
+                    <label class="ant-form-label">图标</label>
+                    <div class="ant-form-item-control">
+                        {{ form.icon }}
+                        <div class="ant-image-preview">
+                            <div id="newIconPreview" class="ant-image-new" style="display:none; text-align:left;margin-bottom: 8px;margin-top: 8px;">
+                                <span>新图标预览：</span>
+                                <img id="previewImage" src="#" alt="新图标预览" style="max-width: 96px;">
+                            </div>
+                        </div>
+                        <div class="ant-form-text">上传新图标将替换当前图标 (建议尺寸: 100x100像素)</div>
+                    </div>
+                </div>
+                
+                <div class="ant-form-item">
+                    <label class="ant-form-label">跳转链接</label>
+                    <div class="ant-form-item-control">
+                        {{ form.link }}
+                    </div>
+                </div>
+                
+                <div class="ant-form-actions" style="text-align: right; margin-top: 6px;" >
+                    <button type="submit" class="ant-btn ant-btn-primary">保存</button>
+                    <button onclick="history.back();" class="ant-btn ant-btn-default">返回</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<link rel="stylesheet" href="/static/aieditor-main/dist/style.css">
+<script src="{% static 'js/dropzone.min.js' %}"></script>
+<script type="module">
+import { AiEditor } from '/static/aieditor-main/dist/index.js';
+
+window.editorContent = new AiEditor({
+    element: '#editor-ex-content',
+    placeholder: '开始输入题目内容...',
+    theme: 'default',
+    onCreated: (editor) => {
+        editor.setEditable(true);
+        // 如果有初始内容，设置编辑器内容
+        const initialContent = document.getElementById('description').value;
+        console.log('Initial content:', initialContent);
+        if (initialContent) {
+            editor.setContent(initialContent);
+        } else {
+            editor.setContent('<p>请输入内容...</p>');
+        }   
+    },
+    onChange: (editor) => {
+        document.getElementById('description').value = editor.getHtml();
+    }
+});
+</script>
+<style>
+.ant-page-container {
+    max-width: 800px;
+    margin: 0 auto; 
+    padding: 20px;
+}
+.ant-page-header {
+    margin-bottom: 24px;
+}
+.ant-page-header-heading {
+    display: flex;
+    justify-content: space-between;     
+    align-items: center;
+}
+.ant-page-header-heading-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.85);
+}
+.ant-card {     
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+.ant-card-body {
+    padding: 20px;
+}
+.ant-form-item {        
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: row;
+}
+.ant-form-label {
+    margin-top: 16px;
+    width: 100px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.85);
+}
+.ant-form-item-control {
+    margin-top: 8px;
+}
+.ant-form-item-control input,
+.ant-form-item-control textarea,
+.ant-form-item-control select {
+    width: 100%;
+    padding: 8px;   
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.ant-form-item-control input:focus,
+.ant-form-item-control textarea:focus,
+.ant-form-item-control select:focus {
+    border-color: #40a9ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+.ant-form-text {
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.45);
+    margin-top: 4px;
+}
+.ant-form-actions {
+    text-align: right;
+    margin-top: 20px;
+}
+.ant-btn {
+    padding: 8px 16px;
+    font-size: 14px;    
+    border-radius: 4px; 
+    margin-left: 8px;
+}
+.ant-btn-primary {
+    background-color: #1890ff;      
+    color: white;
+    border: none;
+}
+.ant-btn-primary:hover {
+    background-color: #40a9ff;
+}
+.ant-btn-default {
+    background-color: #f0f0f0;
+    color: rgba(0, 0, 0, 0.65);
+    border: none;
+}
+</style>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.getElementById('id_icon').addEventListener('change', function(e) {
+    const preview = document.getElementById('newIconPreview');
+    const previewImage = document.getElementById('previewImage');
+    const currentIcon = document.getElementById('currentIcon');
+    const file = e.target.files[0];
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.style.display = 'block';
+            if(currentIcon) currentIcon.style.display = 'none';
+            previewImage.src = e.target.result;
+        }
+        reader.readAsDataURL(file);
+    } else {
+        preview.style.display = 'none';
+        if(currentIcon) currentIcon.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}

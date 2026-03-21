@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">单词管理</h2>
+    
+    <!-- 查询栏 -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <form id="searchForm" class="form-inline">
+                <div class="rows_search row g-3">
+                    <div class="col-md-3">
+                        <label for="word" class="form-label">单词</label>
+                        <input type="text" class="form-control" id="word" placeholder="输入单词">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date" class="form-label">日期</label>
+                        <input type="date" class="form-control" id="date">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="level" class="form-label">等级</label>
+                        <select class="form-select" id="level">
+                            <option value="">全部</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary me-2" onclick="searchWords()">
+                            <i class="fas fa-search me-1"></i>查询
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="exportWords()">
+                            <i class="fas fa-download me-1"></i>导出
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 单词列表 -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="col-word">单词</th>
+                            <th class="col-meaning">含义</th>
+                            <th class="col-example">例句</th>
+                            <th class="col-level">等级</th>
+                            <th class="col-time">更新时间</th>
+                            <th class="col-action">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wordsTableBody" class="table-group-divider">
+                        <!-- 动态填充内容 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑模态框
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editModalLabel">编辑单词</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editId">
+                    <div class="mb-3">
+                        <label for="editWord" class="form-label">单词</label>
+                        <input type="text" class="form-control" id="editWord" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTranslation" class="form-label">含义</label>
+                        <input type="text" class="form-control" id="editTranslation" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editExample" class="form-label">例句</label>
+                        <textarea class="form-control" id="editExample" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editLevel" class="form-label">等级</label>
+                        <select class="form-select" id="editLevel" required>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveWord()">保存</button>
+            </div>
+        </div>
+    </div>
+</div> -->
+
+<style>
+    .card {
+        border: none;
+        border-radius: 0.5rem;
+        display: block;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        background-color: #ffffff;
+    }
+    .card-body {
+        padding: 1.5rem;
+        background-color: #f8f9fa;
+    }
+    .rows_search{
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .form-control, .form-select {
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        box-shadow: none;
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .form-label {
+        font-weight: 500;
+        margin:0.5rem 0.5rem 0.2rem 0.5rem;
+        color: #495057;
+
+    }   
+    .card-header {
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        /* padding: 1rem 1.5rem; */
+    }
+    
+    .table th {
+        font-weight: 500;
+        background-color: #f8f9fa;
+    }
+    
+    .table td {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+    .table-hover tbody tr:hover {
+        background-color: #f1f1f1;
+    }
+    /* 表格宽度控制 */
+    .col-word { width: 100px; }
+    .col-meaning { width: 200px; }
+    .col-example { width: 600px; }
+    .col-level { width: 60px; }
+    .col-time { width: 120px; }
+    .col-action { width: 240px; }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+    }
+    .form-control, .form-select {
+        padding: 0.5rem 0.75rem;
+    }
+    .table th, .table td {
+        padding: 0.75rem 1rem;
+    }
+    .d-flex {
+        margin-right: 0.5rem;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .badge {
+        font-weight: 500;
+        padding: 0.35em 0.65em;
+    }
+    
+    .badge-level-1 { background-color: #d4edda; color: #155724; }
+    .badge-level-2 { background-color: #cce5ff; color: #004085; }
+    .badge-level-3 { background-color: #fff3cd; color: #856404; }
+    .badge-level-4 { background-color: #f8d7da; color: #721c24; }
+    .badge-level-5 { background-color: #e2e3e5; color: #383d41; }
+</style>
+
+<script>
+// 页面加载完成后获取单词列表
+document.addEventListener('DOMContentLoaded', function() {
+    searchWords();
+});
+
+// 查询单词
+function searchWords() {
+    const word = document.getElementById('word').value;
+    const date = document.getElementById('date').value;
+    const level = document.getElementById('level').value;
+    
+    const params = new URLSearchParams();
+    if (word) params.append('word', word);
+    if (date) params.append('date', date);
+    if (level) params.append('level', level);
+    
+    fetch(`/planner/api/words/?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            const tableBody = document.getElementById('wordsTableBody');
+            tableBody.innerHTML = '';
+            
+            data.forEach(word => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${word.word}</td>
+                    <td>${word.translation}</td>
+                    <td>${word.example_sentence || '-'}</td>
+                    <td><span class="badge badge-level-${word.level}">${word.level}</span></td>
+                    <td>${new Date(word.updated_at).toLocaleString()}</td>
+                    <td class="d-flex">
+                        <a class="btn  text-warning" onclick="editWord(${word.id})"> 编辑</a>
+                        <a class="btn  text-danger bg-white border-0 shadow-none me-2" onclick="deleteWord(${word.id})"> 删除 </a>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        });
+}
+
+// 导出单词
+function exportWords() {
+    const word = document.getElementById('word').value;
+    const date = document.getElementById('date').value;
+    const level = document.getElementById('level').value;
+    
+    let url = '/api/words/export/?';
+    if (word) url += `word=${word}&`;
+    if (date) url += `date=${date}&`;
+    if (level) url += `level=${level}`;
+    
+    window.location.href = url;
+}
+
+// 编辑单词
+function editWord(id) {
+    fetch(`/planner/api/words/${id}/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('editId').value = data.id;
+            document.getElementById('editWord').value = data.word;
+            document.getElementById('editTranslation').value = data.translation;
+            document.getElementById('editExample').value = data.example_sentence || '';
+            document.getElementById('editLevel').value = data.level;
+            
+            var editModal = new bootstrap.Modal(document.getElementById('editModal'));
+            editModal.show();
+        });
+}
+
+// 保存单词
+function saveWord() {
+    const id = document.getElementById('editId').value;
+    const word = document.getElementById('editWord').value;
+    const translation = document.getElementById('editTranslation').value;
+    const example = document.getElementById('editExample').value;
+    const level = document.getElementById('editLevel').value;
+    
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/planner/api/words/${id}/` : '/planner/api/words/';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            word: word,
+            translation: translation,
+            example_sentence: example,
+            level: level
+        })
+    })
+    .then(response => {
+        if (response.ok) {
+            var editModal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+            editModal.hide();
+            searchWords();
+        }
+    });
+}
+
+// 删除单词
+function deleteWord(id) {
+    if (confirm('确定要删除这个单词吗？')) {
+        fetch(`/planner/api/words/${id}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (response.ok) {
+                searchWords();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

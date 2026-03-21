@@ -1,0 +1,255 @@
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}章节知识点-{{ chapter.title }}{% endblock %}
+
+
+{% block content %}
+{% include "components/floating_widget.html" %}
+<body data-chapter-id="{{ chapter.id }}"
+        chapterId="{{ chapter.id }}"
+        data-user-id="{{ user.id }}"
+        data-subject-name="{{ chapter.subject.name }}"
+        data-chapter-name="{{ chapter.title }}">
+
+<!-- 简化后的内容区 -->
+<div class="content-container">
+    <!-- 知识点页 -->
+    <div id="knowledge-points" class="content-page active"> 
+        {% include "courses/_knowledge_points.html" %} 
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/fontawesome-5.15.4-web/css/all.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/chapter_detail.css' %}">
+<link rel="stylesheet" href="{% static 'css/floating_widget.css' %}">
+<style>
+/* 简化后的内容容器样式 */
+.content-container {
+    min-height: 100vh;
+    max-width: 1400px; /* 最大宽度 */
+    margin: 0 auto; /* 居中 */
+    padding: 1px;
+    background: #f0f2f5;
+}
+.ant-form-item-chapter {
+    /* 宽度4个字节宽 */
+    width: fit-content;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction:row;
+    gap: 8px;
+    color: rgba(0, 0, 0, 0.85);
+    font-size: 14px;
+    min-width: 400px;
+}
+.label-chapter {
+    width: 120px; /* 固定标签宽度 */
+    color: rgba(0, 0, 0, 0.85);
+    padding-right: 8px;
+    text-align: right;
+}
+.ant-input-chapter {
+    width: 100%;
+    min-width: 400px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #d9d9d9;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* 移除所有ant-pro-layout相关样式 */
+
+.content-page {
+    display: none;
+    background: #fff;
+    border-radius: 2px;
+    padding: 24px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+.content-page.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.ant-descriptions-view table {
+    width: 100%;
+    table-layout: fixed; /* 固定表格布局 */
+}
+
+.ant-descriptions-item-label {
+    width: 120px; /* 固定标签宽度 */
+    color: rgba(0, 0, 0, 0.85);
+    padding-right: 16px;
+}
+
+.ant-descriptions-item-content {
+    width: auto; /* 内容自适应 */
+}
+
+.ant-form-item-label{
+    /* 宽度4个字节宽 */
+    width: fit-content!important;
+}
+/* 统计卡片样式 */
+.stats-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.stat-card {
+    background: #fafafa;
+    border-radius: 4px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid #f0f0f0;
+}
+
+.stat-label {
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 14px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 500;
+    margin-top: 8px;
+}
+
+/* 进度条样式 */
+.progress-container {
+    position: relative;
+    height: 20px;
+    background: #f5f5f5;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #1890ff;
+    transition: width 0.3s;
+}
+
+.progress-container span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    color: #fff;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* 习题练习子菜单样式 */
+.exercise-submenu {
+    display: flex;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 16px;
+}
+
+.exercise-submenu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-right: 8px;
+}
+
+.exercise-submenu-item:hover {
+    color: #1890ff;
+}
+
+.exercise-submenu-item.active {
+    color: #1890ff;
+    border-bottom-color: #1890ff;
+    font-weight: 500;
+}
+
+.exercise-content {
+    padding: 8px 0;
+}
+
+.exercise-subpage {
+    display: none;
+}
+
+.exercise-subpage.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* 复习菜单 */
+.smart-review-submenu {
+    display: flex;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 16px;
+}
+
+.review-submenu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-right: 8px;
+}
+
+.review-submenu-item:hover {
+    color: #1890ff;
+}
+
+.review-submenu-item.active {
+    color: #1890ff;
+    border-bottom-color: #1890ff;
+    font-weight: 500;
+}
+
+.review-content {
+    padding: 8px 0;
+}
+.smart-review-subpage {
+    display: none;
+}
+
+.smart-review-subpage.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in-out;
+}
+.empty-state {
+    text-align: center;
+    padding: 40px 0;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #d9d9d9;
+}
+
+.empty-state p {
+    font-size: 16px;
+    margin-top: 8px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- {{ tree_data|safe }} -->
+<script src="{% static 'js/floating_widget.js' %}?v={% now "YmdHi" %}"></script>
+<script>
+
+</script>
+{% endblock %}

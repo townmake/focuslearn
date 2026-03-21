@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+
+{% block title %}首页 - 学习系统{% endblock %}
+
+{% block content %}
+{% load static %}
+
+ <div class="main-content">
+    {% if user.is_authenticated %}
+    <div class="welcome-message">
+        <h1>欢迎回来，{{ user.username }}！</h1>
+        {% if request.user.is_authenticated %}
+        <div class="mb-3">
+            <form action="{% url 'generate_review' %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn-primary-home" id="submitbutton">
+                    <i class="fas fa-sync-alt"></i> 生成今日复习任务
+                </button>
+                <!-- <button type="button" class="btn-primary-home" id="words" onclick="window.location.href='{% url 'weekly_planner:word_view' %}'">
+                    <i class="fas fa-book"></i> 查看单词
+                </button> -->
+            </form>
+        </div>
+        {% endif %}
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="home-container">    
+        <div class="schedule-container">
+            <div class="today-schedule">
+            <h2 class="schedule-title">今日学习计划</h2>
+                <div class="todo-list">
+                    <form method="post" action="{% url 'weekly_planner:update_task_status' %}">
+                        {% csrf_token %}
+                        <div class="uncompleted-tasks">
+                            <h3>待完成任务</h3>
+                            {% for task in uncompleted_tasks %}
+                            <div class="task-item">
+                                <input type="checkbox" 
+                                    name="task_{{ task.id }}" 
+                                    id="task_{{ task.id }}" 
+                                    class="task-checkbox"
+                                    onchange="this.form.submit()">
+                                <label for="task_{{ task.id }}">
+                                    <span class="task-time">{{ task.start_time|time:"H:i" }}-{{ task.end_time|time:"H:i" }}</span>
+                                    <a href="{% url 'courses:chapter_detail' task.chapter.id %}" class="task-title">{{ task.title }}</a>
+                                    {% if task.subject %}
+                                    <span class="task-subject">{{ task.subject.name }}</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                            {% empty %}
+                            <p>今日没有未完成的任务</p>
+                            {% endfor %}
+                        </div>
+                        <div class="completed-tasks">
+                            <h3>已完成任务</h3>
+                            {% for task in completed_tasks %}
+                            <div class="task-item completed">
+                                <input type="checkbox" 
+                                    name="task_{{ task.id }}" 
+                                    id="task_{{ task.id }}" 
+                                    class="task-checkbox" 
+                                    checked
+                                    onchange="this.form.submit()">
+                                <label for="task_{{ task.id }}">
+                                    <span class="task-time">{{ task.start_time|time:"H:i" }}-{{ task.end_time|time:"H:i" }}</span>
+                                    {% if task.chapter %}
+                                    <a href="{% url 'courses:chapter_detail' task.chapter.id %}" class="task-title">{{ task.title }}</a>
+                                    {% else %}
+                                    <span class="task-title">{{ task.title }}</span>
+                                    {% endif %}
+                                    {% if task.subject %}
+                                    <span class="task-subject">{{ task.subject.name }}</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                            {% empty %}
+                            <p>今日没有已完成的任务</p>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="review-container">
+            <h2 class="review-title">今日复习任务</h2>
+            <div class="review-content">
+                {% with subjects_reviews=daily_review_sets %}
+                    {% include 'courses/daily_reviews.html' %}
+                {% endwith %}
+            </div>
+            
+        </div>
+    </div>
+
+
+        <!-- 新增倒计时模块 -->
+    <div class="countdown-container">
+        <h2>重要日期倒计时</h2>
+        {% if important_dates_with_countdown %}
+        <ul class="countdown-list">
+            {% for date_info in important_dates_with_countdown %}
+            {% with even_id=date_info.id|divisibleby:"2" %}
+            <li class="countdown-item {% if even_id %}even-item{% else %}odd-item{% endif %}">
+                <span class="countdown-name">{{ date_info.name }}</span>
+                <span class="countdown-days">{{ date_info.days_left }}天</span>
+            </li>
+            {% endwith %}
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>暂无重要日期</p>
+        {% endif %}
+    </div>
+
+<style>
+    .home-container{
+        display: flex;
+        flex: 2;
+        justify-content: space-between;
+    }
+    .schedule-container {
+        margin-right: 20px;
+        padding: 20px;
+        background: #fff;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        width: 45%;
+    }
+    .review-container {
+        margin-left: 20px;
+        padding: 20px;
+        background: #fff;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        width: 45%;
+    }
+
+    .todo-list {
+        margin-top: 20px;
+    }
+    .task-item {
+        padding: 10px 0;
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid #eee;
+    }
+    .task-checkbox {
+        margin-right: 10px;
+    }
+    .task-item label {
+        display: flex;
+        align-items: center;
+        flex-grow: 1;
+    }
+    .task-time {
+        display: inline-block;
+        width: 120px;
+        color: #666;
+    }
+    .task-title {
+        flex-grow: 1;
+    }
+    .task-subject {
+        background: #f0f0f0;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: #555;
+    }
+    .completed-tasks {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #ddd;
+    }
+    .completed-tasks .task-item label {
+        text-decoration: line-through;
+        color: #999;
+    }
+    .completed-tasks .task-time,
+    .completed-tasks .task-subject {
+        opacity: 0.7;
+    }
+    .welcome-message {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+    .btn-primary-home {
+        display: inline-block;
+        margin-top: 30px;
+        background-color: #007bff;
+        border-color: #007bff;
+        height: auto;
+        padding: 10px 20px;
+        color: #fff;
+        border-radius: 5px;
+    }
+
+    /* 倒计时容器 */
+    .countdown-container {
+        width: 45%;
+        margin-top: 20px;
+        padding: 20px;
+        background: #fff;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        border-radius: 12px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    /* 倒计时列表 */
+    .countdown-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    /* 倒计时项目 */
+    .countdown-item {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    
+    /* 奇数行样式 */
+    .countdown-item.odd-item {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+        border-left: 4px solid #4a90e2;
+    }
+    
+    /* 偶数行样式 */
+    .countdown-item.even-item {
+        background: linear-gradient(135deg, #ffffff 0%, #fff9f4 100%);
+        border-left: 4px solid #ff6b35;
+    }
+    
+    /* 最后一项去除底边距 */
+    .countdown-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* 项目悬停效果 */
+    .countdown-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 12px rgba(0,0,0,0.1);
+    }
+    
+    .countdown-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 1.1em;
+    }
+    
+    /* 奇数行中数字的样式 */
+    .countdown-item.odd-item .countdown-days {
+        background: linear-gradient(135deg, #4a90e2, #2a5699);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        background-color: rgba(74, 144, 226, 0.1);
+        font-size: 1.2em;
+        font-weight: bold;
+        padding: 0 5px;
+    }
+    
+    /* 偶数行中数字的样式 */
+    .countdown-item.even-item .countdown-days {
+        background: linear-gradient(135deg, #ff9d00, #ff6b35);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        background-color: rgba(255, 107, 53, 0.1);
+        font-size: 1.2em;
+        font-weight: bold;
+        padding: 0 5px;
+    }
+    
+    /* 优先级标签 */
+    .priority-tag {
+        display: inline-block;
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 20px;
+        margin-left: 8px;
+    }
+    
+    .high-priority .priority-tag {
+        background-color: rgba(255, 98, 0, 0.2);
+        color: #ff6200;
+    }
+    
+    .medium-priority .priority-tag {
+        background-color: rgba(74, 144, 226, 0.2);
+        color: #4a90e2;
+    }
+</style>
+
+
+
+    {% else %}
+        <div class="login-container">
+            <h1>欢迎来到学习系统</h1>
+            <p>请登录以查看您的学习计划和课程。</p>
+            <form method="post" action="{% url 'login' %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <input type="text" name="username" class="form-control" placeholder="用户名" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" name="password" class="form-control" placeholder="密码" required>
+                </div>
+                <button type="submit" class="btn-login">登录</button>
+            </form>
+            <div class="login-links">
+                <a href="{% url 'admin:index' %}">管理员登录</a>
+                <a href="#">忘记密码?</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

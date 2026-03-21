@@ -1,0 +1,185 @@
+
+/* 科目详情容器 */
+.subject-detail-container {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* 科目信息部分 */
+.subject-info-section {
+    margin-bottom: 32px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+    padding: 24px;
+}
+
+/* Ant Descriptions样式 */
+.ant-descriptions {
+    margin-bottom: 20px;
+}
+
+.ant-descriptions-header {
+    margin-bottom: 16px;
+}
+
+.ant-descriptions-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.85);
+}
+
+.ant-descriptions-view {
+    width: 100%;
+    overflow: hidden;
+}
+
+.ant-descriptions-view table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ant-descriptions-item-label {
+    color: rgba(0, 0, 0, 0.85);
+    font-weight: 500;
+    padding: 16px;
+    background-color: #fafafa;
+    width: 150px;
+}
+
+.ant-descriptions-item-content {
+    padding: 16px;
+    color: rgba(0, 0, 0, 0.65);
+}
+
+/* 科目图片 */
+.subject-image {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 4px;
+}
+
+/* 颜色块 */
+.color-block {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* 统计信息 */
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+}
+
+.stat-label {
+    color: rgba(0, 0, 0, 0.45);
+    margin-right: 8px;
+    min-width: 60px;
+}
+
+.stat-value {
+    color: rgba(0, 0, 0, 0.85);
+    font-weight: 500;
+}
+
+/* 进度条 */
+.progress-container {
+    width: 100%;
+    height: 20px;
+    background-color: #f5f5f5;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #1890ff;
+    border-radius: 10px;
+}
+
+.progress-container span {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 12px;
+}
+
+/* 章节列表部分 */
+.chapter-list-section {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+    padding: 24px;
+}
+
+/* Ant Table样式 */
+.ant-table {
+    width: 100%;
+}
+
+.ant-table-container {
+    position: relative;
+}
+
+.ant-table-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.85);
+    margin-bottom: 16px;
+}
+
+.ant-table-content table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ant-table-content th {
+    background-color: #fafafa;
+    color: rgba(0, 0, 0, 0.85);
+    font-weight: 500;
+    padding: 16px;
+    text-align: left;
+}
+
+.ant-table-content td {
+    padding: 16px;
+    color: rgba(0, 0, 0, 0.65);
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-table-content tr:hover td {
+    background-color: #fafafa;
+}
+
+/* 操作链接 */
+.action-link {
+    color: #1890ff;
+    text-decoration: none;
+}
+
+.action-link:hover {
+    color: #40a9ff;
+}
+
+.chapter-link {
+    color: rgba(0, 0, 0, 0.85);
+    text-decoration: none;
+}
+
+.chapter-link:hover {
+    color: #1890ff;
+}

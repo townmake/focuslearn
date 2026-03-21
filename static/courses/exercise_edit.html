@@ -1,0 +1,533 @@
+<!-- 编辑习题内容页 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑习题</title>
+    <link rel="stylesheet" href="/static/vendor/css/antd.min.css">
+    <link rel="stylesheet" href="/static/aieditor-main/dist/style.css">
+</head>
+<body data-user-id="{% if user.is_authenticated %}{{ user.id }}{% else %}0{% endif %}">
+
+<div class="exercise-edit-container">
+    <div class="header">
+        <h1>编辑习题</h1>
+        <a href="#" id="backToChapterBtn" class="btn btn-secondary">返回章节</a>
+    </div>
+    <form id="exerciseEditForm" class="ant-form-ex ant-form-vertical">
+        <input type="hidden" id="exercise_id" name="exercise_id" value="">
+        <div class="ant-form-item-ex">
+            <label for="title" class="ant-form-item-label-ex">标题</label>
+            <div class="ant-form-item-control">
+                <input type="text" class="ant-input" id="title" name="title" required>
+            </div>
+        </div>
+        <div class="ant-form-item-ex">
+            <label for="question_type" class="ant-form-item-label-ex">题型</label>
+            <div class="ant-form-item-control">
+                <select class="ant-select-selection ant-select-selection--single" id="question_type" name="question_type" required>
+                    <option value="single_choice">单选题</option>
+                    <option value="multiple_choice">多选题</option>
+                    <option value="true_false">判断题</option>
+                    <option value="short_answer">简答题</option>
+                    <option value="fill_blank">填空题</option>
+                    <option value="calculation">计算题</option>
+                    <option value="reading_answer">阅读理解</option>
+                    <option value="cloze_test">完形填空</option>
+                    <option value="essay">作文题</option>
+                    <option value="translation">翻译题</option>
+                    <option value="other">其他</option>
+                </select>
+            </div>
+        </div>
+        <div class="ant-form-item-ex">
+            <label for="textContent" class="ant-form-item-label-ex">题目</label>
+            <div class="ant-form-item-control"  >
+                <div id="editor-ex-content" style="width:100%; max-width:1200px;height:fit-content; min-height: 345px;border:1px solid #ddd; border-radius:4px;"frameborder="0"></div>
+                <textarea id="content" name="content" style="display: none !important;;"></textarea>
+            </div>
+        </div>
+        <div class="ant-form-item-ex-option" id="optionGroup-edit">
+            <label for="options" class="ant-form-item-label-ex">选项</label>
+            <div class="ant-form-item-control" style="height: 180px;">
+                <textarea class="ant-input" id="options" name="options" rows="3" style="height:fit-content;"></textarea>
+                <small class="ant-form-text ant-form-text-help">json格式,示例: {"A": "选项1","B": "选项2","C": "选项3", "D": "选项4"}</small>
+            </div>
+        </div>
+        <div class="ant-form-item-ex">
+            <label for="answer" class="ant-form-item-label-ex">答案</label>
+            <div class="ant-form-item-control" style="height: 100px;">
+                <textarea class="ant-input" id="answer" name="answer" rows="3" style="height:fit-content;"></textarea>
+            </div>
+        </div>
+        <div class="ant-form-item-ex">
+            <label for="analysis" class="ant-form-item-label-ex">解析</label>
+            <div class="ant-form-item-control">
+                <div id="editor-ex-analysis" style="width:100%; max-width:1200px;height:fit-content; min-height: 345px;border:1px solid #ddd; border-radius:4px;"frameborder="0"></div>
+                <textarea id="analysis" name="analysis" style="display: none !important;;"></textarea>
+            </div>
+        </div>
+        <div class="ant-form-item-ex">
+            <label for="chapter" class="ant-form-item-label-ex">所属章节</label>
+            <div class="ant-form-item-control">
+                <input type="text" class="ant-input" id="chapter" name="chapter" required>
+            </div>
+        </div>
+        <div class="ant-form-item-ex">
+            <div class="ant-form-item-middle">
+                <label for="difficulty" class="ant-form-item-label-ex">难度</label>
+                <div class="ant-form-item-control">
+                    <select class="ant-select-selection ant-select-selection--single" id="difficulty" name="difficulty">
+                        <option value="1">非常简单</option>
+                        <option value="2">简单</option>
+                        <option value="3" selected>中等</option>
+                        <option value="4">困难</option>
+                        <option value="5">非常困难</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ant-form-item-middle">
+                <label for="memory_level" class="ant-form-item-label-ex">出错度</label>
+                <div class="ant-form-item-control">
+                    <select class="ant-select-selection ant-select-selection--single" id="memory_level" name="memory_level">
+                        <option value="1">不容易错</option>
+                        <option value="2"selected>可能会错</option>
+                        <option value="3" >容易出错</option>
+                        <option value="4">很容易出错</option>
+                        <option value="5">应该没人对</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ant-form-item-middle">
+                <label for="mastery_level" class="ant-form-item-label-ex">掌握度</label>
+                <div class="ant-form-item-control">
+                    <select class="ant-select-selection ant-select-selection--single" id="mastery_level" name="mastery_level">
+                        <option value="1">完全不懂</option>
+                        <option value="2">初步了解</option>
+                        <option value="3" selected>基本掌握</option>
+                        <option value="4">熟练运用</option>
+                        <option value="5">精通</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="ant-form-item-ex">
+            <div class="ant-form-item-middle">
+                    <label for="parent_id" class="ant-form-item-label-ex">父习题ID</label>
+                    <div class="ant-form-item-control">
+                        <input type="number" class="ant-input" id="parent_id" name="parent_id" placeholder="非阅读完形子题不填写" default="NULL">
+                    </div>
+                </div>
+            <div class="ant-form-item-middle">
+                <label for="correct_count" class="ant-form-item-label-ex">答题时间</label>
+                <div class="ant-form-item-control">
+                    <input type="number" class="ant-input" id="answer_time" name="answer_time" placeholder="默认300秒" default="300">
+                </div>
+            </div> 
+            <div class="ant-form-item-middle">
+                <label for="wrong_count" class="ant-form-item-label-ex">错误次数</label>
+                <div class="ant-form-item-control">
+                    <input type="number" class="ant-input" id="wrong_count" name="wrong_count" placeholder="默认0次,可不填写" default="0">
+                </div>
+            </div>
+        </div>
+        <div class="ant-form-item-ex">
+            <label for="chapter_id" class="ant-form-item-label-ex" style="display: none;">章节ID</label>
+            <div class="ant-form-item-control">
+                <input type="number" class="ant-input" id="chapter" name="chapter" style="display: none;" >
+            </div>
+        </div>
+        <div class="ant-form-item-ex" style="display: none!important;">
+            <label for="last_studied_at" class="ant-form-item-label-ex">最后学习时间</label>
+            <div class="ant-form-item-control">
+                <input type="datetime-local" class="ant-input" id="last_studied_at" name="last_studied_at" value="">
+            </div>
+        </div>
+        <div class="ant-form-item-ex" style="display: flex; gap: 10px; justify-content: flex-end;">
+            <div class="form-actions" style="display: flex; gap: 10px; ">
+                <button type="submit" class="btn btn-primary">保存</button>
+                <button type="button" class="btn btn-secondary cancel-btn" onclick="window.history.back()">返回</button>
+            </div>
+        </div>
+    </form>
+</div>
+</body>
+
+<script type="module">
+import { AiEditor } from '/static/aieditor-main/dist/index.js';
+
+window.editorContent = new AiEditor({
+    element: '#editor-ex-content',
+    placeholder: '开始输入题目内容...',
+    theme: 'default',
+    onCreated: (editor) => {
+        editor.setEditable(true);
+    },
+    onChange: (editor) => {
+        document.getElementById('content').value = editor.getHtml();
+    }
+});
+
+// 解析编辑器
+window.editorAnalysis = new AiEditor({
+    element: '#editor-ex-analysis',
+    placeholder: '开始输入解析内容...',
+    theme: 'default',
+    onCreated: (editor) => {
+        editor.setEditable(true);
+    },
+    onChange: (editor) => {
+        document.getElementById('analysis').value = editor.getHtml();
+    }
+});
+</script>
+
+
+<script>
+// 监听题型变化
+document.getElementById('question_type').addEventListener('change', function() {
+    const questionType = this.value;
+    const optionGroup = document.getElementById('optionGroup-edit');
+    if (optionGroup) {
+        if (['single_choice', 'multiple_choice', 'true_false'].includes(questionType)) {
+            optionGroup.classList.remove('hidden-option');
+        } else {
+            optionGroup.classList.add('hidden-option');
+        }
+    }
+});
+// 初始化题型并触发状态
+setTimeout(() => {
+    document.getElementById('question_type').value = 'single_choice';
+    document.getElementById('question_type').dispatchEvent(new Event('change'));
+    console.log('初始状态已触发');
+}, 100);
+
+// 获取URL中的exercise_id参数
+function getExerciseIdFromUrl() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const exerciseId = urlParams.get('id');
+        if (!exerciseId) {
+            console.error('未找到exercise_id参数');
+            return null;
+        }
+        return exerciseId;
+    } catch (error) {
+        console.error('获取URL参数失败:', error);
+        return null;
+    }
+}
+
+
+
+const optionsInput = document.getElementById('options');
+
+optionsInput.addEventListener('input', function() {
+    try {
+        JSON.parse(this.value);
+        this.style.borderColor = '';
+    } catch {
+        this.style.borderColor = 'red';
+    }
+});
+
+
+// 安全获取CSRF Token的函数
+function getCSRFToken() {
+    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (csrfInput) {
+        return csrfInput.value;
+    }
+    const csrfCookie = document.cookie.match(/csrftoken=([^;]+)/);
+    return csrfCookie ? csrfCookie[1] : '';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取传参的习题ID
+    const exerciseId = getExerciseIdFromUrl();
+
+    if (!exerciseId) {
+        alert('未找到习题ID，请返回重试');
+        return;
+    }
+
+    // 从后端加载习题数据
+    fetch(`/courses/api/exercises/${exerciseId}/`)
+    .then(response => response.json())
+    .then(async data => {            // 填充表单数据
+        document.getElementById('title').value = data.title;
+        document.getElementById('question_type').value = data.question_type;
+        document.getElementById('content').value = data.content;
+        document.getElementById('analysis').value = data.analysis;
+        document.getElementById('chapter').value = data.chapter;
+
+        console.log('加载的习题数据:', data);
+
+        // 处理题型变化--非选择题，是非题不显示选项输入框
+        const questionType = data.question_type;
+        const optionGroup = document.getElementById('optionGroup-edit');
+        if (optionGroup) {
+            if (['single_choice', 'multiple_choice', 'true_false'].includes(questionType)) {
+                optionGroup.classList.remove('hidden-option');
+            } else {
+                optionGroup.classList.add('hidden-option');
+            }
+        }
+
+        // 格式化显示JSON选项
+        try {
+            const options = typeof data.options === 'string' ? 
+                JSON.parse(data.options) : 
+                (data.options || {});
+            document.getElementById('options').value = JSON.stringify(options, null, 2);
+        } catch (e) {
+            console.error('选项数据格式错误:', e);
+            document.getElementById('options').value = '{}';
+        }
+        document.getElementById('answer').value = data.answer;
+        document.getElementById('difficulty').value = data.difficulty;
+        document.getElementById('memory_level').value = data.memory_level;
+        document.getElementById('mastery_level').value = data.mastery_level;
+        document.getElementById('parent_id').value = data.parent_id || '';
+        document.getElementById('answer_time').value = data.answer_time || 300;
+        document.getElementById('wrong_count').value = data.wrong_count || 0;
+        document.getElementById('chapter').value = data.chapter;
+        const chapterId = data.chapter;
+        // 更新返回章节按钮链接
+        if(chapterId) {
+            document.getElementById('backToChapterBtn').href = `/courses/chapter/${chapterId}/detail/`;
+        } else {
+            document.getElementById('backToChapterBtn').style.display = 'none';
+        }
+        // 处理exercise_id
+        document.getElementById('exercise_id').value = data.id;
+
+        // 设置编辑器内容
+        if (window.editorAnalysis) {
+            window.editorAnalysis.setContent(data.analysis);
+        }
+
+        if (window.editorContent) window.editorContent.setContent(data.content);
+    })
+
+
+    // 表单提交处理
+    document.getElementById('exerciseEditForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const editorContent = window.editorContent.getHtml();
+        // 同步内容到隐藏字段content
+            // 处理表单数据
+        formData.set('content', editorContent);
+        const editorAnalysis = window.editorAnalysis.getHtml();
+        // 同步内容到隐藏字段analysis
+        formData.set('analysis', editorAnalysis);
+        const optionsInput = document.getElementById('options');
+        console.log('optionsInput:', optionsInput.value);
+        formData.set('options', optionsInput.value);
+        console.log('表单数据:', formData);
+
+        
+        fetch(`/courses/api/exercises/${exerciseId}/update/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                // 'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'include'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('习题更新成功');
+                window.location.href = `/courses/exercises/${exerciseId}/view/`;
+            } else {
+                alert('更新失败: ' + JSON.stringify(data.errors));
+            }
+        });
+    });
+});
+</script>
+
+<style>
+    .ck.ck-editor {
+      width: 100%;
+      height: 100%;
+    }
+    .ck.ck-content {
+      min-height: 200px;
+    }
+    .ck.ck-editor__editable {
+      max-height: 100vh;
+      overflow-y: hidden;
+    }
+    .exercise-edit-container{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        height: 100vh;
+        width: 100vw;
+        background-color: #f5f5f5;
+        padding: 0px 100px;
+        box-sizing: border-box;
+    }
+    .header {
+        display: flex;
+        padding: 5px;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+        padding-right: 20px;
+        width: 100%;
+    }
+    .container-ex {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .ant-form-ex {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: stretch;
+        gap: 6px; /* 表单项间距 */
+        background-color: #f9f9f9; /* 表单背景颜色 */
+        padding: 16px; /* 表单内边距 */
+        border-radius: 4px; /* 表单边框圆角 */
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* 表单阴影 */
+        margin-bottom: 8px; /* 表单底部间距 */
+        border: 1px solid #d9d9d9; /* 表单边框颜色 */
+        width: 100%; /* 表单宽度 */
+        /* max-width: 800px; 表单最大宽度 */
+    }
+    .ant-form-item-ex {
+        display: flex !important;
+        align-items: center;
+        gap: 4px!important; /* 表单项间距 */
+        margin-bottom: 16px; /* 表单项间距 */
+    }
+    .ant-form-item-ex-option {
+        display: flex !important;
+        align-items: center;
+        gap: 4px!important; /* 表单项间距 */
+        margin-bottom: 16px; /* 表单项间距 */
+    }
+    .hidden-option {
+        display: none !important;
+    }
+
+    .ant-form-item-label-ex {
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 0;
+        width: 60px!important; /* 标签宽度 */
+        white-space: nowrap;
+        text-align: left;
+        padding-right: 16px; /* 标签与输入框之间的间距 */
+        flex-shrink: 0;
+        width: 100px;
+        color: #000; /* 标签文字颜色 */
+    }
+    .ant-form-item-middle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex: 1;
+        gap: 4px;
+    }
+    .ant-form-item-control {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+    }
+    .ant-form-item-control input,
+    .ant-form-item-control select,
+    .ant-form-item-control textarea {
+        flex: 1;
+        min-width: 0;
+        padding: 8px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .ant-form-item-control select {
+        background-color: #fff;
+        color: #000;
+    }
+
+    .ant-input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+    }
+    .ant-modal {
+        position: fixed!important;
+        z-index: 1000;
+        top: 20%!important;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 400px!important;
+        background-color: #fff;
+        border-radius: 4px;
+    }
+    .ant-modal-header {
+        padding: 16px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .ant-modal-body {
+        padding: 16px;
+    }
+    .ant-modal-footer {
+        padding: 16px;
+        text-align: right;
+    }
+    .ant-modal-title {
+        font-size: 16px;
+        font-weight: 500;
+    }
+    /* .ant-btn {
+        padding: 8px 16px;
+        font-size: 14px;
+        border-radius: 4px;
+    }
+    .ant-btn-primary {
+        background-color: #1890ff;
+        color: #fff;
+    } */
+    .ant-btn-link {
+        background-color: transparent;
+        color: #1890ff;
+        border: none;
+    }
+    .ant-btn-link:hover {
+        text-decoration: underline;
+    }
+    .ant-btn:focus {
+        outline: none;
+    }
+    .ant-btn:active {
+        background-color: #40a9ff;
+    }
+    .ant-btn-primary:focus {
+        outline: none;
+    }
+    .ant-btn-primary:active {
+        background-color: #096dd9;
+    }
+    .ant-btn-primary:hover {
+        background-color: #40a9ff;
+    }
+    .ant-btn-primary:disabled {
+        background-color: #d9d9d9;
+        color: rgba(0, 0, 0, 0.25);
+    }
+</style>
+</html>

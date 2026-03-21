@@ -1,0 +1,377 @@
+
+<div class="method-summary-container">
+    <!-- 查询表单 -->
+    <div class="summary-header" style="margin-bottom: 0px;">
+        <form method="get" class="ant-form" style="display: flex; align-items: center; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label class="ant-form-item-label" style="margin-bottom: 0;width: 160px!important;">方法名称</label>
+                <input type="text" class="ant-input" name="name" placeholder="输入方法名称">
+            </div>
+            <!-- 创建时间范围 -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label class="ant-form-item-label" style="margin-bottom: 0;width: 160px!important;">创建时间</label>
+                <input type="date" class="ant-input" name="created_at_start" placeholder="开始日期">
+                <span>至</span>
+                <input type="date" class="ant-input" name="created_at_end" placeholder="结束日期">
+            </div>
+            <a href="?" class="ant-btn">重置</a>
+            <button type="submit" class="ant-btn ant-btn-primary" id="submit">查询</button>
+            <button type="button" class="ant-btn ant-btn-primary" id="createMethod">创建方法</button>
+            <button type="button" class="ant-btn ant-btn-primary" onclick="backToChapter()">返回章节</button>
+        </form>
+    </div>
+
+    <!-- 创建方法模态框 -->
+    <div id="createMethodModal" style="display: none;">
+        <div style="padding: 24px;">
+            <div class="ant-form-item">
+                <label class="ant-form-item-label">方法名称</label>
+                <div class="ant-form-item-control">
+                    <input type="text" id="methodNameInput" class="ant-input" placeholder="请输入方法名称">
+                </div>
+            </div>
+            <div style="margin-top: 24px; text-align: right;">
+                <button id="cancelCreateMethod" class="ant-btn" style="margin-right: 8px;">取消</button>
+                <button id="confirmCreateMethod" class="ant-btn ant-btn-primary">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 方法列表表格 -->
+    <div id="Methods-table" key={method_tableKey}></div>
+</div>
+
+<script>
+// 表格列配置
+const methodColumns = [
+    {
+        title: '方法名称',
+        dataIndex: 'name',
+        key: 'name'
+    },
+    {
+        title: '关联习题数',
+        dataIndex: 'exercise_count',
+        key: 'exercise_count',
+        sorter: (a, b) => a.name.localeCompare(b.name)
+    },
+    {
+        title: '重要度',
+        dataIndex: 'important_level',
+        key: 'important_level',
+        sorter: (a, b) => a.name.localeCompare(b.name)
+    },
+    {
+        title: '难度',
+        dataIndex: 'difficulty_level',
+        key: 'difficulty_level',
+        sorter: (a, b) => a.name.localeCompare(b.name)
+    },
+    {
+        title: '创建时间',
+        dataIndex: 'created_at',
+        key: 'created_at',
+        render: (text) => new Date(text).toLocaleString()
+    },
+    {
+        title: '操作',
+        key: 'actions',
+        render: (_, record) => [
+            React.createElement(antd.Button, {
+                type: 'text',
+                onClick: () => editMethod(record.id)
+            }, '编辑'),
+            React.createElement(antd.Button, {
+                type: 'text',
+                danger: true,
+                onClick: () => deleteMethod(record.id)
+            }, '删除'),
+            React.createElement(antd.Button, {
+                type: 'text',
+                onClick: () => viewMethodDetail(record.id)
+            }, '详情')
+        ]
+    }
+];
+function BackToChapter (){
+    const chapter_id = document.body.dataset.chapterId;
+    if (chapter_id) {
+        window.location.href = `/courses/chapter/${chapter_id}/detail/`;
+    } else {
+        alert('章节ID未设置，请检查页面数据。');
+    }
+ };
+
+// 加载总结记录数据
+function loadMethods(params = {}) {
+    forceRerender_method(); // 强制重建组件
+
+    const container = document.getElementById('Methods-table');
+    container.innerHTML = '<div class="loading-spinner"></div>';
+    
+    // 默认分页参数
+    const defaultParams_Method = {
+        name: params.name || '',
+        created_at_start: params.created_at_start || '',
+        created_at_end: params.created_at_end || '',
+        chapter: document.body.dataset.chapterId,
+        page: params.page || 1,
+        page_size: params.page_size || 10
+    };
+    
+    // 构建查询参数
+    const queryParams_Method = new URLSearchParams(defaultParams_Method).toString();
+    
+    fetch(`{% url 'courses:method_list' %}?${queryParams_Method}`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(responseData => {
+        // 处理直接返回数组的情况
+        let MethodData = Array.isArray(responseData) ? responseData : (responseData.results || []);
+        const totalCount = responseData.count || MethodData.length;
+        
+        // 确保分页数据存在
+        const paginationData = {
+            current: defaultParams_Method.page || 1,
+            pageSize: defaultParams_Method.page_size,
+            total: totalCount,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50'],
+            showTotal: total => `共 ${total} 条记录`,
+            onChange: (page, pageSize) => {
+                loadMethods({...params, page, page_size: pageSize});
+            }
+        };
+        
+        window.MethodData = MethodData; // 保存数据到全局变量
+        
+        // 格式化数据
+        const formattedData = MethodData.map(method => ({
+            key: method.id,
+            name: method.name,
+            // chapter_id: method.chapter,
+            created_at: method.created_at,
+            exercise_count: method.exercise_count,
+            id: method.id, // 确保 id 字段被正确映射
+            difficulty_level: method.difficulty_level,
+            important_level: method.important_level
+        }));
+        
+        // 渲染表格
+        ReactDOM.render(
+            React.createElement(antd.Table, {
+                columns: methodColumns,
+                dataSource: formattedData,
+                bordered: true,
+                pagination: paginationData
+            }),
+            container
+        );
+    })
+    .catch(error => {
+        container.innerHTML = `
+            <div class="error-message">
+                加载失败: ${error.message}
+                <button onclick="loadMethods()">重试</button>
+            </div>
+        `;
+    });
+}
+
+// 表格实例管理
+let method_tableKey = Date.now();  // 初始化一个基于时间戳的key
+
+function forceRerender_method() {
+    method_tableKey = Date.now(); // 更新key值
+    const container = document.getElementById('Methods-table');
+    ReactDOM.unmountComponentAtNode(container); // 卸载旧组件
+}
+
+// 编辑
+function editMethod(methodId) {
+    const baseUrl = `{% url 'courses:method_detail' 0 %}`.replace('0', methodId);
+    window.open(baseUrl, '_blank');
+}
+// 查看
+function viewMethodDetail(methodId) {
+
+    const baseUrl = `{% url 'courses:method_detail' 0 %}`.replace('0', methodId);
+    // window.location.href = baseUrl;
+    // 在新页面打开链接
+    window.open(baseUrl, '_blank');
+}
+// 删除
+function deleteMethod(methodId) {
+    if (confirm('确定要删除这个练习集吗？')) {
+        fetch(`{% url 'courses:method_delete' 0 %}`.replace('0', methodId), {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                loadMethods(); // 刷新列表
+            } else {
+                return response.json().then(data => {
+                    throw new Error(data.message || '删除失败');
+                });
+            }
+        })
+        .catch(error => {
+            alert(error.message || '请求出错');
+        });
+    }
+}
+// 编辑
+
+// 表单提交处理
+document.querySelector('.summary-header form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const params = Object.fromEntries(formData.entries());
+    loadMethods(params);
+});
+
+// 重置按钮处理
+document.querySelector('.summary-header form a[href="?"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.querySelector('.summary-header form').reset();
+    loadMethods(); // 加载无参数的全量数据
+});
+
+// 菜单切换事件
+document.querySelector('[data-target="method-summary"]')?.addEventListener('click', () => {
+    const form = document.querySelector('.summary-header form'); // 获取表单元素
+    const params = {
+        name: form.querySelector('[name="name"]').value,
+        created_at_start: form.querySelector('[name="created_at_start"]').value,
+        created_at_end: form.querySelector('[name="created_at_end"]').value,
+        chapter: document.body.dataset.chapterId,
+        page: 1,
+        page_size: 10
+    };
+    loadMethods(params);
+});
+
+// 创建方法相关逻辑
+document.getElementById('createMethod')?.addEventListener('click', () => {
+    const modal = document.getElementById('createMethodModal');
+    modal.style.display = 'block';
+    document.getElementById('methodNameInput').value = '';
+});
+
+document.getElementById('cancelCreateMethod')?.addEventListener('click', () => {
+    document.getElementById('createMethodModal').style.display = 'none';
+});
+
+document.getElementById('confirmCreateMethod')?.addEventListener('click', () => {
+    const methodName = document.getElementById('methodNameInput').value.trim();
+    if (!methodName) {
+        alert('请输入方法名称');
+        return;
+    }
+
+    fetch("{% url 'courses:method_create' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            name: methodName,
+            chapter: document.body.dataset.chapterId
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.message || '创建失败');
+            });
+        }
+        document.getElementById('createMethodModal').style.display = 'none';
+        loadMethods(); // 刷新列表
+        alert('方法创建成功');
+        // 重新加载方法列表
+        forceRerender_method(); // 强制重建组件
+        const container = document.getElementById('Methods-table');
+        container.innerHTML = '<div class="loading-spinner"></div>';    
+        // 重新加载数据
+        return loadMethods();
+    })
+    .then(() => {
+        // 成功后可以执行其他操作，比如清空输入框等
+        document.getElementById('methodNameInput').value = '';
+    })
+    .catch(error => {
+        alert('创建方法失败: ' + error.message);
+        // 如果需要，可以在这里处理错误，比如清空输入框等
+        document.getElementById('methodNameInput').value = '';
+    });
+});
+     
+
+// 确保React和antd加载完成
+function checkDependencies() {
+    if (window.React && window.antd && window.ReactDOM) {
+    } else {
+        setTimeout(checkDependencies, 100);
+    }
+}
+
+// 检查依赖
+checkDependencies();
+
+
+</script>
+
+<style>
+#createMethodModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+#createMethodModal > div {
+    background: white;
+    border-radius: 8px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.16);
+}
+
+.method-summary-container {
+    padding: 0px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    min-height: 400px;
+}
+
+.summary-header {
+    margin-bottom: 20px;
+}
+
+.ant-table {
+    background: #fff;
+}
+
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+}
+</style>

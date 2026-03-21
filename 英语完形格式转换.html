@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英语完形填空格式转换工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            white-space: nowrap;
+        }
+        th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .result-section {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>英语完形填空格式转换工具</h1>
+    <div class="container">
+        <div>
+            <h3>输入选项内容：</h3>
+            <textarea id="optionsInput" placeholder="请输入选项内容，例如：
+1. [A] affected [B] achieved [C] extracted [D] restored
+2. [A] at [B] up [C] with [D] off"></textarea>
+        </div>
+        <div>
+            <h3>输入答案内容：</h3>
+            <textarea id="answersInput" placeholder="请输入答案内容，例如：
+1.A 2.B 3.C 4.B 5.C 6.B 7.D 8.A 9.C 10.D"></textarea>
+        </div>
+        <button id="submitBtn">提交转换</button>
+    </div>
+
+    <div class="result-section">
+        <h2>转换结果</h2>
+        <button id="downloadBtn" style="display:none; margin-bottom: 10px;">下载Excel文件</button>
+        <div id="resultTable"></div>
+    </div>
+
+    <script>
+        document.getElementById('submitBtn').addEventListener('click', processInputs);
+        document.getElementById('downloadBtn').addEventListener('click', downloadExcel);
+
+        function processInputs() {
+            const optionsText = document.getElementById('optionsInput').value.trim();
+            const answersText = document.getElementById('answersInput').value.trim();
+            
+            if (!optionsText || !answersText) {
+                alert('请填写选项内容和答案内容！');
+                return;
+            }
+
+            // 处理选项内容
+            const optionsLines = optionsText.split('\n');
+            const optionsData = [];
+            
+            for (const line of optionsLines) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) continue;
+                
+                // 提取题目序号（支持中文和英文标点）
+                const numberMatch = trimmedLine.match(/^(\d+)[．\.]\s*/);
+                if (!numberMatch) continue;
+                const number = numberMatch[1];
+                
+                // 提取选项（更灵活的匹配）
+                const optionMatches = trimmedLine.matchAll(/\[([A-D])\][\s:：]*([^\[\]\s]+(?:\s+[^\[\]\s]+)*)/g);
+                const options = {};
+                
+                for (const match of optionMatches) {
+                    const letter = match[1];
+                    const text = match[2].trim();
+                    options[letter] = text;
+                }
+                
+                if (Object.keys(options).length > 0) {
+                    optionsData.push({
+                        number,
+                        options: JSON.stringify(options),
+                        answer: ''
+                    });
+                }
+            }
+
+            // 处理答案内容（支持中文和英文标点）
+            const answerPairs = answersText.matchAll(/(\d+)[．\.]\s*([A-D])/g);
+            for (const pair of answerPairs) {
+                const number = pair[1];
+                const answer = pair[2];
+                
+                const item = optionsData.find(item => item.number === number);
+                if (item) {
+                    item.answer = answer;
+                }
+            }
+
+            // 显示结果
+            displayResults(optionsData);
+            document.getElementById('downloadBtn').style.display = 'block';
+        }
+
+        function displayResults(data) {
+            // 创建三个表格的容器
+            let html = `
+                <div style="display: flex; gap: 20px; overflow-x: auto;">
+                    <div style="flex: 1;">
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr><th>题目序号</th></tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            // 题目序号列
+            for (const item of data) {
+                html += `<tr><td>${item.number}</td></tr>`;
+            }
+            
+            // 选项列
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="flex: 3;">
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr><th>选项(JSON格式)</th></tr>
+                            </thead>
+                            <tbody>
+            `;
+            for (const item of data) {
+                html += `<tr><td>${item.options}</td></tr>`;
+            }
+            
+            // 答案列
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="flex: 1;">
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr><th>答案</th></tr>
+                            </thead>
+                            <tbody>
+            `;
+            for (const item of data) {
+                html += `<tr><td>${item.answer}</td></tr>`;
+            }
+            
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('resultTable').innerHTML = html;
+            window.resultData = data; // 保存结果数据供下载使用
+        }
+
+        function downloadExcel() {
+            if (!window.resultData || window.resultData.length === 0) {
+                alert('没有可下载的数据！');
+                return;
+            }
+
+            // 准备Excel数据
+            const wb = XLSX.utils.book_new();
+            const wsData = [
+                ['题目序号', '选项(JSON格式)', '答案'], // 表头
+                ...window.resultData.map(item => [item.number, item.options, item.answer])
+            ];
+            
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, "完形填空题目");
+            
+            // 生成Excel文件并下载
+            XLSX.writeFile(wb, '完形填空题目.xlsx');
+        }
+    </script>
+</body>
+</html>

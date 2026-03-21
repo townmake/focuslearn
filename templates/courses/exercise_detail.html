@@ -1,0 +1,156 @@
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="exercise-detail-container">
+    <div class="exercise-card">
+        <div class="exercise-header">
+            <h2>习题详情</h2>
+            <a href="{% url 'courses:chapter_detail' chapter.id %}?target=method-summary" class="btn btn-secondary" id="back-to-list">返回列表</a>
+            <!-- <a href="{% url 'courses:exercise_list' %}" class="btn btn-secondary" id="back-to-list">返回列表</a> -->
+        </div>
+
+        <div class="exercise-content">
+            <div class="exercise-meta">
+                <span class="badge bg-primary">{{ exercise.get_question_type_display }}</span>
+                <span class="badge bg-{% if exercise.difficulty <= 2 %}success{% elif exercise.difficulty == 3 %}warning{% else %}danger{% endif %}">
+                    难度: {{ exercise.difficulty }}/5
+                </span>
+            </div>
+
+            <div class="exercise-question">
+                <h3>题目</h3>
+                <div class="ck-content">
+                    {{ exercise.content|safe }}
+                </div>
+            </div>
+
+            {% if exercise.options %}
+            <div class="exercise-options">
+                <h3>选项</h3>
+                <ul>
+                    {% for key, value in exercise.options.items %}
+                    <li><strong>{{ key }}:</strong> {{ value }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <form id="answer-form" method="post" action="{% url 'courses:exercise_submit_answer' exercise.id %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="answer">你的答案</label>
+                    <textarea id="answer" name="answer" class="form-control" rows="5" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">提交答案</button>
+            </form>
+
+            {% if user_answers %}
+            <div class="answer-history">
+                <h3>答题记录</h3>
+                {% for answer in user_answers %}
+                <div class="answer-item {% if answer.is_correct %}correct{% else %}incorrect{% endif %}">
+                    <div class="answer-meta">
+                        <span>{{ answer.created_at|date:"Y-m-d H:i" }}</span>
+                        <span class="badge {% if answer.is_correct %}bg-success{% else %}bg-danger{% endif %}">
+                            {% if answer.is_correct %}正确{% else %}错误{% endif %}
+                        </span>
+                    </div>
+                    <div class="answer-content">
+                        <strong>你的答案:</strong> {{ answer.answer }}
+                    </div>
+                    {% if not answer.is_correct %}
+                    <div class="correct-answer">
+                        <strong>正确答案:</strong> {{ exercise.answer }}
+                    </div>
+                    {% endif %}
+                    {% if exercise.analysis %}
+                    <div class="answer-analysis">
+                        <strong>解析:</strong> {{ exercise.analysis|safe }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.exercise-detail-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.exercise-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+.exercise-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.exercise-meta {
+    margin-bottom: 20px;
+}
+
+.exercise-question, .exercise-options {
+    margin-bottom: 30px;
+}
+
+.exercise-options ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.exercise-options li {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.form-group {
+    margin-bottom: 30px;
+}
+
+.answer-history {
+    margin-top: 40px;
+}
+
+.answer-item {
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+.answer-item.correct {
+    border-left: 4px solid #28a745;
+}
+
+.answer-item.incorrect {
+    border-left: 4px solid #dc3545;
+}
+
+.answer-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    color: #666;
+}
+
+.correct-answer, .answer-analysis {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #ddd;
+}
+</style>
+{% endblock %}

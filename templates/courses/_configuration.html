@@ -1,0 +1,353 @@
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<div class="exercise-filter-container">
+    <!-- 配置表单 -->
+    <form id="exercise-filter-form" class="ant-form-query">
+        <div class="filter-section-groups">
+            <div class="filter-section">
+                <h3>筛选条件</h3>
+                
+                <!-- 日期范围选择 -->
+                <div class="form-row">
+                    <label class="ant-form-item-label">日期范围</label>
+                    <div class="date-range-picker">
+                        <input type="date" name="start_date" class="ant-input">
+                        <span>至</span>
+                        <input type="date" name="end_date" class="ant-input">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label class="ant-form-item-label">答错次数</label>
+                    <input type="number" name="min_error_count" min="0" placeholder="默认>=0，即全部数据" class="ant-input">
+                </div>
+                
+                <!-- 习题属性筛选 -->
+                <div class="form-row">
+                    <label class="ant-form-item-label">难度范围</label>
+                    <div class="range-inputs">
+                        <input type="number" name="min_difficulty" min="1" max="5" placeholder="最小" class="ant-input">
+                        <span>-</span>
+                        <input type="number" name="max_difficulty" min="1" max="5" placeholder="最大" class="ant-input">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <label class="ant-form-item-label">记忆度范围</label>
+                    <div class="range-inputs">
+                        <input type="number" name="min_memory" min="1" max="5" placeholder="最小" class="ant-input">
+                        <span>-</span>
+                        <input type="number" name="max_memory" min="1" max="5" placeholder="最大" class="ant-input">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <label class="ant-form-item-label">掌握度范围</label>
+                    <div class="range-inputs">
+                        <input type="number" name="min_mastery" min="1" max="5" placeholder="最小" class="ant-input">
+                        <span>-</span>
+                        <input type="number" name="max_mastery" min="1" max="5" placeholder="最大" class="ant-input">
+                    </div>
+                </div>
+                
+                <div class="form-row" style="display: none;">
+                    <label class="ant-form-item-label">所属章节</label>
+                    <input name="chapter" id="chapter" class="ant-input"></input>
+                </div>
+                
+            </div>
+        </div>
+        <!-- 操作按钮 -->
+        <div class="action-buttons-query">
+            <button type="button" id="query-exercises" class="ant-btn primary">查询习题</button>
+            <button type="button" id="generate-review-set" class="ant-btn ant-btn-default">生成复习集</button>
+        </div>
+    </form>
+    
+    <!-- 查询结果表格 -->
+    <div class="result-section" id="exercise-results">
+        <table class="ant-table">
+            <thead>
+                <tr>
+                    <th>习题标题</th>
+                    <th>题型</th>
+                    <th>难度</th>
+                    <th>记忆度</th>
+                    <th>掌握度</th>
+                    <th>答错次数</th>
+                    <th>最后练习时间</th>
+                </tr>
+            </thead>
+            <tbody id="exercise-list">
+                <!-- 动态加载查询结果 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 生成复习集弹窗 -->
+<div id="review-set-modal" class="ant-modal" style="display:none">
+    <div class="ant-modal-content">
+        <div class="ant-modal-header">
+            <div class="ant-modal-title">生成复习集</div>
+        </div>
+        <div class="ant-modal-body">
+            <form id="review-set-form">
+                <div class="ant-form-item">
+                    <label class="ant-form-item-label">复习集名称</label>
+                    <input type="text" name="review_set_name" class="ant-input" placeholder="例如：2025年05月09日计划复习">
+                </div>
+            </form>
+        </div>
+        <div class="ant-modal-footer">
+            <button type="button" class="ant-btn ant-btn-default" id="cancel-review-set">取消</button>
+            <button type="button" class="ant-btn ant-btn-primary" id="confirm-review-set">确认生成</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.exercise-filter-container {
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.03);
+}
+.ant-form-query{
+    display: flex;
+    flex: 2;
+    justify-content: space-between;
+}
+
+.action-buttons-query {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.filter-section {
+    margin-bottom: 20px;
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.ant-form-item-label {
+    width: 120px;
+    text-align: right;
+    padding-right: 16px;
+}
+
+.ant-input {
+    width: 200px;
+}
+
+.date-range-picker, .range-inputs {
+    display: flex;
+    align-items: center;
+}
+
+.date-range-picker span, .range-inputs span {
+    margin: 0 8px;
+}
+
+
+
+.ant-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ant-table th, .ant-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: left;
+}
+
+.ant-table th {
+    background: #fafafa;
+    font-weight: 500;
+}
+
+
+.ant-btn {
+    padding: 6px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.ant-btn-default {
+    border: 1px solid #d9d9d9;
+    background: #fff;
+}
+
+.ant-btn-primary {
+    border: 1px solid #1890ff;
+    background: #1890ff;
+    color: #fff;
+}
+</style>
+
+<script>
+$(document).ready(function() {
+    // 查询习题
+    $('#query-exercises').click(function() {
+        //获取全局变量
+        const chapterId = document.body.dataset.chapterId;
+        // 确保表单中有chapter字段，并设置其值为全局变量中的值
+        const $chapterInput = $('input[name="chapter"]');
+        if ($chapterInput.length > 0) {
+            $chapterInput.val(chapterId);
+        } else {
+            console.warn('表单中未找到 chapter 字段，但假设它已存在');
+        }
+        const formData = $('#exercise-filter-form').serialize();
+
+        console.log('正在发送查询请求，数据:', formData);
+        $.ajax({
+            url: '/courses/api/filter-exercises/',
+            type: 'GET',
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                console.log('收到响应:', response);
+                if(response && response.exercises) {
+                    renderExerciseList(response.exercises);
+                } else {
+                    console.error('响应数据格式不正确:', response);
+                    alert('服务器返回的数据格式不正确');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('请求失败:', status, error);
+                let errorMsg = '查询失败: ';
+                if(xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg += xhr.responseJSON.error;
+                } else {
+                    errorMsg += xhr.status + ' ' + xhr.statusText;
+                }
+                alert(errorMsg);
+            }
+        });
+    });
+    
+    // 生成复习集按钮
+    $('#generate-review-set').click(function() {
+        $('#review-set-modal').show();
+    });
+    
+    // 取消生成
+    $('#cancel-review-set').click(function() {
+        $('#review-set-modal').hide();
+    });
+    
+    // 确认生成复习集
+    $('#confirm-review-set').click(function() {
+        const name = $('input[name="review_set_name"]').val().trim();
+        const exerciseIds = [];
+        const $checkboxes = $('.exercise-checkbox');
+        
+        $checkboxes.each(function() {
+            if($(this).is(':checked')) {
+                exerciseIds.push($(this).val());
+            }
+        });
+        
+        if(exerciseIds.length === 0) {
+            alert('请至少选择一个习题');
+            return;
+        }
+
+        exerciseIdsInt= exerciseIds.map(Number);
+
+        const data = JSON.stringify({
+            name: name,
+            chapter_id: document.body.dataset.chapterId,
+            exercise_ids: exerciseIdsInt
+        });
+
+        $.ajax({
+            url: '{% url "courses:create-review-set" %}',
+            type: 'POST',
+            data: data,
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                alert('复习集创建成功');
+                $('#review-set-modal').hide();
+                window.location.reload();
+            },
+            error: function(xhr) {
+                console.error('创建失败:', xhr.responseText);
+                let errorMsg = '创建失败: ';
+                if(xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg += xhr.responseJSON.error;
+                    if(xhr.responseJSON.detail) {
+                        errorMsg += '\n详情: ' + xhr.responseJSON.detail;
+                    }
+                } else {
+                    errorMsg += xhr.status + ' ' + xhr.statusText;
+                }
+                alert(errorMsg);
+            }
+        });
+    });
+    
+    // 渲染习题列表
+    function renderExerciseList(exercises) {
+        const $tbody = $('#exercise-list').empty();
+        
+        if(exercises.length === 0) {
+            $tbody.append('<tr><td colspan="7" style="text-align:center">没有找到符合条件的习题</td></tr>');
+            return;
+        }
+        
+        exercises.forEach(function(exercise) {
+            const $tr = $('<tr>');
+            $tr.append(`
+                <td>
+                    <label class="ant-checkbox-wrapper">
+                        <input type="checkbox" class="exercise-checkbox" value="${exercise.id}" checked>
+                        <span>${exercise.title || '无标题'}</span>
+                    </label>
+                </td>
+                <td>${exercise.question_type_display}</td>
+                <td>${exercise.difficulty}</td>
+                <td>${exercise.memory_level}</td>
+                <td>${exercise.mastery_level}</td>
+                <td>${exercise.wrong_count || 0}</td>
+                <td>${new Date(exercise.created_at).toLocaleString()}</td>
+            `);
+            $tbody.append($tr);
+        });
+    }
+    
+    // // 获取默认复习集名称
+    // function getDefaultReviewSetName() {
+    //     const now = new Date();
+    //     const year = now.getFullYear();
+    //     const month = String(now.getMonth() + 1).padStart(2, '0');
+    //     const day = String(now.getDate()).padStart(2, '0');
+        
+    //     // 检查名称是否已存在
+    //     let name = `${year}年${month}月${day}日计划复习`;
+    //     let exists = false;
+        
+    //     // 这里应该发送请求检查名称是否已存在
+    //     // 简化处理，直接返回带时间的名称
+    //     const hours = String(now.getHours()).padStart(2, '0');
+    //     const minutes = String(now.getMinutes()).padStart(2, '0');
+    //     const seconds = String(now.getSeconds()).padStart(2, '0');
+        
+    //     return `${year}年${month}月${day}日${hours}时${minutes}分${seconds}秒计划复习`;
+    // }
+});
+</script>

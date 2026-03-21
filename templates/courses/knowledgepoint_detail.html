@@ -1,0 +1,103 @@
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="knowledgepoint-container">
+    <div class="header">
+        <h1>{{ knowledge_point.title }}</h1>
+        <div class="nav-buttons">
+            <!-- <button id="prev-exercise" class="btn btn-secondary" onclick="navigateExercise('prev')" disabled>
+                <i class="anticon anticon-left"></i> 上一个
+            </button>
+            <button id="next-exercise" class="btn btn-secondary" onclick="navigateExercise('next')" disabled>
+                下一个 <i class="anticon anticon-right"></i>
+            </button> -->
+            <button onclick="window.location.href='/courses/chapter/{{knowledge_point.chapter_id}}/detail/'" class="btn btn-secondary">返回章节</button>
+        </div>
+    </div>
+
+
+
+    <div class="knowledgepoint-meta">
+        <span class="difficulty">难度: {{ knowledge_point.difficulty }}</span>
+        <span class="memory-level">记忆度: {{ knowledge_point.memory_level }}</span>
+        <span class="mastery-level">易错度: {{ knowledge_point.mastery_level }}</span>
+    </div>
+    <div class="knowledgepoint-info-title">
+        <strong>概述:</strong>
+    </div>
+    <div class="knowledgepoint-content" style="white-space:pre-line;">
+        {{ knowledge_point.description|safe }}
+    </div>
+    <div class="knowledgepoint-info-title">
+        <strong>详情:</strong>
+    </div>
+    <div class="knowledgepoint-content">
+        {{ knowledge_point.content|safe }}
+    </div>
+    
+    <!-- 关联资源 -->
+    <div class="related-resources">
+
+        {% if exercises %}
+        <h3>相关习题</h3>
+        <ul>
+            {% for exercise in exercises %}
+            <li><a href="#">{{ exercise.content|truncatechars:50 }}</a></li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+
+</div>
+
+<style>
+.header {
+    display: flex;
+    padding: 5px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    padding-right: 20px;
+    width: 100%;
+}
+.knowledgepoint-container {
+    min-width: 800px;
+    width: 80%;
+    margin: 0 auto;
+    padding: 20px;
+}
+.knowledgepoint-meta {
+    margin: 10px 0;
+    color: #666;
+}
+.knowledgepoint-meta span {
+    margin-right: 15px;
+}
+.knowledgepoint-info-title {
+    margin-top: 20px;
+    font-size: 18px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 5px;
+}
+.knowledgepoint-content {
+    margin-top: 20px;
+    line-height: 1.6;
+}
+.related-resources {
+    margin-top: 30px;
+}
+.related-resources h3 {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+.related-resources ul {
+    list-style: none;
+    padding-left: 0;
+}
+.related-resources li {
+    padding: 5px 0;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,121 @@
+
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h2>{{ title }}</h2>
+
+{% for subject, reviews in subjects_reviews.items %}
+<div class="subject-review-section">
+    <h3>
+            科目复习任务
+    </h3>
+    
+    <div class="review-sets">
+        {% for review in reviews %}
+        <div class="review-set-card">
+            <h4 style="width: 400px;">
+                <a href="{% url 'courses:review-set-detail' review.id %}">
+                    {{ review.name }}
+                </a>
+            </h4>
+            <p class="exercise-count">
+                共 {{ review.exercises.count }} 道
+            </p>
+            <div class="progress-container">
+                <div class="progress-bar" style="width: 0%"></div>
+            </div>
+            <a href="{% url 'courses:review-set-detail' review.id %}" class="start-review-btn">
+                开始复习
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% empty %}
+<div class="no-reviews">
+    <p>今日暂无复习任务</p>
+    <a href="#" class="generate-reviews-btn">生成复习任务</a>
+</div>
+    {% endfor %}
+
+<style>
+    .review-container {
+        padding: 20px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .subject-review-section {
+        margin-bottom: 30px;
+    }
+    
+    .review-sets {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 15px;
+    }
+    
+    .review-set-card {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap; /* 禁止换行 */
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 6px;
+        border-left: 4px solid #4a6bdf;
+    }
+    
+    .exercise-count {
+        margin-top: 24px!important;
+        color: #666;
+        font-size: 0.9em;
+        margin: 8px 0;
+        width: 80px;
+    }
+    
+    .progress-container {
+        height: 6px;
+        background: #eee;
+        border-radius: 3px;
+        margin: 10px 0;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: #4a6bdf;
+        border-radius: 3px;
+        transition: width 0.3s;
+    }
+    
+    .start-review-btn {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 6px 12px;
+        background: #4a6bdf;
+        color: white;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.9em;
+        height: 24px;
+    }
+    
+    .no-reviews {
+        text-align: center;
+        padding: 40px 0;
+    }
+    
+    .generate-reviews-btn {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 8px 16px;
+        background: #4a6bdf;
+        color: white;
+        border-radius: 4px;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}

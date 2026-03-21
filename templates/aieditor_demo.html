@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AiEditor Demo</title>
+    <!-- 引入AiEditor CSS -->
+    <link rel="stylesheet" href="/static/aieditor-main/dist/style.css">
+</head>
+<body>
+    <div id="aiEditor" style="height: 600px;"></div>
+
+    <!-- 引入AiEditor JS -->
+    <script src="/static/aieditor-main/dist/index.js"></script>
+    <script>
+        const aiEditor = new AiEditor({
+            element: '#aiEditor',
+            placeholder: '开始输入内容...',
+            theme: 'default',
+            content: '欢迎使用AiEditor!',
+            onSave: (content) => {
+                console.log('保存内容:', content);
+            }
+        });
+    </script>
+</body>
+</html>

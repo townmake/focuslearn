@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>textContent.trim() 测试</title>
+</head>
+<body>
+    <div id="test">  
+        测试文本
+    </div>
+    <script>
+        const elem = document.getElementById('test');
+        console.log('原始textContent:', JSON.stringify(elem.textContent));
+        console.log('trim后结果:', JSON.stringify(elem.textContent.trim()));
+    </script>
+</body>
+</html>

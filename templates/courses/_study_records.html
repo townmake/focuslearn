@@ -1,0 +1,215 @@
+
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<script src="{% static 'vendor/js/react.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/antd.min.js' %}"></script>
+{% endblock %}
+
+
+<div class="study-records-container">
+    
+    <div id="study-records-table"></div>
+
+    <script>
+        // 准备表格数据
+        const tableData = [
+        {% for record in data %}
+        {
+            key: '{{ record.id }}',
+            start_time: '{{ record.start_time }}',
+            duration_display: '{{ record.duration_display }}',
+            duration: '{{ record.duration }}',
+            page_type: '{{ record.page_type }}',
+            learning_content: '{{ record.learning_content }}',
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+        ];
+
+        // 表格列配置
+        const columns = [
+            {
+                title: '开始时间',
+                dataIndex: 'start_time',
+                key: 'start_time',
+                render: (text) => new Date(text).toLocaleString(),
+                sorter: (a, b) => new Date(a.start_time) - new Date(b.start_time)
+            },
+            {
+                title: '学习时长', 
+                dataIndex: 'duration_display',
+                key: 'duration_display'
+            },
+            {
+                title: '学习类型',
+                dataIndex: 'page_type',
+                key: 'page_type',
+                filters: [
+                    { text: '学习', value: 'study' },
+                    { text: '练习', value: 'exercise' },
+                    { text: '复习', value: 'review'},
+                    { text: '其他', value: 'other' }
+                ],
+                onFilter: (value, record) => record.page_type.indexOf(value) === 0,
+                render: (text) => {
+                    const typeMap = {
+                        videos: '视频',
+                        documents: '文档',
+                        'basic-info':'基本信息',
+                        'knowledge-points': '知识点',
+                        exercises: '习题练习',
+                        'smart-review': '智能复习',
+                        comments: '评论',
+                        'study-records': '学习记录',
+                        other: '其他'
+                    };
+                    return typeMap[text] || text;
+                }
+            },
+            {
+                title: '学习内容',
+                dataIndex: 'learning_content',
+                key: 'learning_content',
+                ellipsis: true
+            },
+        ];
+
+        // 确保antd已加载
+        function ensureAntdLoaded() {
+            return new Promise((resolve) => {
+                if (window.antd && window.React && window.ReactDOM) {
+                    resolve();
+                } else {
+                    const checkInterval = setInterval(() => {
+                        if (window.antd && window.React && window.ReactDOM) {
+                            clearInterval(checkInterval);
+                            resolve();
+                        }
+                    }, 100);
+                }
+            });
+        }
+
+    
+        // 获取表格数据函数
+        async function fetchRecords(params = {}) {
+            try {
+                await ensureAntdLoaded();
+                
+                const queryParams = new URLSearchParams(params).toString();
+                // 使用新的API端点
+                const response = await fetch(`/courses/api/study-records/list/?${queryParams}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                // 更新表格
+                ReactDOM.render(
+                    React.createElement(antd.Table, {
+                        columns: columns,
+                        dataSource: result.data,
+                        pagination: {
+                            current: result.pagination.page,
+                            pageSize: result.pagination.page_size,
+                            total: result.pagination.total,
+                            onChange: (page, pageSize) => {
+                                fetchRecords({ ...params, page, page_size: pageSize });
+                            }
+                        },
+                        loading: false
+                    }),
+                    document.getElementById('study-records-table')
+                );
+            } catch (error) {
+                console.error('获取数据失败:', error);
+                if (window.antd) {
+                    antd.message.error('获取数据失败');
+                }
+                // 显示空表格
+                if (window.React && window.ReactDOM) {
+                    ReactDOM.render(
+                        React.createElement('div', null, '数据加载失败，请刷新重试'),
+                        document.getElementById('study-records-table')
+                    );
+                }
+            }
+        }
+    
+    
+        // 页面加载时自动请求数据
+        document.addEventListener('DOMContentLoaded', () => {
+            // 从URL获取查询参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const params = {
+                chapter_id: document.body.dataset.chapterId,
+                created_date_start: '',
+                created_date_end: '',
+                page: urlParams.get('page') || 1,
+                page_size: urlParams.get('page_size') || 10
+            };
+            fetchRecords(params);
+        });
+    </script>
+ 
+</div>
+
+<style>
+.study-records-container {
+    padding: 24px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.03);
+}
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.filter-group {
+    flex: 1;
+    min-width: 200px;
+}
+.filter-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: rgba(0,0,0,0.85);
+    font-weight: 500;
+}
+.ant-table {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.ant-table-thead > tr > th {
+    background: #fafafa;
+    color: rgba(0,0,0,0.85);
+    font-weight: 500;
+}
+.ant-table-tbody > tr:hover > td {
+    background: #fafafa !important;
+}
+.empty {
+    padding: 16px;
+    text-align: center;
+    color: rgba(0,0,0,0.25);
+}
+.ant-pagination {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+}
+.ant-btn {
+    height: 32px;
+    padding: 4px 15px;
+    border-radius: 6px;
+}
+.ant-input {
+    height: 32px;
+    border-radius: 6px;
+}
+</style>

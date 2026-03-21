@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "local_mysql": {
+            "type": "mysql",
+            "host": "127.0.0.1",
+            "port": 3306,
+            "user": "your_user",
+            "password": "your_password",
+            "database": "learning_system",
+            "description": "Copy to .comate/mcp.json locally (not committed)"
+        }
+    }
+}

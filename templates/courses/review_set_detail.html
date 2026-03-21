@@ -1,0 +1,355 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<script src="{% static 'vendor/js/react.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/antd.min.js' %}"></script>
+
+<div class="review-set-detail-container">
+    <h1>{{ review_set.name }}</h1>
+    <h3>基本信息</h3>
+    <div class="review-set-info">
+        <p><strong>所属章节:</strong> {{ review_set.chapter.title }}</p>
+        <p><strong>创建时间:</strong> {{ review_set.created_at|date:"Y-m-d H:i" }}</p>
+        <p><strong>完成次数:</strong> {{ review_set.completion_count }}</p>
+        {% if review_set.last_completed_at %}
+        <p><strong>最后完成时间:</strong> {{ review_set.last_completed_at|date:"Y-m-d H:i" }}</p>
+        {% endif %}
+    </div>
+
+    <div class="exercises-list">
+        <div class="review-set-list-header">
+            <h3>包含的习题</h3>
+            <div class="actions">
+                <button type="primary" class="ant-btn ant-btn-primary" id="add_exercise">添加习题</button>
+                <button class="ant-btn" onclick="loadExercises()">重新加载</button>
+                <button class="ant-btn ant-btn-primary" onclick="startReviewSetQuick()">记忆测试</button>
+            </div>
+        </div>
+        <div id="exercises-table"></div>
+    </div>
+</div>
+
+<script>
+// 确保所有依赖加载完成后再初始化
+function checkDependencies() {
+    const required = ['React', 'ReactDOM', 'antd'];
+    const loaded = required.every(lib => window[lib]);
+    
+    if (loaded) {
+        console.log('所有依赖已加载完成');
+        initExercisesPage();
+    } else {
+        console.log('等待依赖加载...', {
+            React: !!window.React,
+            ReactDOM: !!window.ReactDOM,
+            antd: !!window.antd
+        });
+        setTimeout(checkDependencies, 100);
+    }
+}
+
+// 添加全局错误处理
+window.addEventListener('error', function(e) {
+    if (e.message.includes('ReactDOM')) {
+        console.error('ReactDOM未正确加载，请检查引入顺序');
+    }
+});
+
+// 暴露初始化函数
+window.initExercisesPage = async function() {
+    console.log('初始化习题页');
+    await loadExercises();
+    return true;
+};
+
+// 表格实例管理
+let exercisesKey = Date.now();
+let reactRoot = null;
+
+function forceRerender() {
+    exercisesKey = Date.now();
+    const container = document.getElementById('exercises-table');
+    
+    if (!container) {
+        console.warn('目标容器不存在');
+        return;
+    }
+    
+    try {
+        if (reactRoot) {
+            ReactDOM.unmountComponentAtNode(container);
+        }
+        container.innerHTML = '';
+    } catch (error) {
+        console.error('卸载组件时出错:', error);
+        container.innerHTML = '<div class="error-message">组件渲染错误，请刷新页面</div>';
+    }
+}
+
+// 加载复习集包含的习题
+function loadExercises() {
+    const container = document.getElementById('exercises-table');
+    if (!container) {
+        console.error('无法找到表格容器');
+        return;
+    }
+
+    container.innerHTML = '<div class="loading-spinner">加载中...</div>';
+
+    try {
+        if (reactRoot) {
+            ReactDOM.unmountComponentAtNode(container);
+            reactRoot = null;
+        }
+    } catch (error) {
+        console.warn('清理旧实例时出错:', error);
+    }
+
+    fetch(`{% url 'courses:review-set-exercises' review_set.id %}`)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`请求失败: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!Array.isArray(data)) {
+            throw new Error('无效的响应数据格式');
+        }
+
+        const columns = [
+            {
+                title: '序号',
+                dataIndex: 'id',
+                key: 'id'
+            },
+            {
+                title: '题目',
+                dataIndex: 'title',
+                key: 'title',
+                render: text => React.createElement('div', {
+                    dangerouslySetInnerHTML: {__html: text}
+                })
+            },
+            {
+                title: '题型',
+                dataIndex: 'question_type_display',
+                key: 'question_type_display'
+            },
+            {
+                title: '难度(1-5)',
+                dataIndex: 'difficulty',
+                key: 'difficulty'
+            },
+            {
+                title: '操作',
+                key: 'action',
+                render: (text, record) => (
+                    React.createElement('span', null,
+                        React.createElement('button', {
+                            className: 'ant-btn ant-btn-link',
+                            onClick: () => deleteReviewSetExercise(record.id)
+                        }, '删除')
+                    )
+                )
+            }
+        ];
+
+        reactRoot = ReactDOM.createRoot(container);
+        reactRoot.render(
+            React.createElement(antd.Table, {
+                columns: columns,
+                dataSource: data,
+                rowKey: 'id',
+                bordered: true
+            })
+        );
+    })
+    .catch(error => {
+        console.error('加载习题失败:', error);
+        container.innerHTML = `
+            <div class="error-message">
+                加载失败: ${error.message}
+                <button onclick="loadExercises()" class="ant-btn ant-btn-link">重试</button>
+            </div>
+        `;
+    });
+}
+
+// 添加习题
+document.getElementById('add_exercise').addEventListener('click', () => {
+    const modal = antd.Modal.confirm({
+        title: '添加习题到复习集',
+        content: React.createElement('div', null,
+            React.createElement('textarea', {
+                className: 'ant-input',
+                placeholder: '请输入习题ID，多个习题换行输入',
+                style: {width: '100%', minHeight: '100px'}
+            })
+        ),
+        okText: '添加',
+        cancelText: '取消',
+        onOk: () => {
+            const input = document.querySelector('.ant-modal-body textarea');
+            const ids = input.value.split(/[\n,]/)
+                .map(id => id.trim())
+                .filter(id => id !== '');
+            
+            if (ids.length === 0) {
+                antd.message.error('请输入一个习题ID');
+                return false;
+            }
+            
+            if (ids.some(id => isNaN(id) || id <= 0 || !Number.isInteger(Number(id)))) {
+                antd.message.error('习题ID必须是正整数');
+                return false;
+            }
+
+            fetch(`{% url 'courses:review-set-exercise-add' review_set.id %}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ exercise_ids: ids })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error(`请求失败: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    antd.message.success(`成功添加 ${data.added_count || ids.length} 个习题`);
+                    loadExercises();
+                } else {
+                    antd.message.error(data.message || '添加失败');
+                }
+            })
+            .catch(error => {
+                antd.message.error('添加失败: ' + error.message);
+            });
+        },
+        onCancel: () => {
+            modal.destroy();
+        }
+    });
+});
+
+// 删除习题
+function deleteReviewSetExercise(exerciseId) {
+    antd.Modal.confirm({
+        title: '确认删除',
+        content: '确定要从复习集中移除这个习题吗？(不会删除习题本身)',
+        okText: '确认',
+        cancelText: '取消',
+        okType: 'danger',
+        onOk: () => {
+            return new Promise((resolve, reject) => {
+                fetch(`/courses/api/review-sets/{{ review_set.id }}/exercises/${exerciseId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({})
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error(`请求失败: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        antd.message.success('删除成功');
+                        loadExercises();
+                        resolve();
+                    } else {
+                        antd.message.error(data.message || '删除失败');
+                        reject();
+                    }
+                })
+                .catch(error => {
+                    console.error('删除习题失败:', error);
+                    antd.message.error('删除失败: ' + error.message);
+                    reject();
+                });
+            });
+        }
+    });
+}
+
+// 开始复习
+// function startReviewSet() {
+//     
+// }
+
+// 记忆测试
+function startReviewSetQuick() {
+    window.location.href = `{% url 'courses:review-set-start-quick' review_set.id %}`;
+}
+
+// 初始加载
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM加载完成，开始检查依赖');
+    checkDependencies();
+});
+</script>
+
+<style>
+.review-set-detail-container {
+    padding: 24px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.review-set-info {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.review-set-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+}
+
+.review-set-list-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+#add_exercise {
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.exercises-list {
+    margin: 30px 0;
+}
+
+.actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 20px;
+}
+
+.error-message {
+    color: #ff4d4f;
+    padding: 20px;
+    text-align: center;
+}
+</style>
+{% endblock %}

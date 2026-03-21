@@ -1,0 +1,515 @@
+
+{% extends "base.html" %}
+{% load static %}
+<!-- 统一引用AiEditor -->
+{% block title %}章节习题-{{ chapter.title }}{% endblock %}
+
+{% block content %}
+{% include "components/floating_widget.html" %}
+<body data-chapter-id="{{ chapter.id }}"
+        chapterId="{{ chapter.id }}"
+        data-user-id="{{ user.id }}"
+        data-subject-name="{{ chapter.subject.name }}"
+        data-chapter-name="{{ chapter.title }}">
+
+<div class="ant-pro-layout">
+    <!-- 侧边栏 -->
+    <div class="ant-pro-sider">
+        <div class="sider-toggle" onclick="toggleSider()">
+            <i class="toggle-icon"></i>
+        </div>
+        <div class="ant-pro-sider-logo" >
+            <i class="ant-pro-sider-img fas fa-feather-alt"></i>
+            <span class="ant-pro-sider-title">章节习题</span>
+        </div>
+        <div class="ant-pro-sider-menu">
+            <div class="ant-menu ant-menu-root ant-menu-inline">
+                <div class="ant-menu-item" data-target="method-summary">
+                    <i class="menu-icon fas fa-object-group"></i>
+                    <span class="ant-menu-title-content">方法总结</span>
+                </div>
+                <div class="ant-menu-item" data-target="create-form">
+                    <i class="menu-icon fas fa-edit"></i>
+                    <span class="ant-menu-title-content">习题录入</span>
+                </div>
+                <div class="ant-menu-item active" data-target="exercise-set">
+                    <i class="menu-icon fas fa-book"></i>
+                    <span class="ant-menu-title-content">章节习题</span>
+                </div>
+                <div class="ant-menu-item" data-target="exercise-records">
+                    <i class="menu-icon fas fa-keyboard"></i>
+                    <span class="ant-menu-title-content">集合测试</span>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 内容区 -->
+    <div class="ant-pro-layout-content">
+        <div class="ant-pro-page-container">
+            <div id="exercise-set" class="content-page active">
+                {% include "courses/_exercise.html" %} 
+            </div>
+
+            <div id="create-form" class="content-page"> 
+                {% include "courses/_exercise_create.html" %} 
+            </div>
+
+            <div id="exercise-records" class="content-page">
+                 {% include "courses/_exercise_records.html" %} 
+            </div>
+
+            <div id="method-summary" class="content-page">
+                {% include "courses/_ex_method_summary.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/fontawesome-5.15.4-web/css/all.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/chapter_detail.css' %}">
+<link rel="stylesheet" href="{% static 'css/floating_widget.css' %}">
+<style>
+/* Ant Design Pro 布局样式 */
+
+.ant-pro-layout {
+    display: flex;
+    min-height: 100vh;
+}
+.ant-form-item-chapter {
+    /* 宽度4个字节宽 */
+    width: fit-content;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction:row;
+    gap: 8px;
+    color: rgba(0, 0, 0, 0.85);
+    font-size: 14px;
+    min-width: 400px;
+}
+.label-chapter {
+    width: 120px; /* 固定标签宽度 */
+    color: rgba(0, 0, 0, 0.85);
+    padding-right: 8px;
+    text-align: right;
+}
+.ant-input-chapter {
+    width: 100%;
+    min-width: 400px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #d9d9d9;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.ant-pro-sider {
+    width: 208px;
+    background: #e5edf4;
+    box-shadow: 2px 0 8px 0 rgba(29, 35, 41, 0.05);
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.ant-pro-sider.collapsed {
+    width: 80px;
+}
+
+.ant-pro-sider.collapsed .ant-menu-title-content {
+    display: none;
+}
+
+.ant-pro-sider.collapsed .ant-pro-sider-logo h1 {
+    display: none;
+}
+
+.sider-toggle {
+    position: absolute;
+    right: -16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 48px;
+    background: #fff;
+    border-radius: 0 4px 4px 0;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.sider-toggle:hover {
+    background: #f5f5f5;
+}
+
+.toggle-icon {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 4px 0 4px 6px;
+    border-color: transparent transparent transparent #666;
+    transition: transform 0.2s;
+}
+
+.ant-pro-sider.collapsed .toggle-icon {
+    transform: rotate(180deg);
+}
+
+.ant-pro-sider-logo {
+    height: 64px;
+    padding: 0 24px;
+    line-height: 64px;
+    background: #0c7ee9;
+    overflow: hidden;
+}
+
+.ant-pro-sider-logo h1 {
+    color: white;
+    font-size: 16px;
+    margin: 0;
+}
+
+.ant-pro-sider-menu {
+    padding-top: 16px;
+}
+
+.ant-menu {
+    background: transparent;
+    color: #1976d2;
+}
+.ant-menu-item {
+    background: transparent;
+    color: #0d47a1; /* 更深的蓝色提高可读性 */
+    height: 40px;
+    line-height: 40px;
+    margin: 4px 0;
+    padding: 0 16px 0 24px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+
+.menu-icon {
+    margin-right: 10px;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+}
+
+/* FontAwesome图标样式 */
+.icon-info::before { content: "\f05a"; font-family: 'Font Awesome 5 Free'; font-weight: 900; }
+.icon-knowledge::before { content: "\f02d"; font-family: 'Font Awesome 5 Free'; font-weight: 900; }
+.icon-document::before { content: "\f15c"; font-family: 'Font Awesome 5 Free'; font-weight: 900; }
+.icon-video::before { content: "\f03d"; font-family: 'Font Awesome 5 Free'; font-weight: 900; }
+.icon-exercise::before { content: "\f044"; font-family: 'Font Awesome 5 Free'; font-weight: 900; }
+.icon-record::before { content: "\f15c"; font-family: 'Font Awesome 5 Free'; font-weight: 900; }
+.icon-smart::before { content: "\f5da"; font-family: 'Font Awesome 5 Free'; font-weight: 900; }
+.icon-comment::before { content: "\f075"; font-family: 'Font Awesome 5 Free'; font-weight: 900; }
+.ant-pro-sider-img {
+    font-size: 24px;
+    color: #fff;
+    margin-right: 8px;
+}
+
+.ant-pro-sider-title {
+    color: #fff;
+    font-size: 20px;
+    font-weight: 500;
+}
+
+
+
+.ant-menu-item:hover {
+    color: #0a3d8f; /* 悬停时更深的蓝色 */
+    background: rgba(13, 71, 161, 0.05); /* 轻微背景色变化 */
+}
+
+.ant-menu-item.active {
+    background: #1890ff;
+    color: #fff;
+}
+
+.ant-pro-layout-content {
+    flex: 1;
+    min-height: 100vh;
+}
+
+.ant-pro-page-container {
+    padding: 24px;
+    background: #f0f2f5;
+    min-height: calc(100vh - 64px);
+}
+
+.content-page {
+    display: none;
+    background: #fff;
+    border-radius: 2px;
+    padding: 24px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+.content-page.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.ant-descriptions-view table {
+    width: 100%;
+    table-layout: fixed; /* 固定表格布局 */
+}
+
+.ant-descriptions-item-label {
+    width: 120px; /* 固定标签宽度 */
+    color: rgba(0, 0, 0, 0.85);
+    padding-right: 16px;
+}
+
+.ant-descriptions-item-content {
+    width: auto; /* 内容自适应 */
+}
+
+.ant-form-item-label{
+    /* 宽度4个字节宽 */
+    width: fit-content!important;
+}
+/* 统计卡片样式 */
+.stats-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.stat-card {
+    background: #fafafa;
+    border-radius: 4px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid #f0f0f0;
+}
+
+.stat-label {
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 14px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 500;
+    margin-top: 8px;
+}
+
+/* 进度条样式 */
+.progress-container {
+    position: relative;
+    height: 20px;
+    background: #f5f5f5;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #1890ff;
+    transition: width 0.3s;
+}
+
+.progress-container span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    color: #fff;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+
+.empty-state {
+    text-align: center;
+    padding: 40px 0;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #d9d9d9;
+}
+
+.empty-state p {
+    font-size: 16px;
+    margin-top: 8px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- {{ tree_data|safe }} -->
+<script src="{% static 'js/floating_widget.js' %}?v={% now "YmdHi" %}"></script>
+<script>
+function toggleSider() {
+    const sider = document.querySelector('.ant-pro-sider');
+    sider.classList.toggle('collapsed');
+    
+    // 更新切换按钮图标
+    const toggleIcon = document.querySelector('.sider-toggle i');
+    if (sider.classList.contains('collapsed')) {
+        toggleIcon.className = 'toggle-icon expand-icon';
+    } else {
+        toggleIcon.className = 'toggle-icon collapse-icon';
+    }
+}
+
+// 监听 URL 参数变化并执行跳转
+function handleTargetParameter() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const target = urlParams.get('target');
+
+    if (target) {
+        // 确保 DOM 已完全加载
+        document.addEventListener('DOMContentLoaded', function() {
+            // 查找对应的子菜单项并触发点击
+            const submenuItem = document.querySelector(`.exercise-submenu-item[data-target="${target}"]`);
+            if (submenuItem) {
+                submenuItem.click();
+            }
+        });
+    }
+}
+
+
+// 初始化逻辑
+document.addEventListener('DOMContentLoaded', function() {
+    // 默认激活习题列表菜单项和内容页
+    const exerciseSetItem = document.querySelector('.ant-menu-item[data-target="method-summary"]');
+    if (exerciseSetItem) {
+        exerciseSetItem.classList.add('active');
+        document.getElementById('method-summary').classList.add('active');
+    }
+
+    // 增强版导航切换逻辑
+    const menuItems = document.querySelectorAll('.ant-menu-item');
+    menuItems.forEach(item => {
+        item.addEventListener('click', async function() {
+            try {
+                // 更新菜单激活状态
+                menuItems.forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                
+                // 切换内容页
+                const targetId = this.dataset.target;
+                document.querySelectorAll('.content-page').forEach(page => {
+                    page.classList.remove('active');
+                    page.style.display = 'none';
+                });
+                
+                const targetPage = document.getElementById(targetId);
+                if(targetPage) {
+                    // 显示目标页面
+                    targetPage.classList.add('active');
+                    targetPage.style.display = 'block';
+                    
+                    // 初始化特定页面的逻辑
+                    switch(targetId) {
+                        case 'documents':
+                            if(typeof initDocumentsPage === 'function') {
+                                await initDocumentsPage();
+                            }
+                            break;
+                        case 'videos':
+                            if(typeof initVideosPage === 'function') {
+                                await initVideosPage();
+                            }
+                            break;
+                        case 'study-records':
+                            if(typeof initStudyRecordsPage === 'function') {
+                                await initStudyRecordsPage();
+                            }
+                            break;
+                    }
+                }
+            } catch (error) {
+                console.error('页面切换失败:', error);
+                // 回退到基本信息页
+                document.querySelector('.ant-menu-item[data-target="basic-info"]').click();
+            }
+        });
+    });
+    
+        // 初始加载时触发一次当前活动页面的初始化
+    const activeItem = document.querySelector('.ant-menu-item.active');
+    if(activeItem) {
+        activeItem.click();
+    }
+});
+
+
+
+// 编辑弹窗功能
+function showEditModal() {
+    document.getElementById('editModalMask').style.display = 'block';
+    document.getElementById('editModalWrap').style.display = 'block';
+}
+
+function hideEditModal() {
+    document.getElementById('editModalMask').style.display = 'none';
+    document.getElementById('editModalWrap').style.display = 'none';
+}
+
+function submitEditForm() {
+    const form = document.getElementById('editForm');
+    const submitBtn = document.querySelector('#editModalWrap .ant-btn-primary');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="anticon anticon-loading"></i> 保存中...';
+    
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            console.log('更新成功:', data);
+            location.reload();
+        } else {
+            alert('更新失败: ' + JSON.stringify(data.errors));
+        }
+    })
+    .catch(error => {
+        alert('请求出错: ' + error);
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '保存';
+    });
+}
+
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    handleTargetParameter();
+});
+
+// 监听 URL 变化（例如使用浏览器的前进/后退按钮）
+window.addEventListener('popstate', function() {
+    handleTargetParameter();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,299 @@
+
+.floating-widget {
+    position: fixed;
+    width: 360px;
+    height: 400px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+    transform: translateY(0);
+    opacity: 1;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    visibility: visible;
+}
+
+.floating-widget.collapsed {
+    transform: translateY(0);
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+.study-type-radios {
+    /* 底下内容放到一排 */
+    display: flex; /* 让子元素在一行显示 */
+    flex-direction: row; /* 水平排列 */
+    justify-content: space-between; /* 子元素之间平均分配空间 */
+    align-items: center; /* 垂直居中 */
+    margin-bottom: 5px; /* 底部间距 */
+    padding: 5px; /* 内边距 */
+    flex-wrap: wrap;
+}
+.ant-radio-group {
+    display: inline-flex !important;
+    justify-content: space-between;
+    width: 100%;
+}
+.ant-radio-button-wrapper {
+    flex: 1;
+    text-align: center;
+}
+/* ===== 新版浮动控件样式 ===== */
+.floating-widget-triggers {
+    position: fixed;
+    bottom: 50px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10000;
+}
+
+.trigger-button {
+    width: 40px;
+    height: 40px;
+    background: #1976d2;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.trigger-button.timer-active {
+    animation: breathing 1.5s infinite ease-in-out;
+    background: #1976d2; /* 保持颜色一致 */
+}
+
+@keyframes breathing {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.7);
+    }
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 0 10px 5px rgba(25, 118, 210, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.7);
+    }
+}
+
+.trigger-button:hover {
+    background: #1976d2;
+    transform: scale(1.1);
+}
+
+.trigger-button img {
+    width: 24px;
+    height: 24px;
+    filter: brightness(0) invert(1);
+}
+
+/* 禁用旧样式 */
+.floating-widget-toggle {
+    display: none !important;
+}
+
+/* 调整浮窗位置 */
+#timer-widget {
+    right: 70px;
+    bottom: 50px;
+}
+
+#notes-widget {
+    right: 70px;
+    bottom: 50px;
+}
+
+.floating-widget-toggle {
+    position: fixed;
+    bottom: 50px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background: #4a6bdf;
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.floating-widget-toggle.timer-active {
+    background: #ff6b6b;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 107, 107, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
+    }
+}
+
+#floating-widget-toggle-collapse {
+    display: flex;
+}
+
+#floating-widget-toggle-expand {
+    display: none;
+}
+
+#floating-widget-toggle-collapse.active,
+#floating-widget-toggle-expand.active {
+    display: flex;
+}
+
+.floating-widget-toggle img {
+    width: 24px;
+    height: 24px;
+    filter: brightness(0) invert(1);
+    object-fit: contain;
+    background: transparent;
+}
+
+.floating-widget-content {
+    padding: 15px;
+}
+.timer-study-types {
+    margin-bottom: 15px;
+}
+.timer-study-types label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+.ant-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.ant-radio-button-wrapper {
+    margin: 0 !important;
+}
+
+
+.floating-widget-footer {
+    padding: 12px 16px;
+    background: #4a6bdf;
+    display: flex;
+    flex-shrink: 0;
+}
+
+.floating-widget-tabs {
+    display: flex;
+    gap: 8px;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: white;
+}
+
+.tab-button.active {
+    background: rgba(255,255,255,0.2);
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+.timer-display {
+    font-size: 24px;
+    text-align: center;
+    margin: 10px 0;
+    font-family: monospace;
+}
+
+.timer-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    /* justify-content: center; //水平居中 */
+    justify-content: space-between; /* 按钮之间平均分配空间 */
+    width: 100%; /* 确保容器占满父元素宽度 */
+    gap: 10px; /* 按钮之间的间距 */
+}
+
+.timer-control, .notes-save, .timer-save {
+    padding: 8px 16px;
+    background: #1890ff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    height: 32px;
+    transition: all 0.3s;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.015);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timer-control:hover, .notes-save:hover, .timer-save:hover {
+    background: #40a9ff;
+    transform: translateY(-1px);
+}
+
+.timer-save {
+    margin-top: 12px;
+    width: 100%;
+    background: #52c41a;
+}
+
+.timer-save:hover {
+    background: #73d13d;
+}
+
+.timer-description {
+    margin-top: 12px;
+}
+
+.description-input {
+    width: 100%;
+    height: 80px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: none;
+    font-family: inherit;
+}
+
+.notes-input {
+    width: 100%;
+    height: 100px;
+    margin-bottom: 10px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: none;
+}
+

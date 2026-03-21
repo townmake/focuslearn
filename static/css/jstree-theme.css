@@ -1,0 +1,44 @@
+/*! jsTree default theme 3.3.12 | MIT License | jstree.com */
+.jstree { 
+    padding: 0 0 0 4px;
+    margin: 0;
+    color: #000;
+    font-size: 13px;
+    line-height: 16px;
+}
+.jstree-node, .jstree-children, .jstree-container-ul { 
+    display: block; 
+    margin: 0; 
+    padding: 0; 
+    list-style-type: none;
+}
+.jstree-node { 
+    white-space: nowrap; 
+    margin: 0 0 0 16px;
+}
+.jstree-anchor { 
+    display: inline-block;
+    color: #000;
+    white-space: nowrap;
+    padding: 0 4px 0 1px;
+    margin: 0;
+    vertical-align: top;
+    text-decoration: none;
+}
+.jstree-icon { 
+    display: inline-block;
+    text-decoration: none;
+    margin: 0;
+    padding: 0;
+    width: 16px;
+    height: 16px;
+    background-repeat: no-repeat;
+}
+/* 完整主题样式... */
+.jstree-default .jstree-clicked {
+    background: #e7f4f9;
+    border-radius: 2px;
+    box-shadow: inset 0 0 1px #999;
+}
+/* 完整状态样式... */
+...完整CSS内容...

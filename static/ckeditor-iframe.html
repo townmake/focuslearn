@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+      <link rel="stylesheet" href="/static/aieditor-main/dist/style.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+    #editor-container {
+      width: 100%;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <script src="/static/aieditor-main/dist/index.js"></script>
+
+  <div id="editor-container"></div>
+  <script>
+    let aiEditor;
+    
+    const messageHandler = (event) => {
+      try {
+        if (!event.data || !event.data.type) return;
+        
+        switch(event.data.type) {
+          case 'init-content':
+            if (event.data.content) {
+              // aiEditor.focus();
+              aiEditor.setContent(event.data.content);
+              aiEditor.setEditable(true);
+            }
+            break;
+            
+          case 'set-readonly-false':
+            aiEditor.blur();
+            break;
+            
+          case 'get-content':
+            const content = aiEditor.getContent();
+            aiEditor.setReadOnly(true);
+            window.parent.postMessage({
+              type: 'content-update',
+              content: content
+            }, '*');
+            break;
+        }
+      } catch (error) {
+        console.error('Message handling error:', error);
+      }
+    };
+    
+    window.addEventListener('message', messageHandler);
+    
+    aiEditor = new AiEditor({
+      element: '#editor-container',
+      placeholder: '开始输入内容...',
+      theme: 'default',
+
+      onFileUpload: (file) => {
+        return new Promise((resolve) => {
+          // 这里添加文件上传逻辑
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+            resolve(reader.result);
+          };
+        });
+      },
+      onReady: () => {
+        window.parent.postMessage({type: 'editor-ready'}, '*');
+      }
+    });
+  </script>
+</body>
+</html>

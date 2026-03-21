@@ -1,0 +1,37 @@
+
+/* CKEditor 工具栏样式修复 */
+.ck.ck-toolbar {
+    font-size: 14px !important;
+    padding: 0 10px !important;
+    display: flex !important;
+}
+
+.ck.ck-toolbar__items {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 2px !important;
+}
+
+.ck.ck-button {
+    min-width: auto !important;
+    padding: 4px 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+.ck.ck-icon {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+.ck.ck-button__label {
+    font-size: 13px !important;
+}
+
+/* 确保编辑器内容可编辑 */
+.ck.ck-content {
+    min-height: 200px;
+    padding: 12px;
+    background: #fff !important;
+}

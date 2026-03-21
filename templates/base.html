@@ -1,0 +1,114 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+    {% load static %}
+    <!-- 全局样式 -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+    <script src="{% static 'vendor/js/react.production.min.js' %}"></script>
+    <script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
+    <script src="{% static 'vendor/js/antd.min.js' %}"></script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}学习系统{% endblock %}</title>
+
+    <style>
+        .navbar {
+            background-color: #1976d2;
+            padding: 1rem 2rem;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: 60px;
+            min-height: 60px;
+            box-sizing: content-box !important;
+            font-family: Arial, sans-serif !important;
+            font-size: 16px !important;
+        }
+        
+        .navbar *,
+        .navbar *:after,
+        .navbar *:before {
+            box-sizing: content-box !important;
+            font-family: inherit !important;
+            font-size: inherit !important;
+        }
+        
+        .navbar-brand {
+            font-size: 1.5rem !important;
+        }
+        
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+            margin-right: 0rem;
+            white-space: nowrap;
+        }
+        
+        .navbar-nav {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 1rem;
+        }
+        
+        .nav-item a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+            white-space: nowrap;
+        }
+        
+        .nav-item a:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        .nav-item a.active {
+            background-color: rgba(211, 211, 211, 0.2);
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .nav-item a.active:hover {
+            background-color: rgba(255,255,255,0.25);
+        }
+        
+        main {
+            padding: 2rem;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body data-user-id="{% if user.is_authenticated %}{{ user.id }}{% else %}0{% endif %}">
+    <nav class="navbar">
+        <a href="{% url 'home' %}" class="navbar-brand">学习系统</a>
+        <ul class="navbar-nav">
+            {% if user.is_authenticated %}
+                <li class="nav-item"><a href="{% url 'home' %}">首页</a></li>
+                <li class="nav-item"><a href="{% url 'courses:subject_list' %}">课程</a></li>
+                <li class="nav-item"><a href="{% url 'weekly_planner:calendar' %}">学习计划</a></li>
+                <li class="nav-item"><a href="{% url 'courses:base_study_record' %}">学习记录</a></li>
+                <li class="nav-item"><a href="{% url 'weekly_planner:quick_access_list' %}">便捷记录</a></li>
+                <li class="nav-item"><a href="{% url 'admin:index' %}">管理后台</a></li>
+                <li class="nav-item"><a href="{% url 'logout' %}">退出登录</a></li>
+            {% else %}
+                <li class="nav-item"><a href="{% url 'login' %}">登录</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}便捷记录详情{% endblock %}
+
+{% block content %}
+<div class="ant-page-container">
+    <div class="ant-page-header">
+        <div class="ant-page-header-heading">
+            <span class="ant-page-header-heading-title">{{ object.title }}</span>
+            <div class="ant-page-header-heading-extra">
+                <a href="{% url 'weekly_planner:quick_access_edit' object.id %}" class="ant-btn ant-btn-warning">编辑</a>
+                <button class="ant-btn ant-btn-danger" onclick="confirmDelete(event, {{ object.id }})">删除</button>
+                <a href="{% url 'weekly_planner:quick_access_list' %}" class="ant-btn ant-btn-default">返回</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="ant-card">
+        <div class="ant-card-body">
+            <div class="ant-descriptions">
+                <div class="ant-descriptions-item">
+                    <label class="ant-descriptions-item-label">详情</label>
+                    <div id="editor-ex-content" style="width:100%; max-width:1200px;height:fit-content; border-radius:4px;"frameborder="0">
+                    </div>
+                </div>
+                <input type="hidden" id="description" name="description" value="{{ object.description|default_if_none:'' }}"> 
+
+                <div class="ant-descriptions-item">
+                    <div class="ant-descriptions-item-label">标题</div>
+                    <div class="ant-descriptions-item-content">
+                        {{ object.title }}
+                    </div>
+                </div>
+                <div class="ant-descriptions-item">
+                    <div class="ant-descriptions-item-label">序号</div>
+                    <div class="ant-descriptions-item-content">
+                        {{ object.position }}
+                    </div>
+                </div>
+                <div class="ant-descriptions-item">
+                    {% if object.icon == "images/create_default.png" %}
+                          <!-- 当图片为默认图片时，不展示任何内容 -->
+                    {% else %}
+                        {% if object.icon %} 
+                            <!-- 有内容时才展示，无内容也不展示 -->
+                            <div class="ant-descriptions-item-content">
+                                <img src="{{ object.icon.url }}" alt="{{ object.title }}" 
+                                    style="max-height: 96px; margin-bottom: 8px;"
+                                    onerror="this.src='{% static 'images/create_default.png'%}'">
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                   
+                </div>
+                <div class="ant-descriptions-item">
+                    {% if object.link %}
+                        <div class="ant-descriptions-item-label">链接</div>
+                        <div class="ant-descriptions-item-content">
+                            <a href="{{ object.link }}" target="_blank" class="ant-link">{{ object.link|default:"未设置" }}</a>
+                        </div>
+                    {% else %}
+                            <!-- 当链接为空时，不展示任何内容 -->
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<link rel="stylesheet" href="/static/aieditor-main/dist/style.css">
+<script src="{% static 'js/dropzone.min.js' %}"></script>
+<script type="module">
+import { AiEditor } from '/static/aieditor-main/dist/index.js';
+
+window.editorContent = new AiEditor({
+    element: '#editor-ex-content',
+    toolbarKeys:[],
+    placeholder: '开始输入题目内容...',
+    theme: 'default',
+    onCreated: (editor) => {
+        editor.setEditable(true);
+        // 如果有初始内容，设置编辑器内容
+        const initialContent = document.getElementById('description').value;
+        console.log('Initial content:', initialContent);
+        if (initialContent) {
+            editor.setContent(initialContent);
+        } else {
+            editor.setContent('<p>暂无内容</p>');
+        }
+        editor.setEditable(false); // 设置为只读模式   
+    }
+});
+</script>
+<style>
+.ant-page-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.ant-page-header {
+    margin-bottom: 24px;
+}           
+.ant-page-header-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.ant-page-header-heading-title {
+    font-size: 20px;
+    color: rgba(0, 0, 0, 0.85);
+}
+.ant-page-header-heading-extra {
+    display: flex;
+    gap: 8px;   
+    align-items: center;
+}
+.ant-btn {
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 4px;
+}
+.ant-btn-warning {
+    background-color: #faad14;
+    color: #fff;
+}           
+.ant-btn-danger {
+    background-color: #ff4d4f;
+    color: #fff;
+}
+.ant-btn-default {
+    background-color: #f0f0f0;
+    color: rgba(0, 0, 0, 0.65);
+}
+.ant-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+.ant-card-body {
+    padding: 24px;
+}
+.ant-descriptions {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.ant-descriptions-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;    
+}   
+.ant-descriptions-item-label {
+    flex: 0 0 100px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.85);
+}
+.ant-descriptions-item-content {
+    flex: 1;
+    color: rgba(0, 0, 0, 0.65);
+}
+.ant-link {     
+    color: #1677ff;
+    text-decoration: none;
+}
+.ant-link:hover {
+    text-decoration: underline;
+}
+.ant-typography {
+    color: rgba(0, 0, 0, 0.65);
+    font-size: 14px;
+}
+</style>
+{% endblock %}
+{% block extra_js %}
+<script>
+function confirmDelete(event, id) {
+    event.stopPropagation();
+    if (confirm('确定要删除这条记录吗？')) {
+        const ajaxRequest = window.$ ? $.ajax : function(options) {
+            const xhr = new XMLHttpRequest();
+            xhr.open(options.method, options.url, true);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    options.success(JSON.parse(xhr.responseText));
+                } else {
+                    options.error(xhr);
+                }
+            };
+            xhr.onerror = function() {
+                options.error(xhr);
+            };
+            xhr.send();
+        };
+        
+        ajaxRequest({
+            url: "{% url 'weekly_planner:quick_access_delete' 0 %}".replace('0', id),
+            method: 'DELETE',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(data) {
+                window.location.href = "{% url 'weekly_planner:quick_access_list' %}";
+            },
+            error: function(xhr) {
+                let errorMsg = '删除失败: ';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.error) {
+                        errorMsg += response.error;
+                    } else {
+                        errorMsg += xhr.statusText || '未知错误';
+                    }
+                } catch {
+                    errorMsg += xhr.statusText || '未知错误';
+                }
+                alert(errorMsg);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

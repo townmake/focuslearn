@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}便捷记录列表{% endblock %}
+
+{% block content %}
+<style>
+    .container {
+        max-width: 1400px; /* 限制容器最大宽度 */
+        margin: auto; /* 居中容器 */
+        padding: 20px; /* 容器内边距 */
+        display: flex;
+        justify-content: space-between; /* 两端对齐子元素 */
+    }
+    .quick-access-item {
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .quick-access-item:hover {
+        transform: scale(1.05); /* 放大效果 */
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); /* 阴影效果 */
+    }
+    .quick-access-item img {
+        max-height: 32px; /* 限制图标最大高度 */
+    }
+    .quick-access-item h6 {
+        font-size: 0.9rem; /* 调整标题字体大小 */
+        margin-top: 0.5rem; /* 调整标题与图标的间距 */
+    }
+    .quick-access-item .card-body {
+        padding: 0.5rem; /* 调整卡片内容的内边距 */
+    }
+    .quick-access-item .card {
+        border: 1px solid #ddd; /* 添加边框 */
+        border-radius: 8px; /* 圆角效果 */
+    }
+    .quick-access-item .card:hover {
+        border-color: #007bff; /* 鼠标悬停时边框颜色变化 */
+    }
+    .pagination {
+        justify-content: center; /* 居中分页 */
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #007bff; /* 活动页的背景颜色 */
+        border-color: #007bff; /* 活动页的边框颜色 */
+    }
+    .pagination .page-link {
+        color: #007bff; /* 分页链接颜色 */
+    }
+    .pagination .page-link:hover {
+        background-color: #e9ecef; /* 鼠标悬停时的背景颜色 */
+        color: #007bff; /* 鼠标悬停时的文字颜色 */  
+    }
+    .titlebar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem; /* 标题栏底部间距 */
+    }
+    .button-create {
+        background-color: #28a745; /* 新增按钮颜色 */
+        color: white; /* 按钮文字颜色 */
+        /*按钮文字大小和内边距可以根据需要调整*/
+        font-size: 0.8rem; /* 按钮文字大小 */
+        padding: 0.5rem 0.5rem; /* 按钮内边距 */
+        border-radius: 4px; /* 按钮圆角 */
+        text-decoration: none; /* 去掉链接下划线 */
+    }
+    .button-create:hover {
+        background-color: #218838; /* 鼠标悬停时按钮颜色 */
+        color: white; /* 鼠标悬停时文字颜色 */
+    }
+</style>
+
+
+<div style="max-width: 1400px; margin: 0 auto; padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">便捷记录</h2>
+        {% if user.is_authenticated %}
+        <a href="{% url 'weekly_planner:quick_access_create' %}" 
+           style="background: #1890ff; color: white; padding: 6px 16px; border-radius: 4px; text-decoration: none;">
+           新增记录
+        </a>
+        {% endif %}
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px;">
+        {% for item in quick_access_items %}
+        <div 
+            style="background: white; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.3s;">
+            <div style="padding: 16px; text-align: center;">
+                    {% if item.icon %}
+                    <img src="{{ item.icon.url }}" alt="{{ item.title }}" 
+                         style="max-height: 92px; margin-bottom: 8px;"
+                         onclick="handleItemClick(event, '{{ item.link }}', '{% url 'weekly_planner:quick_access_detail' item.id %}')"
+                         onerror="this.src='{% static 'images/create_default.png' %}'">
+                    {% else %}
+                    <img src="{% static 'images/create_default.png' %}" alt="{{ item.title }}"
+                         style="max-height: 92px; margin-bottom: 8px;"
+                         onclick="handleItemClick(event, '{{ item.link }}', '{% url 'weekly_planner:quick_access_detail' item.id %}')">
+                    {% endif %}
+                <div style="font-size: 14px; color: rgba(0,0,0,0.85);"
+                    onclick="window.location.href='{% url 'weekly_planner:quick_access_detail' item.id %}'">
+                    {{ item.title }}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+    <div style="margin-top: 24px; display: flex; justify-content: center;">
+        <div style="display: flex; gap: 8px;">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px;">上一页</a>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+            <a href="?page={{ num }}" style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px; {% if page_obj.number == num %}background: #1890ff; color: white; border-color: #1890ff;{% endif %}">
+                {{ num }}
+            </a>
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px;">下一页</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function handleItemClick(event, linkUrl, detailUrl) {
+    event.preventDefault();
+    if (linkUrl && linkUrl.trim() !== '' && linkUrl !== '#') {
+        try {
+            new URL(linkUrl); // 验证URL格式
+            window.location.href = linkUrl;
+        } catch (e) {
+            window.location.href = detailUrl;
+        }
+    } else {
+        window.location.href = detailUrl;
+    }
+}
+
+function handleDoubleClick(event, url) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.location.href = url;
+}
+</script>
+{% endblock %}

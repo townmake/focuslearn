@@ -1,0 +1,208 @@
+
+{% extends "base.html" %}
+
+{% block title %}课程列表{% endblock %}
+
+{% block content %}
+{% load static %}
+<script src="{% static 'vendor/js/react.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/antd.min.js' %}"></script>
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<div class="subject-list-container">
+    <!-- 弹窗部分保持不变 -->
+    <!-- 新建科目弹窗 -->
+    <div class="ant-modal-mask" id="createSubjectModalMask" style="display:none;"></div>
+    <div class="ant-modal-wrap" id="createSubjectModal" style="display:none;">
+        <div class="ant-modal" style="width: 600px;">
+            <div class="ant-modal-content">
+                <div class="ant-modal-header">
+                    <div class="ant-modal-title">新建科目</div>create
+                </div>
+                <div class="ant-modal-body">
+                    <form id="subjectForm" method="POST" action="{% url 'courses:subject_create' %}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="ant-form-item">
+                            <label>科目名称</label>    <input type="text" name="name" class="ant-input" required>
+                        </div><div class="ant-form-item">
+                            <label>科目描述</label>    <textarea name="description" class="ant-input" rows="3"></textarea></div>
+                        <div class="ant-form-item">
+                            <label>背景图片</label>    <input type="file" name="background_image" class="ant-input">
+                        </div><div class="ant-form-item">
+                            <label>主题色</label>    <input type="color" name="color" class="ant-input" value="#3498db">
+                        </div>
+                        <input type="number" name="estimated_hours" class="ant-input" min="0" value="0" required>
+
+                    </form>
+                </div>
+                <div class="ant-modal-footer">
+                    <button class="ant-btn" onclick="hideCreateModal()">取消</button>
+                    <button class="ant-btn ant-btn-primary" onclick="submitSubjectForm()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 页面主体内容 -->
+    <div class="subject-list-header">
+        <h2>课程列表</h2>
+        <div class="subject-counts">
+            <span class="subject-count">总科：<span class="subject-length-value">{{ subjects|length }}</span>个</span>
+            <span class="subject-total-hours">预计：<span class="total-hours-value">{{ total_hours }}</span>小时</span>
+            <span class="subject-total-actual-hours">已学：<span class="total-actual-hours-value">{{ total_actual_hours }}</span>小时</span>
+        </div>
+        <div class="header-actions">
+            <div class="search-bar">
+                <input type="text" placeholder="搜索课程或章节..." class="search-input">
+                <button class="search-btn">搜索</button>
+            </div>
+            <button class="ant-btn " onclick="showCreateSubjectModal()">
+                <i class="anticon anticon-plus"></i> 新建科目
+            </button>
+        </div>
+    </div>
+
+    <div class="subject-table">
+        <table class="ant-table ant-table-bordered ant-table-striped">
+            <thead class="ant-table-thead">
+                <tr>
+                    <th class="ant-table-cell">科目名称</th>
+                    <th class="ant-table-cell">章节数</th>
+                    <th class="ant-table-cell">预计学时</th>
+                    <th class="ant-table-cell">已学时长</th>
+                    <th class="ant-table-cell">进度</th>
+                    <th class="ant-table-cell">进度描述</th>
+                    <th class="ant-table-cell">操作</th>
+                </tr>
+            </thead>
+            <tbody class="ant-table-tbody">
+                {% for subject in subjects %}
+                <tr class="ant-table-row ant-table-row-level-0">
+                    <td class="ant-table-cell">
+                         <a href="{% url 'courses:subject_detail' subject.id %}">{{ subject.name }}</a>
+                    </td>
+                    <td class="ant-table-cell">{{ subject.Chapters_count }}</td>
+                    <td class="ant-table-cell">{{ subject.estimated_hours }}</td>
+                    <td class="ant-table-cell">{{ subject.actual_study_hours }}</td>
+                    <td class="ant-table-cell">
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width:{{ subject.progress }}%"></div>
+                            <span style="color: chocolate;">{{ subject.progress }}%</span>
+                        </div>
+                    </td>
+                    <td class="ant-table-cell">{{ subject.description }}</td>
+                    <td class="ant-table-cell">
+                        <button class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href=`{% url 'courses:subject_detail' subject.id %}`">
+                            <i class="anticon anticon-edit"></i> 查看
+                        </button>
+                        <button class="ant-btn ant-btn-text ant-btn-sm" onclick="delSubject('{{ subject.id}}')">
+                            <i class="anticon anticon-edit"></i> 删除
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <!-- 分页控件 -->
+        <div class="pagination">
+            <span class="step-links">
+                {% if page_obj.has_previous %}
+                    <a href="?page=1" class="ant-btn ant-btn-link">&laquo; 首页</a>
+                    <a href="?page={{ page_obj.previous_page_number }}" class="ant-btn ant-btn-link">上一页</a>
+                {% endif %}
+
+                <span class="current">
+                    第 {{ page_obj.number }} 页 / 共 {{ page_obj.paginator.num_pages }} 页
+                </span>
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" class="ant-btn ant-btn-link">下一页</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}" class="ant-btn ant-btn-link">末页 &raquo;</a>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/subject_list.css' %}">
+<style>
+
+
+
+
+/* 所有其他必要样式 */
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 所有必要JS功能
+    function showCreateSubjectModal() {
+        document.getElementById('createSubjectModalMask').style.display = 'block';
+        document.getElementById('createSubjectModal').style.display = 'block';
+    }
+    function hideCreateModal() {
+        document.getElementById('createSubjectModalMask').style.display = 'none';
+        document.getElementById('createSubjectModal').style.display = 'none';
+    }
+
+    // 提交表单
+    function submitSubjectForm() {
+        const form = document.getElementById('subjectForm');
+        const formData = new FormData(form);
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                // 注意：不要设置Content-Type，让浏览器自动设置以支持文件上传
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                hideCreateModal();
+                location.reload(); // 刷新页面显示新数据
+            } else {
+                alert('保存失败: ' + JSON.stringify(data.errors));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('请求失败，请检查网络连接');
+        });
+    }
+
+    // 删除科目
+    function delSubject(subjectId){
+        if(confirm("确定要删除该科目吗？")) {
+            fetch(`/courses/subject/${subjectId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Accept': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('删除失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('请求出错: ' + error);
+            });
+        } else {
+            // 用户取消删除操作
+            console.log("用户取消删除操作");
+        }
+    }
+    </script>
+{% endblock %}

@@ -1,0 +1,601 @@
+<!-- 章节基本信息页 -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}章节基本信息 - {{ chapter.title }}{% endblock %}
+
+
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/chapter_detail.css' %}">
+<!-- 使用本地资源加载React，与study_record_base.html保持一致 -->
+<script src="{% static 'vendor/js/react.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/antd.min.js' %}"></script>
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+
+<!-- 保留加载检查脚本 -->
+<script>
+// 检查React是否加载完成
+function checkReactLoaded() {
+    if (typeof React === 'undefined') {
+        console.error('React未加载');
+        return false;
+    }
+    if (typeof ReactDOM === 'undefined') {
+        console.error('ReactDOM未加载');
+        return false;
+    }
+    return true;
+}
+</script>
+
+
+
+<div class="container" >
+    <div class="ant-descriptions-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="ant-descriptions-title" style="margin: 0;">基本信息</div>
+        <button class="ant-btn ant-btn-text" onclick="showEditModal()" style="margin-left: auto;">
+            <i class="anticon anticon-edit"></i> 编辑
+        </button>
+    </div>
+    <div class="ant-descriptions">
+        <div class="ant-descriptions-view">
+            <table>
+                <tbody>
+                    <tr>
+                        <td class="ant-descriptions-item-label">章节名称</td>
+                        <td class="ant-descriptions-item-content">{{ chapter.title }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ant-descriptions-item-label">章节描述</td>
+                        <td class="ant-descriptions-item-content">{{ chapter.description }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ant-descriptions-item-label">预计学时</td>
+                        <td class="ant-descriptions-item-content">{{ chapter.estimated_hours }}小时</td>
+                    </tr>
+                    <tr>
+                        <td class="ant-descriptions-item-label">累计学时</td>
+                        <td class="ant-descriptions-item-content">{{ chapter.actual_hours }}小时</td>
+                    </tr>
+                    <tr>
+                        <td class="ant-descriptions-item-label">学习进度</td>
+                        <td class="ant-descriptions-item-content">
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width: {{ chapter.progress }}%"></div>
+                                <span>{{ chapter.progress }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="ant-descriptions-item-label">进度描述</td>
+                        <td class="ant-descriptions-item-content">{{ chapter.process_description}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 统计信息 -->
+    <!-- <div class="stats-section">
+        <div class="stat-card">
+            <div class="stat-label">知识点</div>
+            <div class="stat-value">{{ chapter.knowledge_points_count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">文档</div>
+            <div class="stat-value">{{ chapter.documents_count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">视频</div>
+            <div class="stat-value">{{ chapter.videos_count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">评论</div>
+            <div class="stat-value">{{ chapter.comments_count }}</div>
+        </div>
+    </div> -->
+    <div class="comment-block" style="margin-top: 20px;">
+
+    </div>
+
+    <!-- 编辑弹窗 -->
+    <div class="ant-modal-mask" id="editModalMask" style="display:none"></div>
+    <div class="ant-modal-wrap" id="editModalWrap" style="display:none; width: 600px; height: auto;">
+        <div class="ant-modal" style="width:100%; min-height: 400px; background: white; overflow: visible;">
+            <div class="ant-modal-content" style="display: block; height: 100%;">
+                <div class="ant-modal-header" style="display: block;">
+                    <div class="ant-modal-title">编辑章节信息</div>
+                </div>
+                <div class="ant-modal-body" style="display: block; height: calc(100% - 100px); overflow-y: auto;">
+                    <form id="editForm" method="POST" action="{% url 'courses:chapter_update' chapter.id %}" style="display: block;">
+                        {% csrf_token %}
+                        <div class="ant-form-item-chapter">
+                            <label class="label-chapter">章节标题</label>
+                            <input type="text" name="title" class="ant-input-chapter" value="{{ chapter.title }}" required>
+                        </div>
+                        <div class="ant-form-item-chapter">
+                            <label class="label-chapter">章节描述</label>
+                            <textarea name="description" class="ant-input-chapter" rows="3">{{ chapter.description }}</textarea>
+                        </div>
+                        <div class="ant-form-item-chapter">
+                            <label class="label-chapter">预计学时</label>
+                            <input type="number" name="estimated_hours" class="ant-input-chapter" 
+                                value="{{ chapter.estimated_hours }}" min="0" required>
+                        </div>
+                        <div class="ant-form-item-chapter">
+                            <label class="label-chapter">进度描述</label>
+                            <textarea name="process_description" class="ant-input-chapter" rows="3">{{ chapter.process_description }}</textarea>
+                        </div>
+                        <div class="ant-form-item-chapter">
+                            <label class="label-chapter">排序序号</label>
+                            <input type="number" name="order" class="ant-input-chapter" 
+                                value="{{ chapter.order }}" min="0" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="ant-modal-footer">
+                    <button class="ant-btn" onclick="hideEditModal()">取消</button>
+                    <button class="ant-btn ant-btn-primary" onclick="submitEditForm()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="record-content">
+    <div id="study-records-table"  key={tableKey}> </div>
+</div>
+
+<script>
+// 根据进度更新文字颜色
+function updateProgressTextColor() {
+    const progressElements = document.querySelectorAll('.progress-container span');
+    progressElements.forEach(el => {
+        const progress = parseInt(el.textContent);
+        el.style.color = progress > 55 ? '#ffffff' : '#e51111';
+    });
+}
+
+// 初始化时和内容更新后都执行颜色更新
+document.addEventListener('DOMContentLoaded', updateProgressTextColor);
+window.addEventListener('load', updateProgressTextColor);
+</script>
+
+<style>
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);  /* 添加阴影效果 */
+        font-family: Arial, sans-serif;
+        color: #333;
+    }
+
+    .ant-form-item-chapter {
+    /* 宽度4个字节宽 */
+    width: fit-content;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction:row;
+    gap: 8px;
+    color: rgba(0, 0, 0, 0.85);
+    font-size: 14px;
+    min-width: 400px;
+}
+.label-chapter {
+    width: 120px; /* 固定标签宽度 */
+    color: rgba(0, 0, 0, 0.85);
+    padding-right: 8px;
+    text-align: right;
+}
+.ant-input-chapter {
+    width: 100%;
+    min-width: 400px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #d9d9d9;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* 移除所有ant-pro-layout相关样式 */
+
+.content-page {
+    display: none;
+    background: #fff;
+    border-radius: 2px;
+    padding: 24px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+.content-page.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.ant-descriptions-view table {
+    width: 100%;
+    table-layout: fixed; /* 固定表格布局 */
+}
+
+.ant-descriptions-item-label {
+    width: 120px; /* 固定标签宽度 */
+    color: rgba(0, 0, 0, 0.85);
+    padding-right: 16px;
+    text-align: right;
+    margin-left: 20px;
+}
+
+.ant-descriptions-item-content {
+    width: auto; /* 内容自适应 */
+}
+
+.ant-form-item-label{
+    /* 宽度4个字节宽 */
+    width: fit-content!important;
+}
+/* 统计卡片样式 */
+.stats-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+    margin-left: 20px;
+}
+
+.stat-card {
+    background: #fafafa;
+    border-radius: 4px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid #f0f0f0;
+}
+
+.stat-label {
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 14px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 500;
+    margin-top: 8px;
+}
+
+/* 进度条样式 */
+.progress-container {
+    position: relative;
+    height: 20px;
+    background: #f5f5f5;
+    border-radius: 10px;
+    overflow: hidden;
+    max-width: 90%;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #1890ff;
+    transition: width 0.3s;
+}
+.progress-container span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    color: #e51111; /* 默认红色 */
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 0;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #d9d9d9;
+}
+
+.empty-state p {
+    font-size: 16px;
+    margin-top: 8px;
+}
+
+
+.record-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    margin-top: 24px;
+    padding: 16px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    font-family: Arial, sans-serif;
+    color: #333;
+}
+
+.ant-table {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.ant-table-thead > tr > th {
+    background: #fafafa;
+    color: rgba(0,0,0,0.85);
+    font-weight: 500;
+}
+
+.ant-table-tbody > tr:hover > td {
+    background: #fafafa !important;
+}
+
+.ant-pagination {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.ant-btn {
+    height: 32px;
+    padding: 4px 15px;
+    border-radius: 6px;
+}
+
+.ant-input {
+    height: 32px;
+    border-radius: 6px;
+}
+
+.ant-select {
+    min-width: 120px;
+}
+</style>
+<script>
+    function showEditModal() {
+        document.getElementById('editModalMask').style.display = 'block';
+        document.getElementById('editModalWrap').style.display = 'block';
+    }
+    function hideEditModal() {
+        document.getElementById('editModalMask').style.display = 'none';
+        document.getElementById('editModalWrap').style.display = 'none';
+    }   
+    function submitEditForm() {
+        const form = document.getElementById('editForm');
+        const submitBtn = document.querySelector('#editModalWrap .ant-btn-primary');
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="anticon anticon-loading"></i> 保存中...';
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                console.log('更新成功:', data);
+                location.reload();
+                updateProgressTextColor(); // 确保刷新后也更新颜色
+            } else {
+                alert('更新失败: ' + JSON.stringify(data.errors));
+            }
+        })
+        .catch(error => {
+            alert('请求出错: ' + error);
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '保存';
+        });
+    }
+
+    // 初始化表格
+    // 表格列配置
+    const studyRecordColumns = [
+        {
+            title: '开始时间',
+            dataIndex: 'start_time',
+            key: 'start_time',
+            width: 120,
+            render: (text) => new Date(text).toLocaleString(),
+            sorter: (a, b) => new Date(a.start_time) - new Date(b.start_time)
+        },
+        {
+            title: '结束时间',
+            dataIndex: 'end_time',
+            key: 'end_time',
+            width: 120,
+            render: (text) => new Date(text).toLocaleString(),
+            sorter: (a, b) => new Date(a.start_time) - new Date(b.start_time)
+        },
+        {
+            title: '科目',
+            dataIndex: 'subject_name',
+            key: 'subject_name',
+            width: 120
+        },
+        {
+            title: '章节',
+            dataIndex: 'chapter_name',
+            key: 'chapter_name',
+            width: 120
+        },
+        {
+            title: '学习时长',
+            dataIndex: 'duration_display',
+            key: 'duration',
+            width: 80,
+            render: (text) => text
+        },
+        {
+            title: '学习类型',
+            dataIndex: 'page_type',
+            key: 'page_type',
+            width: 120,
+            render: (text) => {
+                const typeMap = {
+                    'study': '学习',
+                    'exercise': '做题练习',
+                    'review': '再复习',
+                    'other': '其他'
+                    // 添加其他类型的中文映射
+                };
+                return typeMap[text] || text;
+            }
+        },
+        {
+            title: '学习内容',
+            dataIndex: 'learning_content',
+            key: 'learning_content',
+            width: 300,
+            ellipsis: true
+        }
+    ];
+
+    // 加载学习记录数据
+    function loadStudyRecords(params = {}) {
+        forceRerender(); // 强制重新渲染表格组件
+        const container = document.getElementById('study-records-table');
+        container.innerHTML = '<div class="loading-spinner">加载中...</div>';
+        
+        // 获取表单数据
+        const formData = {
+            chapter: `{{ chapter.id }}`,
+            ...params
+        };
+        
+        // 构建查询参数
+        const queryParams = new URLSearchParams();
+        for (const key in formData) {
+            if (formData[key]) {
+                queryParams.append(key, formData[key]);
+            }
+        }
+        
+
+        fetch(`{% url 'courses:study_record_list' %}?${queryParams.toString()}`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(responseData => {
+            console.log('API Response:', responseData); // 调试日志
+            // 验证数据格式
+            if (!responseData || typeof responseData !== 'object') {
+                throw new Error('Invalid response format: expected object');
+            }
+            if (!responseData.data || !Array.isArray(responseData.data)) {
+                throw new Error('Invalid data format: expected array in data field');
+            }
+            const data = responseData.data;
+            const pagination = responseData.pagination || {};
+            
+            // 移除筛选器相关代码
+            
+            // 渲染表格
+            ReactDOM.render(
+                React.createElement(antd.Table, {
+                    columns: studyRecordColumns,
+                    dataSource: data,
+                    bordered: true,
+                    pagination: {
+                        current: pagination.page,
+                        pageSize: 50,
+                        total: pagination.total,
+                        showSizeChanger: true,
+                        pageSizeOptions: ['10', '20', '50'],
+                        showTotal: total => `共 ${total} 条记录`
+                    },
+                    onChange: (pagination, filters, sorter) => {
+                        const params = {
+                            page: pagination.current,
+                            page_size: pagination.pageSize,
+                            ...filters
+                        };
+                        if (sorter.field) {
+                            params.ordering = sorter.order === 'descend' ? `-${sorter.field}` : sorter.field;
+                        }
+                        loadStudyRecords(params);
+                    }
+                }),
+                container
+            );
+        })
+        .catch(error => {
+            container.innerHTML = `<div class="error-message">加载失败: ${error.message}</div>`;
+        });
+    }
+
+        // 表格实例管理
+    let tableKey = Date.now();  // 初始化一个基于时间戳的key
+
+    function forceRerender() {
+        tableKey = Date.now(); // 更新key值
+        console.log('强制重新渲染表格组件', tableKey);
+        const container = document.getElementById('study-records-table');
+        ReactDOM.unmountComponentAtNode(container); // 卸载旧组件
+    }
+
+
+
+    // 安全初始化函数
+    function safeInitialize() {
+        const tableContainer = document.getElementById('study-records-table');
+        if (!tableContainer) {
+            console.error('找不到表格容器');
+            return;
+        }
+
+        if (!checkReactLoaded()) {
+            tableContainer.innerHTML = '<div class="error-message">前端库加载失败，请刷新页面</div>';
+            return;
+        }
+
+        console.log('React版本:', React.version);
+        console.log('ReactDOM版本:', ReactDOM.version);
+
+        try {
+            loadStudyRecords({
+                chapter: '{{ chapter.id }}'
+            });
+        } catch (error) {
+            console.error('初始化错误:', error);
+            tableContainer.innerHTML = `<div class="error-message">初始化失败: ${error.message}</div>`;
+        }
+    }
+
+    // 确保所有资源加载完成
+    if (document.readyState === 'complete') {
+        safeInitialize();
+    } else {
+        window.addEventListener('load', safeInitialize);
+    }
+
+</script>
+
+{% endblock %}
+
+

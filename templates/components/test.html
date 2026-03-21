@@ -1,0 +1,36 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CKEditor 5 测试</title>
+    <link rel="stylesheet" href="{% static 'django_ckeditor_5/dist/styles.css' %}">
+    <style>
+        #editor {
+            max-width: 800px;
+            margin: 30px auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="editor">
+        <p>这里可以测试CKEditor5的所有功能，包括数学公式插件。</p>
+    </div>
+
+    <script src="{% static 'django_ckeditor_5/dist/bundle.js' %}"></script>
+    <script>
+        window.addEventListener('load', () => {
+            ClassicEditor.create(document.querySelector('#editor'), {
+            licenseKey: 'GPL',
+            toolbar: [
+                'heading', '|', 
+                'bold', 'italic', 'blockQuote', 'link',
+                'math', '|',
+                'undo', 'redo'
+            ]
+        }).catch(error => {
+                console.error(error);
+            });
+        });
+    </script>
+</body>
+</html>

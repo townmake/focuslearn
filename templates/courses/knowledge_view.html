@@ -1,0 +1,903 @@
+<!-- 功能待完善 -->
+{% extends "base.html" %}
+{% block title %}知识点详情{% endblock %}
+{% load static %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/knowledge_view.css' %}">
+<link rel="stylesheet" href="{% static 'aieditor-main/dist/style.css' %}">
+<script src="{% static 'vendor/js/react.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/antd.min.js' %}"></script>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="embedded-container">
+    <div class="detail-section">
+        <div class="detail-header" >
+            <h2>知识点详情</h2>
+        </div>
+        <div class="detail-content">
+            <div class="basic-info">
+                <h3 id="kp-title"                         
+                    data-field="title"
+                    contenteditable="false" 
+                    ondblclick="startEdit(this)"
+                    onblur="saveEdit(this)">
+                </h3>
+                <h3 id="kp-id" style="display: none;"></h3>
+                <div class="info-item-desc">
+                    <span class="info-label-basic">描述：</span>
+                    <span 
+                        class="info-value" 
+                        id="kp-description" 
+                        style="white-space: pre-wrap;background-color: #cfeaa0; padding: 8px; border-radius: 4px; min-width: 600px; "
+                        contenteditable="false"
+                        ondblclick="startEdit(this)"
+                        onblur="saveEdit(this)">
+                        暂无内容
+                    </span>
+                </div>
+                <div class="info-item-group-order">
+                    <div class="info-item-order">
+                        <span class="info-label-basic">节点ID：</span>
+                        <span class="info-value" id="kp-id-show">  </span>
+                    </div>
+                    <div class="info-item-order">
+                        <span class="info-label-basic">父节点：</span>
+                        <span class="info-value" id="kp-parent">  </span>
+                    </div>
+                    <div class="info-item-order">
+                        <span class="info-label-basic">顺序：</span>
+                        <span 
+                            class="info-value" 
+                            id="kp-brother_id" 
+                            contenteditable="false"
+                            ondblclick="startEdit(this)"
+                            onblur="saveEdit(this)">
+                            暂无信息
+                        </span>
+                    </div>
+                </div>
+                <div class="info-item-group">
+                    <div class="info-item-star">
+                        <span class="info-label-basic">难度：</span>
+                        <span id="kp-difficulty-container"> </span>
+                    </div>
+                    <div class="info-item-star">
+                        <span class="info-label-basic">记忆度：</span>
+                        <span id="kp-memory-level-container"> </span>
+                    </div>
+                    <div class="info-item-star">
+                        <span class="info-label-basic">掌握度：</span>
+                        <span id="kp-mastery-level-container"> </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 下部分 -->
+    <div class="bottom-section">
+        <div class="knowledge-content-container">
+            <div class="detail-header" >
+                <h2>详细内容</h2>
+                <div class="action-buttons" >
+                    <button class="edit-btn" id="save-btn-content">更新</button>
+                </div>
+            </div>
+            <div class="kp-content-section">
+                <div class="kp-editor-AI">
+                    <div 
+                        id="Aiditor-knowledge-content" 
+                        style="width:fit-content; max-width:1900px;height:fit-content; min-height: 400px;border:1px solid #ddd; border-radius:4px;"frameborder="0">
+                    </div>
+                </div>
+                <div class="kp-editor-annot">
+                    <div id="knowledge-points-Annotation">
+                        <div class="annotation-header">
+                            <h3>知识点注释</h3>
+                            <div id="annotation-edit-container" style="display:none;">
+                                <div class="annotation-edit-box">
+                                    <h4>编辑注释 <span id="edit-annotation-tag"></span></h4>
+                                    <div class="form-group">
+                                        <label>引用内容</label>
+                                        <div id="edit-annotation-quote" class="quote-content"></div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>注释内容</label>
+                                        <textarea id="edit-annotation-content" class="form-control" rows="3"></textarea>
+                                    </div>
+                                    <div class="annotation-actions">
+                                        <button id="annotation-query-btn" class="btn btn-secondary">查询</button>
+                                        <button id="annotation-save-btn" class="btn btn-primary">保存</button>
+                                        <button id="annotation-cancel-btn" class="btn btn-light">取消</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="annotation-list">
+                                <!-- 注释列表将通过JS动态加载 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                // 加载知识点注释
+                function loadKnowledgePointAnnotations(kpId) {
+                    const section = document.querySelector('.kp-content-section');
+                    const rightContainer = document.querySelector('.kp-editor-annot');
+                    const annotationWrapper = document.getElementById('knowledge-points-Annotation');
+
+                    // 清除旧数据
+                    annotationWrapper.innerHTML = '';
+                    
+                    // 重置布局状态
+                    section.classList.remove('has-annotations');
+                    rightContainer.style.display = 'none';
+                    
+                    fetch(`/courses/api/knowledge_points/${kpId}/annotations/`)
+                        .then(response => response.json())
+                        .then(annotations => {                            
+                            // 动态创建内容
+                            if (annotations.length > 0) {
+                                // 创建注释内容
+                                const listContainer = document.createElement('div');
+                                listContainer.className = 'annotations-list';
+
+                                // 获取编辑器内容
+                                let editorContent = ''; // 初始化为空字符串
+                                if(window.AiEditor_knowledge) {
+                                    editorContent = window.AiEditor_knowledge.getHtml();
+                                } else {
+                                    console.error('编辑器未初始化');
+                                }
+                                
+                                annotations.forEach(annotation => {
+                                    const item = document.createElement('div');
+                                    item.className = 'annotation-item';
+
+                                // 判断注释标签是否存在于编辑器内容中
+                                const existsInEditor = editorContent.includes(`#${annotation.content_tag}`) ;
+                                // 根据存在状态设置不同的颜色类
+                                const colorClass = existsInEditor ? 'annotation-item-blue' : 'annotation-item-red';
+                                item.classList.add(colorClass);
+
+                                    item.innerHTML = `
+                                        <div class="annotation-header">
+                                        <span class="tag">#${annotation.content_tag}</span>
+                                        <span class="date">${annotation.updated_at}</span>
+                                        <button class="annotation-action-btn delete-btn-tag" 
+                                                onclick="deleteAnnotation('${annotation.id}')">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="rgba(249,115,115,1)">
+                                                <path d="M17 6H22V8H20V21C20 21.5523 19.5523 22 19 22H5C4.44772 22 4 21.5523 4 21V8H2V6H7V3C7 2.44772 7.44772 2 8 2H16C16.5523 2 17 2.44772 17 3V6ZM18 8H6V20H18V8ZM9 11H11V17H9V11ZM13 11H15V17H13V11ZM9 4V6H15V4H9Z"></path>
+                                            </svg>
+                                        </button>
+                                        </div>
+                                        <div class="annotation-quote">${annotation.quote}</div>
+                                        <div 
+                                            class="annotation-content" 
+                                            ondblclick="startEditAnnotationContent(this, '${annotation.content_tag }', '${annotation.id }', '${annotation.content}')"
+                                            data-tag="{{ annotation.content_tag }}"
+                                            data-original="{{ annotation.content }}">
+                                            ${annotation.content}
+                                        </div>
+                                    `;
+                                    listContainer.appendChild(item);
+                                    });
+
+                                    annotationWrapper.appendChild(listContainer);
+                                    
+                                    // 更新布局状态
+                                    section.classList.add('has-annotations');
+                                    rightContainer.style.display = 'block';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('加载注释失败:', error);
+                            section.classList.remove('has-annotations');
+                        }
+                    );
+                }
+                
+                // 编辑注释内容的状态
+                let editingAnnotationTag = null;
+                let editingAnnotationElement = null;
+
+                // 开始编辑注释内容
+                function startEditAnnotationContent(element, tag, ID, originalContent) {
+                    if (editingAnnotationTag) return; // 防止同时编辑多个注释
+                    
+                    editingAnnotationTag = tag;
+                    editingAnnotationElement = element;
+                    
+                    // console.log('开始编辑注释内容:', originalContent);
+                    // console.log('开始编辑注释内容1:', originalContent1);
+                    console.log('开始编辑注释ID:', ID);
+
+                    element.setAttribute('data-backup', originalContent); // 添加备份属性
+
+                    const input = document.createElement('textarea');
+                    input.value = originalContent;
+                    input.style.width = '100%';
+                    input.style.height = '100px';
+                    input.style.marginBottom = '10px';
+                    
+                    
+                    const actions = document.createElement('div');
+                    actions.style.textAlign = 'right';
+                    
+                    const saveBtn = document.createElement('button');
+                    saveBtn.textContent = '保存';
+                    saveBtn.style.marginRight = '10px';
+                    saveBtn.onclick = function() {
+                        saveEditAnnotationContent(input.value,ID);
+                    };
+                    
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.textContent = '取消';
+                    cancelBtn.onclick = function() {
+                        cancelEditAnnotationContent();
+                    };
+                    
+                    actions.appendChild(saveBtn);
+                    actions.appendChild(cancelBtn);
+                    
+                    element.innerHTML = '';
+                    element.appendChild(input);
+                    element.appendChild(actions);
+                }
+
+                // 保存编辑后的注释内容
+                function saveEditAnnotationContent(newContent,ID) {
+                    if (!editingAnnotationTag || !editingAnnotationElement) {
+                        console.error('未找到正在编辑的注释标签');
+                        return;
+                    }
+                    
+                    const originalContent = editingAnnotationElement.getAttribute('data-original');
+                    if (newContent === originalContent) {
+                        console.log('注释内容未更改，取消编辑');
+                        cancelEditAnnotationContent();
+                        return;
+                    }
+                    
+                    fetch(`/courses/api/knowledge_points/annotations/${ID}/`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({content: newContent})
+                    })
+                    .then(response => response.json())
+                    .then(() => {
+                        editingAnnotationElement.setAttribute('data-original', newContent);
+                        editingAnnotationElement.textContent = newContent;
+                        cancelEditAnnotationContent();
+                        
+                        // 重新加载注释列表以更新显示
+                        loadKnowledgePointAnnotations(currentKnowledgePointId);
+                    })
+                    .catch(error => {
+                        console.error('保存注释失败:', error);
+                        antd.Modal.error({
+                            title: '错误',
+                            content: '保存注释失败，请重试'
+                        });
+                        cancelEditAnnotationContent();
+                    });
+                }
+
+                // 取消编辑注释内容
+                function cancelEditAnnotationContent() {
+                    if (!editingAnnotationElement) return;
+                    
+                    const originalContent = editingAnnotationElement.getAttribute('data-backup');
+                    editingAnnotationElement.innerHTML = '';
+                    editingAnnotationElement.textContent = originalContent;
+                    
+                    editingAnnotationTag = null;
+                    editingAnnotationElement = null;
+                }
+
+
+                // 删除注释
+                function deleteAnnotation(ID) {
+                    antd.Modal.confirm({
+                        title: '确认删除',
+                        content: '确定要删除这条注释吗？此操作不可撤销。',
+                        okText: '删除',
+                        cancelText: '取消',
+                        onOk: () => {
+                            fetch(`/courses/api/knowledge_points/annotations/${ID}/`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRFToken': '{{ csrf_token }}'
+                                }
+                            })
+                            .then(response => {
+                                if (response.ok) {
+                                    antd.message.success('删除成功');
+                                    loadKnowledgePointAnnotations(currentKnowledgePointId);
+                                } else {
+                                    throw new Error('删除失败');
+                                }
+                            })
+                            .catch(error => {
+                                antd.message.error(error.message);
+                            });
+                        }
+                    });
+                }
+                
+                // 按钮事件
+                document.getElementById('annotation-cancel-btn').addEventListener('click', function() {
+                    document.getElementById('annotation-edit-container').style.display = 'none';
+                    document.getElementById('annotation-list').style.display = 'block';
+                });
+                
+                document.getElementById('annotation-save-btn').addEventListener('click', function() {
+                    const tag = document.getElementById('edit-annotation-tag').textContent.replace('#', '');
+                    const content = document.getElementById('edit-annotation-content').value;
+                    
+                    fetch(`/courses/api/knowledge_points/annotations/${tag}/`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({content: content})
+                    })
+                    .then(response => response.json())
+                    .then(() => {
+                        loadKnowledgePointAnnotations(currentKnowledgePointId);
+                        document.getElementById('annotation-edit-container').style.display = 'none';
+                        document.getElementById('annotation-list').style.display = 'block';
+                    });
+                });
+                
+                </script>
+            </div>
+        </div>
+    </div>     
+</div>
+
+
+<script type="module">
+
+import { AiEditor } from '/static/aieditor-main/dist/index.js';
+// 知识点内容编辑器
+let editorReadyResolve;
+window.editorReadyPromise = new Promise((resolve) => {
+    editorReadyResolve = resolve;
+});
+
+window.AiEditor_knowledge = new AiEditor({
+    element: '#Aiditor-knowledge-content',
+    placeholder: '开始输入知识点内容...',
+    htmlPasteConfig: {
+        pasteAsText: false,
+        pasteClean: false,
+        clearLineBreaks: false,
+        pasteProcessor: (html) => {
+            return html;
+        }
+    },
+    theme: 'default',
+    onCreated: (editor) => {
+         editor.setEditable(true);
+        // 初始化完成后，将编辑器实例传递给外部
+        editorReadyResolve(editor);
+    },
+    onChange: (editor) => {
+        // 安全更新隐藏的textarea值
+        const contentElement = document.getElementById('content');
+        if (contentElement) {
+            contentElement.value = editor.getHtml();
+        }
+    },
+    textSelectionBubbleMenu: {
+        enable: true,
+        items: ["bold", "italic", "underline", "strike", "highlight", "font-color",
+            {
+                id: "tag-comment",
+                title: "标记",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M10.0001 4.99989L19 4.99976L19 6.99976L12.0001 6.99986L12 14.5859H17.4142L11 21.0001L4.58578 14.5859L10 14.5859L10.0001 4.99989Z\"></path></svg>",
+                onClick: (editor) => {
+                    const selectedText = editor.getSelectedText();
+                    if (selectedText) {
+                        TagComment(selectedText);
+                    } else {
+                        antd.Modal.warning({
+                            title: '警告',
+                            content: '请先选中要标记的文本'
+                        });
+                    }
+                }
+            },
+            {
+                id: "h1-tag",
+                title: "H1标签",
+                icon: "<svg xmlns=\"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M13 20H11V13H4V20H2V4H4V11H11V4H13V20ZM21.0005 8V20H19.0005L19 10.204L17 10.74V8.67L19.5005 8H21.0005Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<h1>${editor.getSelectedText()}</h1>`);
+                }
+            },
+            {
+                id: "h2-tag",
+                title: "H2标签",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M4 4V11H11V4H13V20H11V13H4V20H2V4H4ZM18.5 8C20.5711 8 22.25 9.67893 22.25 11.75C22.25 12.6074 21.9623 13.3976 21.4781 14.0292L21.3302 14.2102L18.0343 18H22V20H15L14.9993 18.444L19.8207 12.8981C20.0881 12.5908 20.25 12.1893 20.25 11.75C20.25 10.7835 19.4665 10 18.5 10C17.5818 10 16.8288 10.7071 16.7558 11.6065L16.75 11.75H14.75C14.75 9.67893 16.4289 8 18.5 8Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<h2>${editor.getSelectedText()}</h2>`);
+                }
+            },
+            {
+                id: "h3-tag",
+                title: "H3标签",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M22 8L21.9984 10L19.4934 12.883C21.0823 13.3184 22.25 14.7728 22.25 16.5C22.25 18.5711 20.5711 20.25 18.5 20.25C16.674 20.25 15.1528 18.9449 14.8184 17.2166L16.7821 16.8352C16.9384 17.6413 17.6481 18.25 18.5 18.25C19.4665 18.25 20.25 17.4665 20.25 16.5C20.25 15.5335 19.4665 14.75 18.5 14.75C18.214 14.75 17.944 14.8186 17.7056 14.9403L16.3992 13.3932L19.3484 10H15V8H22ZM4 4V11H11V4H13V20H11V13H4V20H2V4H4Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<h3>${editor.getSelectedText()}</h3>`);
+                }
+            },
+            {
+                id: "hightlight-tag",
+                title: "高亮",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M0 12.5v-9A1.5 1.5 0 0 1 1.5 2h13A1.5 1.5 0 0 1 16 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 12.5M2.5 4a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 1 0V5h2.5a.5.5 0 0 0 0-1zm11 8a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-1 0V11h-2.5a.5.5 0 0 0 0 1z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<div class="container-wrapper warning"><p>${editor.getSelectedText()}</p></div><p><br></p>`);
+                }
+            },
+            {
+                id: "highlight-blue-white",
+                title: "蓝底白字",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"rgba(41,114,244,1)\"><path d=\"M15.2427 4.51149L8.50547 11.2487L7.79836 13.37L6.7574 14.411L9.58583 17.2394L10.6268 16.1985L12.7481 15.4913L19.4853 8.75413L15.2427 4.51149ZM21.6066 8.04702C21.9972 8.43755 21.9972 9.07071 21.6066 9.46124L13.8285 17.2394L11.7071 17.9465L10.2929 19.3607C9.90241 19.7513 9.26925 19.7513 8.87872 19.3607L4.63608 15.1181C4.24556 14.7276 4.24556 14.0944 4.63608 13.7039L6.0503 12.2897L6.7574 10.1683L14.5356 2.39017C14.9261 1.99964 15.5593 1.99964 15.9498 2.39017L21.6066 8.04702ZM15.2427 7.33992L16.6569 8.75413L11.7071 13.7039L10.2929 12.2897L15.2427 7.33992ZM4.28253 16.8859L7.11096 19.7143L5.69674 21.1285L1.4541 19.7143L4.28253 16.8859Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<span style="color: rgb(255, 255, 255)"><mark data-color="#2972f4" style="background-color: #2972f4; color: inherit">${editor.getSelectedText()}</mark></span>`);
+                }
+            },
+            {
+                id: "highlight-red-white",
+                title: "红底白字",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"rgba(255,0,0,1)\"><path d=\"M15.9498 2.39017L21.6066 8.04702C21.9972 8.43755 21.9972 9.07071 21.6066 9.46124L13.8285 17.2394L11.7071 17.9465L10.2929 19.3607C9.90241 19.7513 9.26925 19.7513 8.87872 19.3607L4.63608 15.1181C4.24556 14.7276 4.24556 14.0944 4.63608 13.7039L6.0503 12.2897L6.7574 10.1683L14.5356 2.39017C14.9261 1.99964 15.5593 1.99964 15.9498 2.39017ZM16.6569 5.9257L10.2929 12.2897L11.7071 13.7039L18.0711 7.33992L16.6569 5.9257ZM4.28253 16.8859L7.11096 19.7143L5.69674 21.1285L1.4541 19.7143L4.28253 16.8859Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<span style="color: rgb(255, 255, 255)"><mark data-color="#ff0000" style="background-color: #ff0000; color: inherit">${editor.getSelectedText()}</mark></span>`);
+                }
+            },
+            {
+                id: "highlight-black-white",
+                title: "黑底白字",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"rgba(0,0,0,1)\"><path d=\"M15.9498 2.39017L21.6066 8.04702C21.9972 8.43755 21.9972 9.07071 21.6066 9.46124L13.8285 17.2394L11.7071 17.9465L10.2929 19.3607C9.90241 19.7513 9.26925 19.7513 8.87872 19.3607L4.63608 15.1181C4.24556 14.7276 4.24556 14.0944 4.63608 13.7039L6.0503 12.2897L6.7574 10.1683L14.5356 2.39017C14.9261 1.99964 15.5593 1.99964 15.9498 2.39017ZM16.6569 5.9257L10.2929 12.2897L11.7071 13.7039L18.0711 7.33992L16.6569 5.9257ZM4.28253 16.8859L7.11096 19.7143L5.69674 21.1285L1.4541 19.7143L4.28253 16.8859Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<span style="color: rgb(255, 255, 255)"><mark data-color="#000000" style="background-color: #000000; color: inherit">${editor.getSelectedText()}</mark></span>`);
+                }
+            },
+            {
+                id: "highlight-yellow-black",
+                title: "黄底黑字",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"rgba(255,255,0,1)\"><path d=\"M15.2427 4.51149L8.50547 11.2487L7.79836 13.37L6.7574 14.411L9.58583 17.2394L10.6268 16.1985L12.7481 15.4913L19.4853 8.75413L15.2427 4.51149ZM21.6066 8.04702C21.9972 8.43755 21.9972 9.07071 21.6066 9.46124L13.8285 17.2394L11.7071 17.9465L10.2929 19.3607C9.90241 19.7513 9.26925 19.7513 8.87872 19.3607L4.63608 15.1181C4.24556 14.7276 4.24556 14.0944 4.63608 13.7039L6.0503 12.2897L6.7574 10.1683L14.5356 2.39017C14.9261 1.99964 15.5593 1.99964 15.9498 2.39017L21.6066 8.04702ZM15.2427 7.33992L16.6569 8.75413L11.7071 13.7039L10.2929 12.2897L15.2427 7.33992ZM4.28253 16.8859L7.11096 19.7143L5.69674 21.1285L1.4541 19.7143L4.28253 16.8859Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<span style="color: rgb(0, 0, 0)"><mark data-color="#ffff00" style="background-color: #ffff00; color: inherit">${editor.getSelectedText()}</mark></span>`);
+                }
+            },
+            {
+                id: "highlight-orange-black",
+                title: "橙底黑字",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"rgba(255,137,38,1)\"><path d=\"M15.2427 4.51149L8.50547 11.2487L7.79836 13.37L6.7574 14.411L9.58583 17.2394L10.6268 16.1985L12.7481 15.4913L19.4853 8.75413L15.2427 4.51149ZM21.6066 8.04702C21.9972 8.43755 21.9972 9.07071 21.6066 9.46124L13.8285 17.2394L11.7071 17.9465L10.2929 19.3607C9.90241 19.7513 9.26925 19.7513 8.87872 19.3607L4.63608 15.1181C4.24556 14.7276 4.24556 14.0944 4.63608 13.7039L6.0503 12.2897L6.7574 10.1683L14.5356 2.39017C14.9261 1.99964 15.5593 1.99964 15.9498 2.39017L21.6066 8.04702ZM15.2427 7.33992L16.6569 8.75413L11.7071 13.7039L10.2929 12.2897L15.2427 7.33992ZM4.28253 16.8859L7.11096 19.7143L5.69674 21.1285L1.4541 19.7143L4.28253 16.8859Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<span style="color: rgb(0, 0, 0)"><mark data-color="#ff8926" style="background-color: #ff8926; color: inherit">${editor.getSelectedText()}</mark></span>`);
+                }
+            },
+            {
+                id: "shangbiao",
+                title: "上标",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"rgba(255,137,38,1)\"><path d=\"M5.59567 5L10.5 10.9283L15.4043 5H18L11.7978 12.4971L18 19.9943V20H15.4091L10.5 14.0659L5.59092 20H3V19.9943L9.20216 12.4971L3 5H5.59567ZM21.5507 6.5803C21.7042 6.43453 21.8 6.22845 21.8 6C21.8 5.55817 21.4418 5.2 21 5.2C20.5582 5.2 20.2 5.55817 20.2 6C20.2 6.07624 20.2107 6.14999 20.2306 6.21983L19.0765 6.54958C19.0267 6.37497 19 6.1906 19 6C19 4.89543 19.8954 4 21 4C22.1046 4 23 4.89543 23 6C23 6.57273 22.7593 7.08923 22.3735 7.45384L20.7441 9H23V10H19V9L21.5507 6.5803V6.5803Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<sup>${editor.getSelectedText()}</sup>`);
+                }
+            },
+            {
+                id: "xiaobiao",
+                title: "下标",
+                icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"rgba(255,137,38,1)\"><path d=\"M5.59567 4L10.5 9.92831L15.4043 4H18L11.7978 11.4971L18 18.9943V19H15.4091L10.5 13.0659L5.59092 19H3V18.9943L9.20216 11.4971L3 4H5.59567ZM21.8 16C21.8 15.5582 21.4418 15.2 21 15.2C20.5582 15.2 20.2 15.5582 20.2 16C20.2 16.0762 20.2107 16.15 20.2306 16.2198L19.0765 16.5496C19.0267 16.375 19 16.1906 19 16C19 14.8954 19.8954 14 21 14C22.1046 14 23 14.8954 23 16C23 16.5727 22.7593 17.0892 22.3735 17.4538L20.7441 19H23V20H19V19L21.5507 16.5803C21.7042 16.4345 21.8 16.2284 21.8 16Z\"></path></svg>",
+                onClick: (editor) => {
+                    editor.insert(`<sub>${editor.getSelectedText()}</sub>`);
+                }
+            },
+    ],
+    },
+});
+
+
+
+function TagComment(text) {
+    // 显示加载状态
+    const loadingModal = antd.Modal.info({
+        title: '处理中...',
+        content: '正在提交注释，请稍候',
+        okButtonProps: { style: { display: 'none' } }
+    });
+
+    // 获取当前知识点ID
+    const currentKnowledgePointId = document.getElementById('kp-id').value;
+    if (!currentKnowledgePointId) {
+        loadingModal.destroy();
+        antd.Modal.error({
+            title: '错误',
+            content: '无法获取知识点ID'
+        });
+        return;
+    }
+    //弹窗添加注释content
+    // 创建注释内容输入框
+    const modal = antd.Modal.confirm({
+        title: '添加注释',
+        content: React.createElement('div', null, [
+            React.createElement('div', { style: { marginTop: '5px', padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '4px' } }, text),
+            React.createElement('textarea', {
+                id: 'annotation-content-input',
+                placeholder: '请输入注释内容',
+                style: { width: '100%', height: '100px', marginTop: '10px' }
+            })
+        ]),
+        width: 600,
+        okText: '提交',
+        cancelText: '取消',
+        onOk: () => {
+            const annotationContent = document.getElementById('annotation-content-input').value.trim();
+            if (!annotationContent) {
+                antd.Modal.warning({
+                    title: '警告',
+                    content: '注释内容不能为空'
+                });
+                return;
+            }
+            submitAnnotation(text, annotationContent, currentKnowledgePointId, loadingModal);
+        },
+        onCancel: () => {
+            loadingModal.destroy();
+        }
+    });
+}
+
+function submitAnnotation(text, content, currentKnowledgePointId, loadingModal) {
+    // 发送POST请求到后端API
+    fetch(`/courses/api/knowledge_points/${currentKnowledgePointId}/annotations/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            knowledge_point: currentKnowledgePointId,
+            quote: text,
+            content: content,
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('请求失败');
+        }
+        return response.json();
+    })
+    .then(data => {
+        loadingModal.destroy();
+        // 处理成功响应
+        const number = data.content_tag; // 假设后端返回的注释编号在id字段
+        const content = `<mark data-color="#8db3e2" style="background-color: #8db3e2; color: inherit">${text}</mark><span style=\"color: #ffffff\"><strong><mark data-color=\"#4a90e2\" style=\"background-color: #4a90e2; color: inherit\"><sup>🏷️#${number}🏷️</sup></mark></strong></span>`;
+        window.AiEditor_knowledge.focus().insert(content);
+        loadKnowledgePointAnnotations(currentKnowledgePointId); // 更新注释列表
+    })
+    .catch(error => {
+        loadingModal.destroy();
+        antd.Modal.error({
+            title: '错误',
+            content: error.message
+        });
+    });
+}
+
+
+// 更新按钮逻辑
+document.getElementById('save-btn-content').addEventListener('click', function() {
+    if (!window.AiEditor_knowledge) {
+        console.error('Editor not ready');
+        return;
+    }
+   
+    const content=window.AiEditor_knowledge.getHtml();
+        //将内容更新到后端，待确认是否发送请求更新编辑器里的内容
+
+    console.log('Saving content:', content);
+    // 发送PUT请求保存内容
+    const kpIdElement = document.getElementById('kp-id');
+    if (!kpIdElement) {
+        console.error('Knowledge point ID element not found');
+        return;
+    }
+    
+    const currentKnowledgePointId = kpIdElement.value;
+    if (!currentKnowledgePointId || typeof currentKnowledgePointId !== 'string') {
+        console.error('Invalid knowledge point ID:', currentKnowledgePointId);
+        return;
+    }
+
+    fetch(`/courses/api/knowledge-points/${currentKnowledgePointId}/content/`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            content: content
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Save failed');
+        }
+        return response.json();
+    })
+    .catch(error => console.error('Save error:', error));
+    
+});
+</script>
+
+
+<script>
+// let currentKnowledgePointId = null;
+
+
+// 根据评分类型获取容器ID
+function getRatingContainerId(ratingType) {
+    switch (ratingType) {
+        case 'kp-difficulty':
+            return 'kp-difficulty-container';
+        case 'kp-memory-level':
+            return 'kp-memory-level-container';
+        case 'kp-mastery-level':
+            return 'kp-mastery-level-container';
+        default:
+            console.error('未知评分类型:', ratingType);
+            return '';
+    }
+}
+// 转换数值为星星评级，知识点详情部分
+function renderRating(value, max=5, containerId, firstRender=true) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    // 如果是非首次渲染，则移除之前的React组件
+    if (!firstRender) {
+        ReactDOM.unmountComponentAtNode(container);
+    }
+    // 清空容器内容
+    container.innerHTML = '';
+    
+    // 创建Rate组件
+    const Rate = antd.Rate;
+    ReactDOM.render(
+        React.createElement(Rate, {
+            value: value,
+            onChange: (newVal) => {
+                saveRating(containerId.replace('-container', ''), newVal);
+            }
+        }),
+        container
+    );
+}
+
+// 保存评分到后台
+function saveRating(ratingType, value) {
+    const kpId = currentKnowledgePointId;
+    if (!kpId) {
+        console.error('知识点ID不存在');
+        return;
+    }
+    
+    const url = `/courses/api/knowledge-points/${kpId}/update-rating/`;
+    const data = {
+        rating_type: ratingType,
+        value: value
+    };
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('保存失败');
+        }
+        return response.json();
+    })
+    .then(data => {
+        antd.message.success('评分已保存'); 
+
+       // 直接更新星星评分组件
+        const containerId = getRatingContainerId(ratingType);
+        renderRating(value, 5, containerId, false);
+    })
+    .catch(error => {
+        console.error('保存评分失败:', error);
+        antd.message.error('保存评分失败');
+    });
+}
+
+// 可编辑字段配置
+const editableFields = [
+    {
+        id: 'kp-title',
+        field: 'title',
+        type: 'text',
+        validate: (value) => value.trim() !== ''
+    },
+    {
+        id: 'kp-description',
+        field: 'description',
+        type: 'text',
+        validate: (value) => true
+    },
+    {
+        id: 'kp-brother_id',
+        field: 'brother_id',
+        type: 'number',
+        validate: (value) => !isNaN(value) && value > 0
+    }
+];
+
+// 加载知识点详情
+function loadKnowledgePointDetail() {
+
+    // 从后端返回的参数knowledge_point_id获取知识点ID
+    const kpId = {{ knowledge_point_id }};
+    currentKnowledgePointId = kpId;
+
+    fetch(`/courses/knowledge-points/${kpId}/`)
+        .then(response => response.json())
+        .then(data => {
+            // 更新右侧面板所有字段
+            editableFields.forEach(fieldConfig => {
+                const element = document.getElementById(fieldConfig.id);
+                if (element) {
+                    const value = data[fieldConfig.field];
+                    element.textContent = value !== undefined ? value : fieldConfig.default || '';
+                    element.setAttribute('data-original-value', element.textContent);
+                    element.setAttribute('contenteditable', 'false');
+                }
+            });
+
+            // 使用新的评分渲染方法
+            renderRating(data.difficulty, 5, 'kp-difficulty-container',false);
+            renderRating(data.memory_level, 5, 'kp-memory-level-container',false);
+            renderRating(data.mastery_level, 5, 'kp-mastery-level-container',false);
+
+            document.getElementById('kp-parent').textContent = 
+                data.parent ? data.parent_title : "根节点";
+            document.getElementById('kp-id-show').textContent = kpId;
+            
+            // 更新AiEditor编辑器内容
+            window.editorReadyPromise.then((editor) => {
+                editor.setContent(data.content);
+            }).catch(() => {
+                console.error('编辑器初始化失败');
+            });
+        });
+}
+
+// 启用编辑模式
+function startEdit(element) {
+    const fieldConfig = editableFields.find(f => f.id === element.id);
+    if (!fieldConfig) return;
+    
+    element.setAttribute('contenteditable', 'true');
+    element.focus();
+    // 保存原始内容以便比较
+    if (!element.getAttribute('data-original-value')) {
+        element.setAttribute('data-original-value', element.textContent);
+    }
+}
+
+// 保存编辑内容
+function saveEdit(element) {
+    const fieldConfig = editableFields.find(f => f.id === element.id);
+    if (!fieldConfig) return;
+    
+    element.setAttribute('contenteditable', 'false');
+    const newValue = element.textContent.trim();
+    const originalValue = element.getAttribute('data-original-value');
+    
+    if (newValue !== originalValue) {
+        // 获取所有可编辑字段的值
+        const allFields = editableFields.map(field => {
+            const elem = document.getElementById(field.id);
+            return {
+                ...field,
+                value: elem ? elem.textContent.trim() : ''
+            };
+        });
+        
+        currentKnowledgePointId = document.getElementById('kp-id').value;
+        // 调用统一的保存函数
+        saveMultipleFields(currentKnowledgePointId, allFields)
+            .then(success => {
+                if (success) {
+                    // 更新所有字段的原始值
+                    allFields.forEach(field => {
+                        const elem = document.getElementById(field.id);
+                        if (elem) {
+                            elem.setAttribute('data-original-value', elem.textContent);
+                        }
+                    });
+                    //刷新页面
+                    if(fieldConfig.id === 'kp-title') {
+                        // 如果是标题字段，刷新页面以更新树结构  
+                          location.reload();
+                    }else{
+                        //重新加载知识点详情
+                        loadKnowledgePointDetail(currentKnowledgePointId);
+                    }
+                } else {
+                    // 如果保存失败，恢复原始值
+                    element.textContent = originalValue;
+                    antd.message.error('保存失败，请重试');
+                }
+            });
+    }
+}
+
+// 保存多个字段
+function saveMultipleFields(kpId, fields) {
+    const fieldData = {};
+    fields.forEach(field => {
+        const element = document.getElementById(field.id);
+        if (element) {
+            const value = element.textContent;
+            if (field.validate(value)) {
+                fieldData[field.field] = value;
+            } else {
+                antd.message.error(`${field.field}格式不正确`);
+                return Promise.reject(`${field.field}格式不正确`);
+            }
+        }
+    });
+
+    return fetch(`/courses/knowledge-points/${kpId}/`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(fieldData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('保存失败');
+        }
+        return response.json();
+    })
+    .then(data => {
+        antd.message.success('已保存');
+        return true;
+    })
+    .catch(error => {
+        console.error('保存失败:', error);
+        antd.message.error('保存失败');
+        return false;
+    });
+}
+
+
+
+document.addEventListener('DOMContentLoaded', loadKnowledgePointDetail());
+
+
+</script>
+
+
+
+{% endblock %}

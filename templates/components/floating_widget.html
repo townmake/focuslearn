@@ -1,0 +1,47 @@
+
+<!-- {% load static %} -->
+<!-- 计时器浮窗 -->
+<div id="timer-widget" class="floating-widget">
+    <div class="floating-widget-content">
+        <i class="fas fa-clock" style="font-size: 18px;">上钟吧，朋友</i> 
+        <div class="timer-study-types">
+            <label>
+            <span class="study-type-label" style="font-size: 16px;">学习类型:</span>
+            </label>
+            <div id="study-type-radios" class="study-type-radios"></div>
+        </div>
+
+        <div class="timer-display">00:00:00</div>
+        <div class="timer-controls">
+            <button class="timer-control start">开始</button>
+            <button class="timer-control stop">停止</button>
+            <button class="timer-control change">修改</button>
+            <button class="timer-control reset">重置</button>
+        </div>
+        <div class="timer-description">
+            <textarea class="description-input" placeholder="记录这段时间的学习内容..."></textarea>
+            <button class="timer-save">保存记录</button>
+        </div>
+    </div>
+</div>
+
+<!-- 笔记浮窗 -->
+<div id="notes-widget" class="floating-widget">
+    <div class="floating-widget-content">
+        <textarea class="notes-input" placeholder="写下你的评论..."></textarea>
+        <button class="notes-save">保存</button>
+    </div>
+</div>
+
+<!-- 垂直排列的触发按钮 -->
+<div class="floating-widget-triggers">
+    <div class="trigger-button" id="back-to-top" title="回到顶部" >
+        <img src="{% static 'images/backtotop.png' %}" alt="回到顶部" style="background-color: transparent;">
+    </div>
+    <div class="trigger-button" id="timer-trigger" title="计时器" >
+        <img src="{% static 'images/timer-icon.png' %}" alt="计时器" style="background-color: transparent;">
+    </div>
+    <div class="trigger-button" id="notes-trigger" title="笔记" >
+        <img src="{% static 'images/notes-icon.png' %}" alt="笔记" style="background-color: transparent;">
+    </div>
+</div>

@@ -1,0 +1,208 @@
+    def perform_create(self, serializer):
+        """创建任务时的处理逻辑"""
+        # 保存任务，并处理重复逻辑
+        task = serializer.save(user=self.request.user)
+        
+        # 重复任务的处理已移至Task模型的save方法中
+        return task
+
+    @action(detail=True, methods=['patch'])
+    def modify_recurring(self, request, pk=None):
+        """
+        修改重复事件，支持三种修改范围：
+        - this: 仅修改当前事件
+        - future: 修改当前及未来事件
+        - all: 修改所有重复事件
+        """
+        task = self.get_object()
+        scope = request.data.get('scope', self.MODIFY_SCOPE_THIS)
+        
+        # 如果不是重复事件，直接更新
+        if task.repeat_type == 'none' and not task.parent_series:
+            return self.update(request, pk)
+            
+        if scope == self.MODIFY_SCOPE_THIS:
+            # 仅修改当前事件：创建例外事件
+            if task.parent_series:
+                # 如果已经是例外事件的子事件，直接更新
+                pass
+            else:
+                # 标记为例外事件
+                task.is_exception = True
+                task.original_date = task.start_datetime
+                task.parent_series = task if not task.parent_series else task.parent_series
+                
+                # 创建新的事件实例（例外事件）
+                task.pk = None
+                
+            # 更新事件数据
+            serializer = self.get_serializer(task, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            
+            return Response(serializer.data)
+            
+        elif scope == self.MODIFY_SCOPE_FUTURE:
+            # 修改当前及未来事件
+            original_series = task.parent_series or task
+            
+            # 1. 结束原系列到当前事件的前一天
+            if original_series.repeat_ends is None or original_series.repeat_ends > task.start_datetime:
+                original_series.repeat_ends = task.start_datetime - timezone.timedelta(days=1)
+                original_series.save()
+            
+            # 2. 创建新的重复系列
+            task_data = request.data.copy()
+            
+            # 确保新系列从当前事件开始
+            new_series = Task.objects.create(
+                user=task.user,
+                title=task_data.get('title', task.title),
+                description=task_data.get('description', task.description),
+                subject_id=task_data.get('subject', task.subject_id),
+                chapter_id=task_data.get('chapter', task.chapter_id),
+                focus_level=task_data.get('focus_level', task.focus_level),
+                energy_level=task_data.get('energy_level', task.energy_level),
+                start_datetime=task_data.get('start_datetime', task.start_datetime),
+                end_datetime=task_data.get('end_datetime', task.end_datetime),
+                repeat_type=task_data.get('repeat_type', task.repeat_type),
+                repeat_ends=task_data.get('repeat_ends', task.repeat_ends),
+                repeat_days=task_data.get('repeat_days', task.repeat_days),
+                is_completed=task_data.get('is_completed', task.is_completed)
+            )
+            
+            serializer = self.get_serializer(new_series)
+            return Response(serializer.data)
+            
+        else:  # self.MODIFY_SCOPE_ALL
+            # 修改所有重复事件
+            series = task.parent_series or task
+            
+            # 更新整个系列
+            serializer = self.get_serializer(series, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            
+            return Response(serializer.data)
+            
+    @action(detail=True, methods=['delete'])
+    def delete_recurring(self, request, pk=None):
+        """
+        删除重复事件，直接删除今日之后具有相同parent_series的系列：
+        """
+        task = self.get_object()
+        scope = request.data.get('scope', self.MODIFY_SCOPE_THIS)
+        
+        # 如果不是重复事件，直接删除
+        if task.repeat_type == 'none' and not task.parent_series:
+            task.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+            
+        if scope == self.MODIFY_SCOPE_THIS:
+            # 仅删除当前事件
+            if task.parent_series:
+                # 如果是子事件，直接删除
+                task.delete()
+            else:
+                # 创建例外事件（标记为删除）
+                exception = Task(
+                    user=task.user,
+                    parent_series=task,
+                    is_exception=True,
+                    original_date=task.start_datetime,
+                    # 其他必要字段
+                )
+                exception.save()
+            
+            return Response(status=status.HTTP_204_NO_CONTENT)
+            
+        elif scope == self.MODIFY_SCOPE_FUTURE:
+            # 删除当前及未来事件
+            original_series = task.parent_series or task
+            
+            # 更新原系列的结束日期
+            if original_series.repeat_ends is None or original_series.repeat_ends > task.start_datetime:
+                original_series.repeat_ends = task.start_datetime - timezone.timedelta(days=1)
+                original_series.save()
+            
+            return Response(status=status.HTTP_204_NO_CONTENT)
+            
+        else:  # self.MODIFY_SCOPE_ALL
+            # 删除所有重复事件
+            series = task.parent_series or task
+            
+            # 删除整个系列及其所有例外事件
+            series.delete()
+            
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'])
+    def reorder(self, request, pk=None):
+        """
+        重新排序任务列表
+        """
+        task_list = self.get_object()
+        new_order = request.data.get('order')
+        
+        if new_order is None:
+            return Response(
+                {"error": "需要提供新的排序值"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        task_list.order = new_order
+        task_list.save()
+        
+        return Response({"status": "success"})
+
+
+#重写create方法，引入
+def perform_create(self, serializer):
+    # 验证科目和章节是否存在
+    subject = get_object_or_404(
+        Subject,
+        id=self.request.data.get('subject')
+    )
+    chapter = get_object_or_404(
+        Chapter,
+        id=self.request.data.get('chapter'),
+        subject=subject
+    )
+    
+    # 创建任务
+    task = serializer.save(
+        user=self.request.user,
+        subject=subject,
+        chapter=chapter
+    )
+    
+    # 重点修改：处理重复任务的创建 (新增代码块)
+    if task.repeat_type == 'yes':
+        # 将自身设置为parent_series
+        task.parent_series = task.pk
+        task.save()
+
+        # 创建30天内的重复任务
+        current_date = task.start_datetime + timezone.timedelta(days=1)
+        end_date = task.start_datetime + timezone.timedelta(days=30)
+        
+        while current_date <= end_date:
+            duration = task.end_datetime - task.start_datetime
+            instance_end = current_date + duration
+            
+            Task.objects.create(
+                user=task.user,
+                parent_series=task,  # 所有重复任务的parent_series都指向第一个任务
+                title=task.title,
+                description=task.description,
+                subject=task.subject,
+                chapter=task.chapter,
+                focus_level=task.focus_level,
+                energy_level=task.energy_level,
+                start_datetime=current_date,
+                end_datetime=instance_end,
+                repeat_type='yes',
+                is_completed=task.is_completed
+            )
+            
+            current_date += timezone.timedelta(days=1)

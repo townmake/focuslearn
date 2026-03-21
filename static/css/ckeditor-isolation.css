@@ -1,0 +1,46 @@
+
+/* 强制重置CKEditor容器样式 */
+#content-editor,
+#content-editor * {
+    all: initial !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    box-sizing: content-box !important;
+}
+
+/* 工具栏严格隔离 */
+.ck.ck-toolbar {
+    all: initial !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 0 10px !important;
+    background: #fff !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 4px !important;
+}
+
+/* 按钮样式重置 */
+.ck.ck-button {
+    all: initial !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 24px !important;
+    height: 24px !important;
+    padding: 0 6px !important;
+    margin: 0 2px !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+}
+
+/* 内容区域样式 */
+.ck.ck-content {
+    all: initial !important;
+    min-height: 200px !important;
+    padding: 12px !important;
+    background: #fff !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 4px !important;
+    margin-top: 8px !important;
+}

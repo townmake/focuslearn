@@ -1,0 +1,477 @@
+
+{% extends "base.html" %}
+{% load static %}
+{% include "courses/_subject_modal.html" %}
+
+{% block content %}
+<div class="subject-detail-container">
+
+        <!-- 编辑科目弹窗 -->
+    <div class="ant-modal-mask" id="editSubjectModalMask" style="display:none;"></div>
+    <div class="ant-modal-wrap" id="editSubjectModalWrap" style="display:none;">
+        <div class="ant-modal" style="width: 600px;">
+            <div class="ant-modal-content">
+                <div class="ant-modal-header">
+                    <div class="ant-modal-title">编辑科目</div>
+                </div>
+                <div class="ant-modal-body">
+                    <form id="editSubjectForm" method="POST" action="" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="id" id="editSubjectId">
+                        <div class="ant-form-item">
+                            <label>科目名称</label>    <input type="text" name="name" id="editSubjectName" class="ant-input" required>
+                        </div><div class="ant-form-item">
+                            <label>进度描述</label>    <textarea name="description" id="editSubjectDescription" class="ant-input" rows="3"></textarea></div>
+                        <div class="ant-form-item">
+                            <label>背景图片</label>    <input type="file" name="background_image" class="ant-input">
+                        <div id="editSubjectImageContainer"></div>
+                        </div><div class="ant-form-item">
+                            <label>主题色</label>    <input type="color" name="color" id="editSubjectColor" class="ant-input">
+                        </div>
+                        <div class="ant-form-item">
+                            <label>预计学时(小时)</label>
+                            <input type="number" name="estimated_hours" id="editSubjectEstimatedHours" class="ant-input" min="0" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="ant-modal-footer">
+                    <button class="ant-btn" onclick="hideEditModal()">取消</button>
+                    <button class="ant-btn ant-btn-primary" onclick="submitEditForm()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 添加章节弹窗 -->
+    <div class="ant-modal-mask" id="addChapterModalMask" style="display:none"></div>
+    <div class="ant-modal-wrap" id="addChapterModalWrap" style="display:none">
+        <div class="ant-modal" style="width:600px">
+            <div class="ant-modal-content">
+                <div class="ant-modal-header">
+                    <div class="ant-modal-title">添加新章节</div>
+                </div>
+                <div class="ant-modal-body">
+                    <form id="addChapterForm" method="POST" action="{% url 'courses:chapter_create' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="subject_id" value="{{ subject.id }}">
+                        <div class="ant-form-item">
+                            <label>章节标题</label>
+                            <input type="text" name="title" class="ant-input" required>
+                        </div>
+                        <div class="ant-form-item">
+                            <label>章节描述</label>
+                            <textarea name="description" class="ant-input" rows="3"></textarea>
+                        </div>
+                        <div class="ant-form-item">
+                            <label>排序序号</label>
+                            <input type="number" name="order" class="ant-input" 
+                                   value="{{ subject.chapters.count|add:1 }}" min="1">
+                        </div>
+                    </form>
+                </div>
+                <div class="ant-modal-footer">
+                    <button class="ant-btn" onclick="hideAddChapterModal()">取消</button>
+                    <button class="ant-btn ant-btn-primary" onclick="submitAddChapterForm()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 上部：科目基本信息 -->
+    <div class="subject-list-header">
+        <h2>{{ subject.name }}</h2>
+        <div class="header-actions">
+            <button class="ant-btn ant-btn-text ant-btn-sm" onclick="showEditSubjectModal('{{ subject.id|escapejs }}')">
+                <i class="anticon anticon-edit">编辑</i> 
+            </button>
+            <button class="ant-btn ant-btn-text ant-btn-sm" id="toggleInfoSection">
+                <i class="anticon anticon-up">展开</i> 
+            </button>
+            <button class="ant-btn ant-btn-text ant-btn-sm" onclick="refreshCounts('{{ subject.id|escapejs }}')">
+                <i class="anticon anticon-up">更新</i> 
+            </button>
+            <!-- <button class="ant-btn ant-btn-text ant-btn-sm" onclick="viewSubjectMethods('{{ subject.id|escapejs }}')">
+                <i class="anticon anticon-up">题型方法➡️</i> 
+            </button> -->
+        </div>
+    </div>
+
+
+    <div class="subject-info-section" style="display:none">
+        <div class="ant-descriptions">
+            <div class="ant-descriptions-header">
+                <div class="ant-descriptions-title">科目信息</div>
+            </div>
+
+            <div class="ant-descriptions-view">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td class="ant-descriptions-item-label">科目图片</td>
+                            <td class="ant-descriptions-item-content">
+                                {% if subject.background_image %}
+                                <img src="{{ subject.background_image.url }}" alt="{{ subject.name }}" class="subject-image">
+                                {% else %}
+                                <span>暂无图片</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="ant-descriptions-item-label">进度描述</td>
+                            <td class="ant-descriptions-item-content">{{ subject.description }}</td>
+                        </tr>
+                        <tr>
+                            <td class="ant-descriptions-item-label">主题色</td>
+                            <td class="ant-descriptions-item-content">
+                                <span class="color-block" style="background-color: {{ subject.color }}"></span>
+                                {{ subject.color }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="ant-descriptions-item-label">统计信息</td>
+                            <td class="ant-descriptions-item-content">
+                                <div class="stats-container">
+                                    <div class="stat-item">
+                                        <span class="stat-label">知识点数量:</span>
+                                        <span class="stat-value">{{ subject.knowledge_points_count }}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">预计学时:</span>
+                                        <span class="stat-value">{{ subject.estimated_hours }}小时</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">已学时长:</span>
+                                        <span class="stat-value">{{ subject.actual_study_hours }}小时</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">学习进度:</span>
+                                        <div class="progress-container">
+                                            <div class="progress-bar" style="width: {{ subject.progress }}%"></div>
+                                            <span style="color:chocolate;">{{ subject.progress }}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 下部：章节列表 -->
+    <div class="chapter-list-section">
+        <div class="ant-table">
+            <div class="ant-table-container">
+                <div class="ant-table-title">
+                    章节列表
+                    <button class="ant-btn ant-btn-primary ant-btn-sm" onclick="viewSubjectMethods('{{ subject.id|escapejs }}')">
+                        <i class="anticon anticon-plus">题型方法快速复习</i> 
+                    </button>
+                    <button class="ant-btn ant-btn-primary ant-btn-sm" onclick="showAddChapterModal()" style="margin-left:10px">
+                        <i class="anticon anticon-plus">添加章节</i>
+                    </button>
+                </div>
+                <div class="ant-table-content">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>章节名称</th>
+                                <th>知识点数量</th>
+                                <th>预计学时·小时</th>
+                                <th>累计学时·小时</th>
+                                <th>进度描述</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for chapter in chapters %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'courses:chapter_detail' pk=chapter.id %}" class="action-link">{{ chapter.title }}</a>
+                                </td>
+                                <td>{{ chapter.knowledge_points_count }}</td>
+                                <td>{{ chapter.estimated_hours|default:0 }}</td>
+                                <td>{{ chapter.actual_hours|default:0 }}</td>
+                                <td>{{ chapter.process_description|default:'未开始' }}</td>
+                                <td>
+                                    <a href="{% url 'courses:chapter_detail' pk=chapter.id %}" class="action-link">查看</a>
+                                    <a href="#" class="action-link text-danger" onclick="confirmDeleteChapter({{ chapter.id }})" style="margin-left:10px">删除</a>
+                                    <a href="{% url 'courses:chapter_exercise' pk=chapter.id %}" class="action-link">习题</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/subject_detail.css' %}">
+<style>
+.chapter-list-section {
+    margin-top: 0;  /* 移除或减小上边距 */
+    padding-top: 0; /* 移除或减小内边距 */
+}
+
+/* 如果需要更紧凑的布局，可以添加 */
+.subject-info-section + .chapter-list-section {
+    margin-top: 5px; /* 设置较小的间距值 */
+}
+
+.subject-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.subject-list-header h2 {
+    margin: 0; /* 移除默认margin */
+    flex-grow: 1; /* 允许标题占据剩余空间 */
+}
+
+.subject-info-section {
+    transition: all 0.3s ease;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px; /* 按钮间距 */
+    margin-left: auto; /* 靠右对齐 */
+}
+.ant-table-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.action-link {
+    color: #1890ff; /* Ant Design 默认链接颜色 */
+    text-decoration: none;
+    width: 160px; /* 设置固定宽度 */
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/subject_detail.js' %}"></script>
+<script>
+// 展开/收起科目信息区域
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('toggleInfoSection').addEventListener('click', function() {
+        const infoSection = document.querySelector('.subject-info-section');
+        const isHidden = infoSection.style.display === 'none';
+        
+        infoSection.style.display = isHidden ? 'block' : 'none';
+        this.querySelector('i').className = isHidden ? 'anticon anticon-up' : 'anticon anticon-down';
+        this.querySelector('i').textContent = isHidden ? '收起' : '展开';
+    });
+
+    // 删除章节确认
+    function confirmDeleteChapter(chapterId) {
+        if(confirm('确定要删除这个章节吗？此操作不可恢复！')) {
+            deleteChapter(chapterId);
+        }
+    }
+
+    // 删除章节请求
+    function deleteChapter(chapterId) {
+        fetch(`/courses/chapter/${chapterId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Accept': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                location.reload();
+            } else {
+                alert('删除失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('请求出错: ' + error);
+        });
+    }
+
+    // 将函数暴露到全局
+    window.confirmDeleteChapter = confirmDeleteChapter;
+    window.deleteChapter = deleteChapter;
+});
+</script>
+<script>
+
+    // 显示编辑弹窗
+    function showEditSubjectModal(subjectId) {
+        // 先设置表单action
+        document.getElementById('editSubjectForm').action = `/courses/subject_update/${subjectId}/`;
+        
+        fetch(`/courses/subject/${subjectId}/data/`)
+            .then(response => response.json())
+            .then(data => {
+                // 填充表单数据
+                document.getElementById('editSubjectId').value = data.id;
+                document.getElementById('editSubjectName').value = data.name;
+                document.getElementById('editSubjectDescription').value = data.description;
+                document.getElementById('editSubjectColor').value = data.color;
+                document.getElementById('editSubjectEstimatedHours').value = data.estimated_hours;
+                
+                // 显示现有图片
+                const container = document.getElementById('editSubjectImageContainer');
+                container.innerHTML = '';
+                if(data.background_image) {
+                    const img = document.createElement('img');
+                    img.src = data.background_image;
+                    img.alt = '当前图片';
+                    img.style.maxWidth = '200px';
+                    img.style.marginTop = '10px';
+                    container.appendChild(img);
+                }
+        // 显示弹窗
+                document.getElementById('editSubjectModalMask').style.display = 'block';
+                document.getElementById('editSubjectModalWrap').style.display = 'block';
+            });
+    }
+
+    // 更新统计数据函数
+    function refreshCounts(subjectId) {
+        fetch(`/courses/subject/${subjectId}/refresh/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Accept': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                // 显示成功提示
+                alert('统计数据更新成功');
+                // 重新加载页面或局部更新数据
+                location.reload();
+            } else {
+                alert('更新失败: ' + (data.message || '未知错误'));
+            }
+        })
+        .catch(error => {
+            alert('请求出错: ' + error);
+        });
+    }
+
+    // 显示题型方法页面
+    function viewSubjectMethods(subjectId) {
+        window.location.href = `/courses/subject/${subjectId}/methods/`;
+    }
+
+    // 提交编辑表单
+    function submitEditForm() {
+        const form = document.getElementById('editSubjectForm');
+        const formData = new FormData(form);
+        const submitBtn = document.querySelector('#editSubjectModalWrap .ant-btn-primary');
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="anticon anticon-loading"></i> 保存中...';
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new TypeError("Oops, we didn't get JSON!");
+            }
+            return response.json();
+        })
+        .then(data => {
+            if(data.status === 'success') {
+                location.reload();
+            } else {
+                alert('更新失败: ' + JSON.stringify(data.errors));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('请求失败: ' + error.message);
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '保存';
+        });
+    }
+
+    // 隐藏编辑弹窗
+    function hideEditModal() {
+        document.getElementById('editSubjectModalMask').style.display = 'none';
+        document.getElementById('editSubjectModalWrap').style.display = 'none';
+    }
+
+    // 显示添加章节弹窗
+    function showAddChapterModal() {
+        document.getElementById('addChapterModalMask').style.display = 'block';
+        document.getElementById('addChapterModalWrap').style.display = 'block';
+    }
+
+    // 隐藏添加章节弹窗
+    function hideAddChapterModal() {
+        document.getElementById('addChapterModalMask').style.display = 'none';
+        document.getElementById('addChapterModalWrap').style.display = 'none';
+    }
+
+    // 提交添加章节表单
+function submitAddChapterForm() {
+    const form = document.getElementById('addChapterForm');
+    const submitBtn = document.querySelector('#addChapterModalWrap .ant-btn-primary');
+    const formData = new FormData(form);
+    
+    // 打印表单数据用于调试
+    for (var pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+    }
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="anticon anticon-loading"></i> 保存中...';
+    
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            hideAddChapterModal();
+            location.reload();
+        } else {
+            alert('添加失败: ' + JSON.stringify(data.errors));
+        }
+    })
+    .catch(error => {
+        alert('请求出错: ' + error);
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '保存';
+    });
+}
+</script>
+{% endblock %}

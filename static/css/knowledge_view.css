@@ -1,0 +1,366 @@
+/* 待完善，在knowledge_view.html页面里调用 */
+.embedded-container {
+    width: 100%;
+    max-width: 1200px;  /* 添加最大宽度限制 */
+    margin: 0 auto;     /* 居中显示 */
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.embedded-container .detail-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.detail-content {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+
+    
+    /* 加载状态 */
+    .loading-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #1976d2;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .empty-state, .error-state {
+        text-align: center;
+        padding: 20px 20px;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    .empty-icon, .error-icon {
+        margin-bottom: 10px;
+    }
+
+    .empty-icon img, .error-icon img {
+        width: 60px;
+        height: 60px;
+        opacity: 0.8;
+    }
+
+    .empty-state h3, .error-state h3 {
+        margin-bottom: 10px;
+        color: #333;
+    }
+
+    .empty-state p, .error-state p {
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+
+    .detail-header {
+    display: flex;
+    justify-content: space-between;
+    /* 对齐方向 */
+    flex-direction: row;  /* 默认水平排列 */
+    align-items: center; /* 垂直居中对齐 */
+    gap: 10px; /* 元素间距 */
+    padding: 10px;
+    }
+
+
+
+    .hidden {
+        display: none !important;
+    }
+
+    .action-buttons button {
+        height: 32px; /* 固定高度 */
+        padding: 0 12px;
+        flex-shrink: 0; /* 防止按钮压缩 */
+        white-space: nowrap; /* 防止文字换行 */
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        background: #fff;
+        cursor: pointer;
+    }
+    /* 弹窗标题样式 */
+    .modal-header-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: #333;
+        /* 添加过渡效果 */
+        transition: all 0.3s ease;
+    }
+
+    .info-item-desc {
+        font-size: 14px;
+        color: #141414;
+        margin-bottom: 5px;
+        word-break: break-all; /* 使长文本换行 */
+        margin-top: 12px;
+        display: flex;
+        align-items: top;
+    }
+    .info-value-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 15px;
+    }
+    .info-item-group-order {
+        margin-top: 12px;
+        margin-bottom: 12px;
+        display: flex;
+        flex-direction: row ;
+    }
+    .info-item-order {
+        flex: 1;
+        align-items: center;
+    }
+    .info-item-order .info-label {
+        font-size: 14px;
+        color: #666;
+        width: 70px;
+        text-align: right;
+        margin-right: 8px;
+    }
+    .info-item-order .info-value {
+        font-size: 14px;
+        color: #666;
+        max-width: 70px;
+    }
+
+    .info-value {
+        font-size: 14px;
+        color: #141414;
+        word-break: break-all; /* 使长文本换行 */
+    }
+        /* 新增样式 */
+    .info-label-basic {
+        display: inline-block;
+        color: #666;
+        /* width: 4000px; */
+        text-align: right;
+        margin-right: 8px;
+        vertical-align: top;
+    }
+    
+    .info-item-desc .info-value {
+        display: inline-block;
+        min-height: 40px; /* 2行高度 */
+        line-height: 20px;
+        width: calc(100% - 78px); /* 减去label宽度和margin */
+    }
+
+    .info-item-star{
+        display: flex;
+        align-items: center;
+        margin-top: 8px;
+        margin-bottom: 8px;
+    }
+    
+    /* 星级评分样式 */
+    .rating-stars {
+        width: 160px;
+        display: inline-flex;
+        justify-content: space-between; 
+        align-items: center;
+        font-size: 16px;
+        gap: 10px; 
+    }
+    .full-star { color: #ffd700; }  /* 金色满星 */
+    .half-star { color: #ffa500; }  /* 橙色半星 */
+    .empty-star { color: #cccccc; } /* 灰色空星 */
+    
+/* 注释项整体样式 */
+.annotation-item {
+  position: relative;
+  padding: 0.6rem;
+  margin-bottom: 0.5rem;
+  background: #f7f7ff;
+  border-radius: 4px;
+  /* box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06); */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 4px solid transparent; /* 初始设置为透明 */
+}
+
+/* 悬停效果 */
+.annotation-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 不同颜色的边框类 */
+.annotation-item-blue {
+  border-left-color: #4a90e2; /* 蓝色 */
+}
+
+.annotation-item-red {
+  border-left-color: #ff0000; /* 红色 */
+}
+
+.annotation-item-green {
+  border-left-color: #28a745; /* 绿色 */
+}
+
+/* 悬停效果 */
+.annotation-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 头部布局 */
+.annotation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #eee;
+}
+
+/* 标签样式 */
+.tag {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #fff;
+  background: #4a90e2;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+.date {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+/* 用户信息样式 */
+.user {
+  font-size: 0.8rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+}
+
+.user::before {
+  content: "•";
+  color: #ddd;
+  margin: 0 0.5rem;
+}
+
+/* 引文样式 */
+.annotation-quote {
+  color: #2c3e50;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+  position: relative;
+  padding-left: 1.2rem;
+}
+
+.annotation-quote::before {
+  content: "“";
+  position: absolute;
+  left: 0;
+  color: #4a90e2;
+  font-size: 1.4em;
+  font-family: serif;
+  top: -0.2em;
+}
+
+/* 解释内容样式 */
+.annotation-content {
+  color: #555;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  background: #ffffff;
+  padding: 0.5rem;
+  border-radius: 4px;
+  position: relative;
+}
+
+.annotation-content::before {
+  content: "注：";
+  display: inline-block;
+  color: #4a90e2;
+  font-weight: 500;
+  margin-right: 0.5rem;
+}
+
+/* 时间戳样式（如需添加） */
+.annotation-time {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: #999;
+  margin-top: 1rem;
+}
+/* 注释操作按钮样式 */
+.annotation-action-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-left: 8px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.annotation-action-btn:hover {
+    transform: scale(1.1);
+}
+
+.annotation-action-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* 主容器布局 */
+.kp-content-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 编辑器容器 */
+.kp-editor-AI {
+    width: 100%;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 注释容器 */
+.kp-editor-annot {
+    width: 100%;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-top: 20px;
+}
+
+/* 有注释时的布局 */
+.kp-content-section.has-annotations .kp-editor-AI {
+    width: 100%;
+}
+
+.kp-content-section.has-annotations .kp-editor-annot {
+    width: 100%;
+}

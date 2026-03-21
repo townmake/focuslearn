@@ -1,0 +1,1172 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}日历视图 - FocusLearn{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'vendor/css/fullcalendar.min.css' %}" rel="stylesheet" />
+<link href="{% static 'vendor/css/bootstrap.min.css' %}" rel="stylesheet">
+<link href="{% static 'css/calendar.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="calendar-container">
+    <div id="calendar"></div>
+</div>
+
+<!-- 任务详情模态框 -->
+<div class="modal fade" id="taskDetailsModal" tabindex="-1" aria-labelledby="taskDetailsModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="taskDetailsModalLabel">任务详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h4 id="taskTitle"></h4>
+                <div class="task-details-container">
+                    <div><strong>科目：</strong> <span id="taskSubject"></span></div>
+                    <div><strong>章节：</strong> <span id="taskChapter"></span></div>
+                    <div><strong>时间：</strong> <span id="taskTime"></span></div>
+                    <div id="descriptionRow" style="display: none;"><strong>描述：</strong> <span id="taskDescription"></span></div>
+                    
+                    <div class="focus-energy-container">
+                        <div class="col-6 pe-2">
+                            <div class="progress-label">
+                                <span>专注力</span>
+                                <span id="focusValue"></span>
+                            </div>
+                            <div class="progress">
+                                <div id="focusProgress" class="progress-bar bg-primary" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                        <div class="col-6 ps-2">
+                            <div class="progress-label">
+                                <span>体力</span>
+                                <span id="energyValue"></span>
+                            </div>
+                            <div class="progress">
+                                <div id="energyProgress" class="progress-bar bg-success" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div>
+                    <button type="button" id="deleteTaskBtn" class="btn btn-danger">删除</button>
+                </div>
+                <div>
+                    <button type="button" id="toggleCompleteBtn" class="btn btn-success">标记完成</button>
+                    <button type="button" id="editTaskBtn" class="btn btn-primary">编辑</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建/编辑任务模态框 -->
+<div class="modal fade" id="taskFormModal" tabindex="-1" aria-labelledby="taskFormModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="taskFormModalLabel">创建任务</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <input type="hidden" id="taskId">
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="title" class="form-label mb-0">标题</label>
+                        </div>
+                        <div class="col-9">
+                            <input type="text" class="form-control" id="title" required>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="subject" class="form-label mb-0">科目</label>
+                        </div>
+                        <div class="col-9">
+                            <select class="form-select" id="subject" required>
+                                <option value="">选择科目</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="chapter" class="form-label mb-0">章节</label>
+                        </div>
+                        <div class="col-9">
+                            <select class="form-select" id="chapter" required>
+                                <option value="">请先选择科目</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="startDateTime" class="form-label mb-0">开始时间</label>
+                        </div>
+                        <div class="col-9">
+                            <input type="time" class="form-control" id="startDateTime" min="06:00" max="23:59" required>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="endDateTime" class="form-label mb-0">结束时间</label>
+                        </div>
+                        <div class="col-9">
+                            <input type="time" class="form-control" id="endDateTime" min="06:00" max="23:59" required>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="description" class="form-label mb-0">描述</label>
+                        </div>
+                        <div class="col-9">
+                            <textarea class="form-control" id="description" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="focusLevel" class="form-label mb-0">专注力 (<span id="focusLevelValue">50</span>)</label>
+                        </div>
+                        <div class="col-9">
+                            <input type="range" class="form-range" id="focusLevel" min="0" max="100" value="50">
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="energyLevel" class="form-label mb-0">体力 (<span id="energyLevelValue">50</span>)</label>
+                        </div>
+                        <div class="col-9">
+                            <input type="range" class="form-range" id="energyLevel" min="0" max="100" value="50">
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="repeatType" class="form-label mb-0">重复</label>
+                        </div>
+                        <div class="col-9">
+                            <select class="form-select" id="repeatType">
+                                <option value="none">不重复</option>
+                                <option value="daily">每天</option>
+                                <option value="weekly">每周</option>
+                                <option value="monthly">每月</option>
+                                <!-- <option value="custom">自定义</option> -->
+                            </select>
+                        
+                        <div id="repeatOptions" class="repeat-options" style="display: none;">
+                            <div class="mb-3 row align-items-center">
+                                <div class="col-4">
+                                    <label for="repeatEnds" class="form-label mb-0">结束日期</label>
+                                </div>
+                                <div class="col-8">
+                                    <input type="date" class="form-control" id="repeatEnds">
+                                </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" id="saveTaskBtn" class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 在 calendar.html 中添加更新范围选择的模态框 -->
+<div class="modal fade" id="updateScopeModal" tabindex="-1" aria-labelledby="updateScopeModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="updateScopeModalLabel">选择更新范围</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>您要更新哪些任务？</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="updateScope" id="updateScopeThis" value="this" checked>
+                    <label class="form-check-label" for="updateScopeThis">
+                        仅更新当前任务
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="updateScope" id="updateScopeFuture" value="future">
+                    <label class="form-check-label" for="updateScopeFuture">
+                        更新当前及未来任务
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="updateScope" id="updateScopeAll" value="all">
+                    <label class="form-check-label" for="updateScopeAll">
+                        更新所有重复任务
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmUpdateScope">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/js/fullcalendar.min.js' %}"></script>
+<script src="{% static 'vendor/js/bootstrap.bundle.min.js' %}"></script>
+
+<script>
+// 获取Cookie函数
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 计算文字颜色函数 - 根据背景色计算最佳文字颜色（黑或白）
+function getContrastYIQ(hexcolor) {
+    // 如果没有提供颜色或格式不正确，返回默认黑色
+    if (!hexcolor || !hexcolor.startsWith('#') || hexcolor.length !== 7) {
+        return '#000000';
+    }
+    
+    // 去掉#号并转换为RGB
+    hexcolor = hexcolor.substring(1);
+    const r = parseInt(hexcolor.substr(0, 2), 16);
+    const g = parseInt(hexcolor.substr(2, 2), 16);
+    const b = parseInt(hexcolor.substr(4, 2), 16);
+    
+    // 计算YIQ值 - 用于确定颜色的亮度
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    
+    // 如果背景色较亮返回黑色文字，否则返回白色文字
+    return (yiq >= 128) ? '#000000' : '#ffffff';
+}
+
+    document.addEventListener('DOMContentLoaded', function() {
+    // 初始化模态框
+    const taskDetailsModal = new bootstrap.Modal(document.getElementById('taskDetailsModal'));
+    const taskFormModal = new bootstrap.Modal(document.getElementById('taskFormModal'));
+    
+    // 获取CSRF Token
+    const csrftoken = getCookie('csrftoken');
+    
+    // 加载科目列表
+    loadSubjects();
+    
+    // 监听科目变化，更新章节列表
+    document.getElementById('subject').addEventListener('change', function() {
+        loadChapters(this.value);
+    });
+    
+    // 监听专注力和体力滑块变化
+    document.getElementById('focusLevel').addEventListener('input', function() {
+        document.getElementById('focusLevelValue').textContent = this.value;
+    });
+    
+    document.getElementById('energyLevel').addEventListener('input', function() {
+        document.getElementById('energyLevelValue').textContent = this.value;
+    });
+
+    // 监听重复类型变化
+    document.getElementById('repeatType').addEventListener('change', function() {
+        document.getElementById('repeatType').value = this.value;
+    })
+
+    
+    // 监听重复类型变化
+    document.getElementById('repeatType').addEventListener('change', function() {
+        const repeatOptions = document.getElementById('repeatOptions');
+        const repeatEnds = document.getElementById('repeatEnds');
+        
+        if (this.value !== 'none') {
+            repeatOptions.style.display = 'block';
+        } else {
+            repeatOptions.style.display = 'none';
+            repeatEnds.value = ''; // 清空结束日期
+        }
+    });
+
+    // 监听模态框关闭事件，重置重复选项
+    document.getElementById('taskFormModal').addEventListener('hidden.bs.modal', function () {
+        const repeatType = document.getElementById('repeatType');
+        const repeatOptions = document.getElementById('repeatOptions');
+        const repeatEnds = document.getElementById('repeatEnds');
+
+        // 重置为不重复
+        repeatType.value = 'none';
+        repeatOptions.style.display = 'none';
+        repeatEnds.value = ''; // 清空结束日期
+    });
+    
+    // 设置时间选择器的默认值和限制
+    function initializeTimeSelectors() {
+        const startTimeSelect = document.getElementById('startDateTime');
+        const endTimeSelect = document.getElementById('endDateTime');
+        
+        // 设置默认时间为当前时间（向上取整到最近的小时）
+        const now = new Date();
+        now.setMinutes(0);
+        now.setHours(Math.max(6, Math.min(23, now.getHours())));
+        
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:00`;
+        
+        startTimeSelect.value = timeStr;
+        endTimeSelect.value = timeStr;
+    }
+    
+    // 初始化时间选择器
+    initializeTimeSelectors();
+    
+    // 初始化FullCalendar
+    const calendarEl = document.getElementById('calendar');
+    
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'timeGridDay', // 默认显示日视图
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'listWeek,timeGridDay,timeGridWeek,dayGridMonth' // 调整视图顺序为 list/日/周/月
+        },
+        views: {
+            timeGridWeek: {
+                slotMinTime: '06:00:00',
+                slotMaxTime: '23:59:59',
+                // contentHeight: 'auto',
+                // allDaySlot: false,  // 隐藏全天区域
+                slotLabelInterval: '01:00',  // 每小时显示一次标签
+                slotDuration: '00:15:00',    // 30分钟一格
+                // expandRows: true,   // 关键：强制填充高度
+                // stickyHeaderDates: true  // 固定表头
+            },
+            timeGridDay: {
+                slotMinTime: '06:00:00',
+                slotMaxTime: '23:59:59',
+                // contentHeight: 'auto',
+                // allDaySlot: false,
+                // expandRows: true
+                slotLabelInterval: '01:00',  // 每小时显示一次标签
+                slotDuration: '00:15:00',    // 30分钟一格
+            },
+                // 其他视图保持默认
+            dayGridMonth: {},
+            listWeek: {}
+                
+
+        },
+
+        slotDuration: '00:30:00',
+        navLinks: true,
+        editable: true,
+        dayMaxEvents: true,
+        selectable: true,
+        nowIndicator: true,
+        locale: 'zh-cn',
+        eventTimeFormat: {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        },
+
+
+        // 获取事件数据
+        events: function(info, successCallback, failureCallback) {
+            // 确保时区信息正确
+            // const startDate = new Date(info.start);
+            // const endDate = new Date(info.end);
+                // 使用 ISO 格式的日期字符串
+            const startDate = info.startStr.split('T')[0];
+            const endDate = info.endStr.split('T')[0];
+            
+            fetch(`/planner/api/tasks/?start_date=${startDate}&end_date=${endDate}`, {
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'Accept': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            console.error('API错误响应:', text);
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const events = data.map(task => {
+                // 计算文字颜色
+                const color = task.subject_color || '#3498db';
+                const textColor = getContrastYIQ(color);
+                // console.log("task", task);
+
+                
+                return {
+                    id: task.id,
+                    title: task.title,
+                    start: task.start,
+                    end: task.end,
+                    backgroundColor: color,
+                    borderColor: color,
+                    textColor: textColor,
+                    description: task.description,
+                    classNames: task.is_completed ? ['task-completed'] : [],
+                    extendedProps: {
+                        subject_name: task.subject_name,
+                        chapter_name: task.chapter_name,
+                        focus_level: task.focus_level,
+                        energy_level: task.energy_level,
+                        is_completed: task.is_completed,
+                        subject_id: task.subject,
+                        chapter_id: task.chapter,
+                        repeat_type: task.repeat_type,
+                        repeat_ends: task.repeat_ends,
+                    }
+                };
+            });
+                    successCallback(events);
+                })
+                .catch(error => {
+                    console.error('Error fetching events:', error);
+                    alert(`获取任务数据失败: ${error.message}`);
+                    failureCallback(error);
+                });
+        },
+
+        // 事件拖拽更新——待调整
+        eventDrop: function(info) {
+            const task = info.event;
+            updateTaskTimes(task);
+        },
+
+        // 事件时长调整——待调整
+        eventResize: function(info) {
+            const task = info.event;
+            updateTaskTimes(task);
+        },
+
+        // 选择时间段创建事件
+    select: function(info) {
+        // 清空表单
+        document.getElementById('taskForm').reset();
+        document.getElementById('taskId').value = '';
+        document.getElementById('taskFormModalLabel').textContent = '创建任务';
+        document.getElementById('repeatType').value = 'none';
+
+        
+        // 存储选中的日期，用于后续提交
+        window.selectedDate = info.start.toISOString().split('T')[0];
+        
+        // 获取选中时间并格式化
+        const startTime = formatDateTimeForInput(info.start);
+        const endTime = formatDateTimeForInput(info.end);
+        
+        if (startTime && endTime) {
+            // 设置开始和结束时间
+            document.getElementById('startDateTime').value = startTime;
+            document.getElementById('endDateTime').value = endTime;
+            
+            // 显示模态框
+            taskFormModal.show();
+        } else {
+            console.error('Invalid time selection');
+        }
+    },
+        
+        // 点击事件处理
+        eventClick: function(info) {
+            const event = info.event;
+            
+            // 填充任务详情
+            document.getElementById('taskTitle').textContent = event.title;
+            document.getElementById('taskSubject').textContent = event.extendedProps.subject_name;
+            document.getElementById('taskChapter').textContent = event.extendedProps.chapter_name;
+            document.getElementById('taskTime').textContent = formatDateTimeRange(event.start, event.end);
+
+            // 处理描述行的显示/隐藏
+            const description = event.extendedProps.description;
+            const descriptionRow = document.getElementById('descriptionRow');
+            if (description && description.trim()) {
+                document.getElementById('taskDescription').textContent = description;
+                descriptionRow.style.display = 'block';
+            } else {
+                descriptionRow.style.display = 'none';
+            }
+            
+            // 设置专注力和体力进度条
+            const focusLevel = event.extendedProps.focus_level;
+            const energyLevel = event.extendedProps.energy_level;
+            
+            document.getElementById('focusValue').textContent = focusLevel + '%';
+            document.getElementById('focusProgress').style.width = focusLevel + '%';
+            document.getElementById('focusProgress').setAttribute('aria-valuenow', focusLevel);
+            
+            document.getElementById('energyValue').textContent = energyLevel + '%';
+            document.getElementById('energyProgress').style.width = energyLevel + '%';
+            document.getElementById('energyProgress').setAttribute('aria-valuenow', energyLevel);
+            
+            // 设置完成按钮状态
+            const toggleCompleteBtn = document.getElementById('toggleCompleteBtn');
+            if (event.extendedProps.is_completed) {
+                toggleCompleteBtn.textContent = '标记未完成';
+                toggleCompleteBtn.classList.remove('btn-success');
+                toggleCompleteBtn.classList.add('btn-secondary');
+            } else {
+                toggleCompleteBtn.textContent = '标记完成';
+                toggleCompleteBtn.classList.remove('btn-secondary');
+                toggleCompleteBtn.classList.add('btn-success');
+            }
+            
+            // 设置按钮事件
+            document.getElementById('toggleCompleteBtn').onclick = function() {
+                toggleTaskComplete(event.id);
+            };
+            
+            document.getElementById('editTaskBtn').onclick = function() {
+                taskDetailsModal.hide();
+                setTimeout(() => {
+                    openEditTaskForm(event);
+                }, 150);
+            };
+            
+            document.getElementById('deleteTaskBtn').onclick = function() {
+                if (confirm('确定要删除这个任务吗？')) {
+                    deleteTask(event.id);
+                }
+            };
+            
+            // 显示模态框
+            taskDetailsModal.show();
+        }
+    });
+            
+    calendar.render();
+
+    // 保存任务按钮点击事件
+    document.getElementById('saveTaskBtn').addEventListener('click', function() {
+        saveTask();
+    });
+
+    // 更新任务时间的辅助函数
+    function updateTaskTimes(info) {
+        // 增加详细的调试日志
+
+        const event = info.event;
+    
+        // 分别获取开始和结束的日期和时间
+        const startDate = event.start ? formatDate(event.start) : '';
+        const startTime = event.start ? formatTime(event.start) : '';
+        
+        const endDate = event.end ? formatDate(event.end) : '';
+        const endTime = event.end ? formatTime(event.end) : '';
+
+        // 获取任务ID
+        const taskId = event.id;
+
+
+        // 直接发送更新请求
+        fetch(`/planner/api/tasks/${taskId}/move/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                start_date: startDate,
+                start_time: startTime,
+                end_date: endDate,
+                end_time: endTime,
+                update_scope: 'this'  // 默认只更新当前任务
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to update task');
+            }
+            return response.json();
+        })
+        .then(data => {
+            calendar.refetchEvents(); // 刷新日历
+        })
+        .catch(error => {
+            console.error('Error updating task:', error);
+            alert(`更新任务失败: ${error.message}`);
+            calendar.refetchEvents(); // 刷新日历以恢复原状
+        });
+    }
+
+    // 加载科目列表
+    function loadSubjects() {
+        fetch('/planner/api/subjects/', {
+            headers: {
+                'X-CSRFToken': csrftoken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const subjectSelect = document.getElementById('subject');
+            subjectSelect.innerHTML = '<option value="">选择科目</option>';
+            
+            data.forEach(subject => {
+                const option = document.createElement('option');
+                option.value = subject.id;
+                option.textContent = subject.name;
+                subjectSelect.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Error loading subjects:', error));
+    }
+
+    // 加载章节列表
+    function loadChapters(subjectId) {
+        if (!subjectId) {
+            document.getElementById('chapter').innerHTML = '<option value="">请先选择科目</option>';
+            return;
+        }
+        
+        fetch(`/planner/api/chapters/?subject=${subjectId}`, {
+            headers: {
+                'X-CSRFToken': csrftoken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const chapterSelect = document.getElementById('chapter');
+            chapterSelect.innerHTML = '<option value="">选择章节</option>';
+            
+            data.forEach(chapter => {
+                const option = document.createElement('option');
+                option.value = chapter.id;
+                option.textContent = chapter.title;
+                option.style.color = '#000'; // 设置章节选项的字体颜色为黑色
+                chapterSelect.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Error loading chapters:', error));
+    }
+
+    // 格式化日期时间为输入框格式
+    function formatDateTimeForInput(date) {
+        const d = new Date(date);
+        
+        // 获取小时和分钟
+        let hours = d.getHours();
+        let minutes = d.getMinutes();
+        
+        // 确保小时在6-24范围内
+        hours = Math.max(6, Math.min(24, hours));
+        
+        // 处理特殊情况：24点只能是24:00
+        if (hours === 24 && minutes > 0) {
+            hours = 24;
+            minutes = 0;
+        }
+        
+        // 格式化输出
+        const hoursStr = String(hours).padStart(2, '0');
+        const minutesStr = String(minutes).padStart(2, '0');
+        
+        return `${hoursStr}:${minutesStr}`;
+    }
+    
+    // 设置时间选择器的值
+    function setTimeSelectValue(selectId, timeValue) {
+        const input = document.getElementById(selectId);
+        if (input) {
+            input.value = timeValue;
+        }
+    }
+    
+    // 格式化日期时间范围为显示格式
+    function formatDateTimeRange(start, end) {
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        
+        const options = { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        };
+        
+        // 如果是同一天，只显示一次日期
+        if (startDate.toDateString() === endDate.toDateString()) {
+            return `${startDate.toLocaleDateString('zh-CN', options)} - ${endDate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+        } else {
+            return `${startDate.toLocaleDateString('zh-CN', options)} - ${endDate.toLocaleDateString('zh-CN', options)}`;
+        }
+    }
+    
+    // 切换任务完成状态
+    function toggleTaskComplete(taskId) {
+        fetch(`/planner/api/tasks/${taskId}/toggle_complete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            taskDetailsModal.hide();
+            calendar.refetchEvents(); // 刷新日历
+        })
+        .catch(error => console.error('Error toggling task completion:', error));
+    }
+
+    // 打开编辑任务表单
+    function openEditTaskForm(event) {
+        // 设置表单标题
+        document.getElementById('taskFormModalLabel').textContent = '编辑任务';
+        
+        // 填充表单数据
+        document.getElementById('taskId').value = event.id;
+        document.getElementById('title').value = event.title;
+        document.getElementById('startDateTime').value = formatDateTimeForInput(event.start);
+        document.getElementById('endDateTime').value = formatDateTimeForInput(event.end);
+        document.getElementById('description').value = event.extendedProps.description || '';
+        document.getElementById('focusLevel').value = event.extendedProps.focus_level;
+        document.getElementById('energyLevel').value = event.extendedProps.energy_level;
+        document.getElementById('focusLevelValue').textContent = event.extendedProps.focus_level;
+        document.getElementById('energyLevelValue').textContent = event.extendedProps.energy_level;
+        document.getElementById('subject').value = event.extendedProps.subject_id;
+         // 获取重复类型
+        document.getElementById('repeatType').value = event.extendedProps.repeat_type|| 'none';
+        document.getElementById('repeatEnd').value = event.extendedProps.repeat_ends|| 'none';
+
+        // 加载章节并设置选中值
+        loadChapters(event.extendedProps.subject_id);
+        setTimeout(() => {
+            document.getElementById('chapter').value = event.extendedProps.chapter_id;
+        }, 500);
+        
+        taskDetailsModal.hide();
+        taskFormModal.show();
+    }
+
+    // 保存任务--提交任务
+    function saveTask() {
+        // 获取表单数据
+        const taskId = document.getElementById('taskId').value;
+        const title = document.getElementById('title').value;
+        const subject = document.getElementById('subject').value;
+        const chapter = document.getElementById('chapter').value;
+
+        const start_time = document.getElementById('startDateTime').value;
+        const end_time = document.getElementById('endDateTime').value;
+        const description = document.getElementById('description').value;
+        const focusLevel = document.getElementById('focusLevel').value;
+        const energyLevel = document.getElementById('energyLevel').value;
+        const repeatType = document.getElementById('repeatType').value;
+        const repeatEnds = document.getElementById('repeatEnds').value;
+        
+        // 验证表单
+        if (!title || !subject || !chapter || !start_time || !end_time|| !focusLevel || !energyLevel|| !repeatType) {
+            alert('请填写所有必填字段');
+            return;
+        }
+
+        
+        // 获取选中的日期或当前日期
+        const selectedDate = window.selectedDate || new Date().toISOString().split('T')[0];
+        const start_date = selectedDate;
+        const end_date = selectedDate;
+
+        if((repeatType === 'none' && repeatEnds)|| (repeatType !== 'none' && !repeatEnds)|| (repeatEnds <= start_date)){
+            alert('请填写正确的结束日期');
+            return;
+        }
+
+        
+        // 构建任务数据
+        const taskData = {
+            title,
+            subject,
+            chapter,
+            description,
+            start_time,
+            end_time,
+            start_date,
+            end_date,
+            focus_level: focusLevel,
+            energy_level: energyLevel,
+            repeat_type: repeatType,
+            repeat_ends: repeatEnds
+        };
+
+        
+        try {
+            // 存储开始和结束的日期和时间
+            // taskData.start_datetime = convertToISODateTime(selectedDate, startDateTime);
+            // taskData.end_datetime = convertToISODateTime(selectedDate, endDateTime);
+            
+            // 验证时间的有效性
+            if (!taskData.start_time || !taskData.end_time) {
+                throw new Error('Invalid start or end time');
+            }
+            
+            // 确保结束时间不早于开始时间
+            if (new Date(taskData.end_time) <= new Date(taskData.start_time)) {
+                alert('结束时间必须晚于开始时间');
+                return;
+            }
+        } catch (error) {
+            console.error('Time conversion error:', error);
+            alert('时间格式无效，请检查输入');
+            return;
+        }
+
+        if (taskId) {
+
+            //隐藏模态框taskFormModal
+            //taskFormModal.hide(); 
+            // 显示更新范围选择模态框
+            const updateScopeModal = new bootstrap.Modal(document.getElementById('updateScopeModal'));
+            updateScopeModal.show();
+
+            // 监听确认按钮
+            document.getElementById('confirmUpdateScope').onclick = function() {
+                // 获取选择的更新范围
+                const updateScope = document.querySelector('input[name="updateScope"]:checked').value;
+                
+                // 将更新范围添加到任务数据中
+                taskData.update_scope = updateScope;
+
+                // 发送更新请求
+                fetch(`/planner/api/tasks/${taskId}/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify(taskData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(errorData => {
+                            throw new Error(JSON.stringify(errorData));
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Task updated:', data);
+                    
+                    // 尝试隐藏所有可能的模态框
+                    try {
+                        // 使用 jQuery 方式（如果使用 jQuery）
+                        $('#taskFormModal').modal('hide');
+                        $('#updateScopeModal').modal('hide');
+                        
+                        // 使用 Bootstrap 原生 JavaScript 方式
+                        const taskFormModal = document.getElementById('taskFormModal');
+                        const updateScopeModal = document.getElementById('updateScopeModal');
+                        
+                        if (taskDetailsModal) {
+                            const modalInstance = bootstrap.Modal.getInstance(taskFormModal);
+                            if (modalInstance) {
+                                modalInstance.hide();
+                            } else {
+                                // 如果没有实例，尝试创建并隐藏
+                                new bootstrap.Modal(taskFormModal).hide();
+                            }
+                        }
+                        
+                        if (updateScopeModal) {
+                            const modalInstance = bootstrap.Modal.getInstance(updateScopeModal);
+                            if (modalInstance) {
+                                modalInstance.hide();
+                            } else {
+                                new bootstrap.Modal(updateScopeModal).hide();
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error hiding modals:', error);
+                    }
+                    // 刷新日历或执行其他操作
+                    calendar.refetchEvents();
+                })
+                .catch(error => {
+                    console.error('Error saving task:', error);
+                    updateScopeModal.hide();
+                });
+            };
+        } else {
+            // 创建新任务的原有逻辑
+            fetch('/planner/api/tasks/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify(taskData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(JSON.stringify(errorData));
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Task created:', data);
+                // 刷新日历或执行其他操作
+                                    // 尝试隐藏所有可能的模态框
+                try {
+                    // 使用 jQuery 方式（如果使用 jQuery）
+                    $('#taskFormModal').modal('hide');
+                    $('#updateScopeModal').modal('hide');
+                    
+                    // 使用 Bootstrap 原生 JavaScript 方式
+                    const taskFormModal = document.getElementById('taskFormModal');
+                    const updateScopeModal = document.getElementById('updateScopeModal');
+                    
+                    if (taskDetailsModal) {
+                        const modalInstance = bootstrap.Modal.getInstance(taskFormModal);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        } else {
+                            // 如果没有实例，尝试创建并隐藏
+                            new bootstrap.Modal(taskFormModal).hide();
+                        }
+                    }
+                    
+                    if (updateScopeModal) {
+                        const modalInstance = bootstrap.Modal.getInstance(updateScopeModal);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        } else {
+                            new bootstrap.Modal(updateScopeModal).hide();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error hiding modals:', error);
+                }
+                // 关闭模态框
+                calendar.refetchEvents();
+            })
+            .catch(error => {
+                console.error('Error saving task:', error);
+            });
+        }
+        
+ }
+
+    // 删除任务_删除重复任务细节在后端处理，此处仅为前端触发删除操作
+    function deleteTask(taskId) {
+        fetch(`/planner/api/tasks/${taskId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': csrftoken
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to delete task');
+            }
+            taskDetailsModal.hide();
+            calendar.refetchEvents(); // 刷新日历
+        })
+        .catch(error => console.error('Error deleting task:', error));
+    }
+
+    // 将时间字符串转换为ISO格式
+    function convertToISODateTime(dateStr, timeStr) {
+        if (!dateStr || !timeStr) return null;
+        
+        // 获取当前日期作为默认日期
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        
+        // 使用提供的日期或当前日期
+        const finalDateStr = dateStr || `${year}-${month}-${day}`;
+        
+        // 解析时间
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        
+        // 创建新的日期对象
+        const date = new Date(`${finalDateStr}T${timeStr}:00`);
+        
+        // 验证日期是否有效
+        if (isNaN(date.getTime())) {
+            throw new Error('Invalid date/time combination');
+        }
+        
+        return date.toISOString();
+    }
+    
+    // 根据背景色计算对比度最佳的文字颜色
+    function getContrastYIQ(hexcolor) {
+        // 移除 # 号（如果有）
+        hexcolor = hexcolor.replace('#', '');
+        
+        // 转换为 RGB
+        const r = parseInt(hexcolor.substr(0,2), 16);
+        const g = parseInt(hexcolor.substr(2,2), 16);
+        const b = parseInt(hexcolor.substr(4,2), 16);
+        
+        // 计算 YIQ 值
+        const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        
+        // 根据 YIQ 值返回黑色或白色
+        return (yiq >= 128) ? '#000000' : '#ffffff';
+    }
+
+    // 格式化日期时间为时间选择器格式
+    function formatDateTimeForInput(date) {
+        if (!date) return null;
+        
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return null;
+        
+        // 获取小时和分钟
+        let hours = d.getHours();
+        let minutes = d.getMinutes();
+        
+        // 确保小时在6-23范围内
+        hours = Math.max(6, Math.min(23, hours));
+        
+        // 将分钟调整到最近的15分钟间隔
+        minutes = Math.round(minutes / 15) * 15;
+        
+        // 处理特殊情况：如果分钟是60，调整为下一个小时的00分
+        if (minutes === 60) {
+            minutes = 0;
+            hours = Math.min(23, hours + 1);
+        }
+        
+        // 格式化输出
+        const hoursStr = String(hours).padStart(2, '0');
+        const minutesStr = String(minutes).padStart(2, '0');
+        
+        return `${hoursStr}:${minutesStr}`;
+    }
+    
+    // 设置时间选择器的值
+    function setTimeSelectValue(selectId, timeValue) {
+        const input = document.getElementById(selectId);
+        if (!input) return;
+        
+        let formattedTime;
+        if (typeof timeValue === 'string') {
+            // 如果是字符串格式的时间，直接使用
+            formattedTime = timeValue;
+        } else if (timeValue instanceof Date) {
+            // 如果是Date对象，格式化为HH:mm格式
+            formattedTime = formatDateTimeForInput(timeValue);
+        } else {
+            // 默认时间
+            formattedTime = '09:00';
+        }
+        
+        if (formattedTime) {
+            input.value = formattedTime;
+            // 触发change事件
+            const event = new Event('change');
+            input.dispatchEvent(event);
+        }
+    }
+
+    // 打开编辑任务表单
+    function openEditTaskForm(event) {
+        // 清空表单
+        document.getElementById('taskForm').reset();
+        
+        // 填充表单数据
+        document.getElementById('taskId').value = event.id;
+        document.getElementById('title').value = event.title;
+        document.getElementById('taskFormModalLabel').textContent = '编辑任务';
+        
+        // 存储事件的日期，用于后续提交
+        window.selectedDate = event.start.toISOString().split('T')[0];
+        
+        // 设置时间
+        const startTime = formatDateTimeForInput(event.start);
+        const endTime = formatDateTimeForInput(event.end);
+        
+        if (startTime) document.getElementById('startDateTime').value = startTime;
+        if (endTime) document.getElementById('endDateTime').value = endTime;
+        
+        // 填充其他字段
+        document.getElementById('description').value = event.extendedProps.description || '';
+        document.getElementById('focusLevel').value = event.extendedProps.focus_level;
+        document.getElementById('energyLevel').value = event.extendedProps.energy_level;
+        document.getElementById('focusLevelValue').textContent = event.extendedProps.focus_level;
+        document.getElementById('energyLevelValue').textContent = event.extendedProps.energy_level;
+        
+        // 设置科目和章节
+        document.getElementById('subject').value = event.extendedProps.subject_id;
+        
+        // 加载章节并设置选中值
+        loadChapters(event.extendedProps.subject_id);
+        setTimeout(() => {
+            document.getElementById('chapter').value = event.extendedProps.chapter_id;
+        }, 500);
+        
+        // 设置重复类型
+        document.getElementById('repeatType').value = event.extendedProps.repeat_type;
+        
+        // // 触发重复类型变化事件
+        // const changeEvent = new Event('change');
+        // document.getElementById('repeatType').dispatchEvent(changeEvent);      
+        
+        // 显示模态框
+        taskFormModal.show();
+    }
+    
+    // 格式化日期时间范围
+    function formatDateTimeRange(start, end) {
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        
+        const formatOptions = {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        };
+        
+        return `${startDate.toLocaleString('zh-CN', formatOptions)} - ${endDate.toLocaleString('zh-CN', formatOptions)}`;
+    }
+
+    // 获取CSRF Token的辅助函数
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+{% endblock %}

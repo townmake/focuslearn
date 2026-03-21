@@ -1,0 +1,106 @@
+/* 修复模态框偏移 */
+/* .ant-modal {
+    top: 30% !important;
+}
+
+*/
+
+.ant-modal-wrap {
+    align-items: center !important;
+    justify-content: center !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 25% !important;
+    right: 0 !important;
+    bottom: 0 !important; 
+    min-width: 400px !important;  
+} 
+
+
+.chapter-container {
+    display: flex;
+    min-height: calc(100vh - 64px);
+}
+
+.chapter-sidebar {
+    width: 220px;
+    background: #fff;
+    border-right: 1px solid #f0f0f0;
+}
+
+.chapter-content {
+    flex: 1;
+    padding: 24px;
+    background: #fff;
+}
+
+.ant-menu {
+    padding: 8px 0;
+}
+
+.ant-menu-item {
+    padding: 12px 24px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.ant-menu-item:hover {
+    background-color: #f5f5f5;
+}
+
+.ant-menu-item.active {
+    background-color: #e6f7ff;
+    border-right: 3px solid #1890ff;
+}
+
+.content-page {
+    display: none;
+}
+
+.content-page.active {
+    display: block;
+}
+
+.ant-descriptions {
+    margin-bottom: 24px;
+}
+
+.ant-descriptions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.ant-descriptions-title {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.ant-descriptions-view table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ant-descriptions-item-label {
+    width: 120px;
+    padding: 8px 0;
+    color: rgba(0, 0, 0, 0.85);
+}
+
+.ant-descriptions-item-content {
+    padding: 8px 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .chapter-container {
+        flex-direction: column;
+    }
+    
+    .chapter-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #f0f0f0;
+    }
+}

@@ -1,0 +1,413 @@
+
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{% if view_mode %}习题详情{% elif form.instance.id %}编辑习题{% else %}新增习题{% endif %}{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'django_ckeditor_5/dist/bundle.js' %}"></script>
+<script src="{% static 'django_ckeditor_5/dist/translations/zh-cn.js' %}"></script>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/django_ckeditor_5/dist/styles.css">
+{% endblock %}
+
+{% block content %}
+<div class="exercise-form-container">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>{% if view_mode %}习题详情{% elif form.instance.id %}编辑习题{% else %}新增习题{% endif %}</h3>
+            {% if not view_mode %}
+            <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-outline-secondary preview-btn" data-toggle="tooltip" title="预览">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+            {% else %}
+            <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-outline-primary edit-btn" data-toggle="tooltip" title="编辑">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data" id="exerciseForm">
+                {% csrf_token %}
+                <input type="hidden" id="view_mode" name="view_mode" value="{{ view_mode|default:'0' }}">
+                
+                <div class="form-group">
+                    <label for="{{ form.chapter.id_for_label }}">所属章节</label>
+                    {{ form.chapter }}
+                </div>
+                
+                <div class="form-group">
+                    <label for="{{ form.question_type.id_for_label }}">题型</label>
+                    {{ form.question_type }}
+                </div>
+
+                <div class="form-group" id="content-container">
+                    <label for="{{ form.title.id_for_label }}">题目内容</label>
+                    {{ form.title }}  <!-- 隐藏的原始字段 -->
+                    <div id="editor-container"></div>
+
+                </div>
+                
+                <div class="form-group options-group">
+                    <label>选项设置</label>
+                    <div id="options-container">
+                        <!-- 选项将通过JS动态添加 -->
+                    </div>
+                    <button type="button" class="btn btn-sm btn-secondary mt-2" id="add-option">
+                        <i class="fas fa-plus"></i> 添加选项
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label for="{{ form.answer.id_for_label }}">正确答案</label>
+                    {{ form.answer }}
+                </div>
+                
+                <div class="form-group">
+                    <label for="{{ form.options.id_for_label }}">题目解析</label>
+                    {{ form.options }}
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group col-md-4">
+                        <label for="{{ form.difficulty.id_for_label }}">难度</label>
+                        {{ form.difficulty }}
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label for="{{ form.memory_level.id_for_label }}">记忆度</label>
+                        {{ form.memory_level }}
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label for="{{ form.mastery_level.id_for_label }}">掌握度</label>
+                        {{ form.mastery_level }}
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    {% if not view_mode %}
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn btn-secondary cancel-btn">取消</button>
+                    {% else %}
+                    <button type="button" class="btn btn-primary edit-btn">编辑</button>
+                    <a href="{% url 'courses:exercise_list' %}" class="btn btn-secondary">返回列表</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let editor;
+
+class UploadAdapter {
+    constructor(loader) {
+    this.loader = loader;
+    }
+    
+    upload() {
+    return this.loader.file.then(file => {
+        return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            resolve({ default: reader.result });
+        };
+        reader.onerror = error => {
+            reject(error);
+        };
+        });
+    });
+    }
+    
+    abort() {
+    // 取消上传逻辑
+    }
+}
+
+function UploadAdapterPlugin(editor) {
+    editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+    return new UploadAdapter(loader);
+    };
+}
+
+class PasteFromOffice {
+    static get requires() {
+    return ['Clipboard', 'FileRepository'];
+    }
+    
+    constructor(editor) {
+    this.editor = editor;
+    }
+    
+    init() {
+    const clipboard = this.editor.plugins.get('Clipboard');
+    const fileRepository = this.editor.plugins.get('FileRepository');
+    
+    clipboard.on('inputTransformation', (evt, data) => {
+        if (!data.dataTransfer.files) return;
+        
+        Array.from(data.dataTransfer.files)
+        .filter(file => file.type.match('^image/'))
+        .forEach(file => {
+            const loader = fileRepository.createLoader(file);
+            loader.upload()
+            .then(url => {
+                this.editor.model.change(writer => {
+                const imageElement = writer.createElement('image', {
+                    src: url.default
+                });
+                this.editor.model.insertContent(
+                    imageElement,
+                    this.editor.model.document.selection.getFirstPosition()
+                );
+                });
+            })
+            .catch(err => {
+                console.error('图片上传失败:', err);
+            });
+        });
+    });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化CKEditor
+    const editor = ClassicEditor
+        .create(document.querySelector('#editor-container'), {
+            extraPlugins: [UploadAdapterPlugin, PasteFromOffice],
+            language: 'zh-cn',
+            // 上传URL由CKEditor5Widget自动处理
+            toolbar: {
+                items: [
+                'heading', '|',
+                'bold', 'italic', 'underline', 'strikethrough', 'code',
+                'subscript', 'superscript', 'highlight', '|',
+                'bulletedList', 'numberedList', 'todoList', '|',
+                'blockQuote', 'codeBlock', '|',
+                'alignment', '|',
+                'horizontalLine', '|',
+                'imageUpload', '|',
+                'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor',
+                'mediaEmbed', 'removeFormat', 'insertTable', '|'
+                ],
+                language: 'zh-cn',
+                shouldNotGroupWhenFull: true
+            },
+            image: {
+                toolbar: [
+                'imageTextAlternative',
+                'toggleImageCaption',
+                'imageStyle:inline',
+                'imageStyle:block',
+                'imageStyle:side'
+                ]
+            },
+            fontFamily: {
+                options: [
+                '微软雅黑', '宋体', '黑体', '仿宋', '楷体', '隶书', '幼圆',
+                'Arial', 'Times New Roman', 'Verdana', 'Helvetica',
+                'Georgia', 'Courier New', 'Impact', 'Comic Sans MS', 'Trebuchet MS'
+                ],
+                supportAllValues: true
+            },
+            fontSize: {
+                options: [
+                { model:'20px', title: "小三", view: {styles: { "font-size": '14px' }}},
+                { model:'18.7px', title: "四号", view: {styles: { "font-size": '14px' }}},
+                { model:'16px', title: "小四", view: {styles: { "font-size": '14px' }}},
+                { model:'14px', title: "五号", view: {styles: { "font-size": '14px' }}},
+                { model:'12px', title: "小五", view: {styles: { "font-size": '14px' }}},
+                { model:'10px', title: "六号", view: {styles: { "font-size": '14px' }}},
+                { model:'8.7px', title: "小六", view: {styles: { "font-size": '14px' }}},
+                { model:'7.3px', title: "七号", view: {styles: { "font-size": '14px' }}},
+                { model:'6.7px', title: "八号", view: {styles: { "font-size": '14px' }}},
+                { model:'56px', title: "初号", view: {styles: { "font-size": '14px' }}},
+                { model:'48px', title: "小初", view: {styles: { "font-size": '14px' }}},
+                { model:'34.7px', title: "一号", view: {styles: { "font-size": '14px' }}},
+                { model:'32px', title: "小一", view: {styles: { "font-size": '14px' }}},
+                { model:'29.3px', title: "二号", view: {styles: { "font-size": '14px' }}},
+                { model:'24px', title: "小二", view: {styles: { "font-size": '14px' }}},
+                { model:'21.3px', title: "三号", view: {styles: { "font-size": '14px' }}}
+                ],
+                supportAllValues: true
+            },
+            licenseKey: 'GPL',
+            removePlugins: ['Markdown', 'Math'],
+            simpleUpload: {
+                // 
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            }
+        })
+        .then(editor => {
+            window.editor = editor;
+            
+            // 加载初始内容
+            const textarea = document.querySelector('#id_content');
+            if (textarea && textarea.value) {
+                editor.setData(textarea.value);
+            }
+
+            // 同步内容到隐藏字段
+            document.querySelector('form').addEventListener('submit', function() {
+                const editorContent = editor.getData();
+                document.querySelector('#id_content').value = editorContent;
+            });
+        })
+        .catch(error => {
+            console.error(error);
+        });
+
+    // 状态切换逻辑
+    const form = document.getElementById('exerciseForm');
+    const viewModeInput = document.getElementById('view_mode');
+    
+    // 预览按钮点击事件
+    document.querySelector('.preview-btn')?.addEventListener('click', function() {
+        viewModeInput.value = '1';
+        form.submit();
+    });
+
+    // 编辑按钮点击事件
+    document.querySelector('.edit-btn')?.addEventListener('click', function() {
+        viewModeInput.value = '0';
+        form.submit();
+    });
+
+    // 取消按钮点击事件
+    document.querySelector('.cancel-btn')?.addEventListener('click', function() {
+        if(confirm('确定要取消编辑吗？所有未保存的更改将会丢失。')) {
+            window.location.href = window.location.pathname + '?view_mode=1';
+        }
+    });
+
+    // 表单提交处理
+    form.addEventListener('submit', function(e) {
+        // 同步编辑器内容到表单字段
+        // const editorData = editor.getData();
+        // document.querySelector('#id_content').value = editorData;
+        
+        if(viewModeInput.value === '1') {
+            e.preventDefault();
+            // 处理预览状态的表单提交
+            const formData = new FormData(form);
+            formData.set('view_mode', '1');
+            
+            fetch(window.location.pathname, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    window.location.search = '?view_mode=1';
+                }
+            });
+        }
+    });
+
+    // 根据当前状态设置表单元素只读
+    if('{{ view_mode }}' === '1') {
+        const inputs = form.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.readOnly = true;
+            input.disabled = true;
+        });
+        
+        // 特殊处理CKEditor
+        if(window.editor) {
+            editor.isReadOnly = true;
+        }
+    }
+});
+</script>
+
+<style>
+.exercise-form-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #eee;
+    padding: 15px 20px;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-control, .custom-select {
+    border-radius: 4px;
+}
+
+.ck-editor__editable {
+    min-height: 150px;
+}
+
+
+/* .ck.ck-editor {
+width: 100%;
+height: 100%;
+}
+.ck.ck-content {
+min-height: 400px;
+}
+.ck.ck-editor__editable {
+max-height: 100vh;
+overflow-y: hidden;
+} */
+
+
+.options-group {
+    border: 1px solid #eee;
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.option-item {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.option-key {
+    width: 60px;
+    margin-right: 10px;
+}
+
+.option-value {
+    flex-grow: 1;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    margin-top: 20px;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CKEditor 5 本地测试</title>
+    <link rel="stylesheet" href="../../../../static/django_ckeditor_5/dist/styles.css">
+    <style>
+        #editor {
+            max-width: 800px;
+            margin: 30px auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="editor">
+        <p>直接打开本文件测试CKEditor5功能</p>
+    </div>
+
+    <script src="../../../../static/django_ckeditor_5/dist/bundle.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            ClassicEditor.create(document.querySelector('#editor'), {
+                toolbar: [
+                    'heading', '|', 
+                    'bold', 'italic', 'blockQuote', 'link',
+                    'math', '|',
+                    'undo', 'redo'
+                ]
+            }).catch(error => {
+                console.error(error);
+            });
+        });
+    </script>
+</body>
+</html>

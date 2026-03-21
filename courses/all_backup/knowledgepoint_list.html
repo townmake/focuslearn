@@ -1,0 +1,38 @@
+
+<!-- 废弃的页面 -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>知识点列表</h2>
+    
+    <div class="mb-3">
+        <form method="get" class="form-inline">
+            <select name="chapter" class="form-select me-2">
+                <option value="">所有章节</option>
+                {% for chapter in chapters %}
+                <option value="{{ chapter.id }}" {% if request.GET.chapter == chapter.id|stringformat:"s" %}selected{% endif %}>
+                    {{ chapter.subject.name }} - {{ chapter.title }}
+                </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">筛选</button>
+        </form>
+    </div>
+
+    <div class="list-group">
+        {% for point in knowledge_points %}
+        <a href="{% url 'courses:knowledgepoint_detail' point.id %}" class="list-group-item list-group-item-action">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">{{ point.title }}</h5>
+                <small>难度: {{ point.get_difficulty_display }}</small>
+            </div>
+            <p class="mb-1">{{ point.description|truncatechars:100 }}</p>
+            <small>{{ point.chapter.subject.name }} - {{ point.chapter.title }}</small>
+        </a>
+        {% empty %}
+        <div class="alert alert-info">没有找到知识点</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

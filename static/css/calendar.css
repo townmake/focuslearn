@@ -1,0 +1,260 @@
+/* FullCalendar按钮样式 */
+.fc .fc-button-primary {
+    background-color: #1176da !important;
+    border-color: #1176da !important;
+    color: white !important;
+}
+
+.fc .fc-button-primary:hover {
+    background-color: #0d5bb0 !important;
+    border-color: #0d5bb0 !important;
+}
+
+.fc .fc-button-primary:not(:disabled):active,
+.fc .fc-button-primary.fc-button-active {
+    background-color: #0d5bb0 !important;
+    border-color: #0d5bb0 !important;
+    box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125) !important;
+}
+
+.fc .fc-button-primary:disabled {
+    background-color: #6c9ed3 !important;
+    border-color: #6c9ed3 !important;
+    opacity: 0.65;
+}
+
+/* FullCalendar按钮组样式 */
+.fc .fc-button-group .fc-button {
+    background-color: #1176da !important;
+    border-color: #1176da !important;
+    color: white !important;
+}
+
+.fc .fc-button-group .fc-button:hover {
+    background-color: #0d5bb0 !important;
+    border-color: #0d5bb0 !important;
+}
+
+.fc .fc-button-group .fc-button.fc-button-active,
+.fc .fc-button-group .fc-button:active {
+    background-color: #0d5bb0 !important;
+    border-color: #0d5bb0 !important;
+    box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125) !important;
+}
+
+.fc .fc-button-group .fc-button:disabled {
+    background-color: #6c9ed3 !important;
+    border-color: #6c9ed3 !important;
+    opacity: 0.65;
+}
+
+/* 移除链接下划线 */
+a {
+    text-decoration: none !important;
+}
+
+/* 任务项样式 */
+.fc-event {
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer;
+}
+
+.fc-event-main-frame {
+    background-color: inherit !important;
+    border-radius: 4px !important;
+    height: 100% !important;
+}
+
+.fc-event-time, .fc-event-title {
+    padding: 2px 4px !important;
+}
+
+/* 导航栏样式 */
+.navbar {
+    background-color: #1976d2 !important;
+    padding: 1rem !important;
+    color: white !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.navbar-brand {
+    font-size: 1.5rem !important;
+    font-weight: bold !important;
+    color: white !important;
+    text-decoration: none !important;
+    margin-right: 2rem !important;
+}
+
+.navbar-nav {
+    flex-direction: row !important;
+    width: auto !important;
+    text-align: left !important;
+    display: flex !important;
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 1rem !important;
+}
+
+.nav-item a {
+    color: white !important;
+    text-decoration: none !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 4px !important;
+    transition: background-color 0.3s !important;
+}
+
+.nav-item a:hover {
+    background-color: rgba(255,255,255,0.1) !important;
+}
+
+/* 日历容器样式 */
+.calendar-container {
+    margin: 20px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 日历视图基础样式 */
+.fc-view-harness {
+    background: white;
+}
+
+/* 事件容器样式优化 */
+.fc-timegrid-event-harness {
+    margin: 0 2px !important;
+}
+
+/* 事件样式优化 */
+.fc-timegrid-event {
+    border-radius: 4px !important;
+    margin: 1px 0 !important;
+    padding: 2px 4px !important;
+}
+
+/* 时间列样式优化 */
+.fc-timegrid-col {
+    border-left: 1px solid #ddd !important;
+}
+
+/* 当前时间线样式优化 */
+.fc-timegrid-now-indicator-line {
+    border-color: #ff3b30 !important;
+    z-index: 4 !important;
+}
+
+/* 时间格子背景交替色 */
+.fc-timegrid-slot:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+/* 滚动条样式 */
+.fc-scroller {
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent !important;
+}
+
+.fc-scroller::-webkit-scrollbar {
+    width: 6px !important;
+    height: 6px !important;
+}
+
+.fc-scroller::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.fc-scroller::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border-radius: 3px !important;
+}
+
+/* 日期头部样式 */
+.fc-timegrid-header {
+    background-color: #f8f9fa !important;
+    border-bottom: 2px solid #ddd !important;
+}
+
+/* 今天列的样式 */
+.fc-day-today {
+    background-color: rgba(25, 118, 210, 0.05) !important;
+}
+
+/* 已完成任务样式 */
+.task-completed {
+    text-decoration: line-through rgba(102, 102, 102, 0.8) !important;
+    background-color: #808080 !important;
+    border-color: #808080 !important;
+    opacity: 0.7 !important;
+    color: #333 !important;
+}
+
+.fc-list-event.task-completed .fc-list-event-dot {
+    border-color: #808080 !important;
+}
+
+.fc-list-event.task-completed .fc-list-event-title,
+.fc-list-event.task-completed .fc-list-event-time {
+    color: #333 !important;
+    text-decoration: line-through rgba(102, 102, 102, 0.8) !important;
+}
+
+.fc-timegrid-event.task-completed .fc-event-title,
+.fc-daygrid-event.task-completed .fc-event-title,
+.fc-daygrid-event.task-completed .fc-event-time,
+.fc-timegrid-event.task-completed .fc-event-time {
+    text-decoration: line-through rgba(102, 102, 102, 0.8) !important;
+    color: #333 !important;
+}
+
+.fc-daygrid-event.task-completed .fc-daygrid-event-dot {
+    border-color: #808080 !important;
+}
+
+/* 任务详情样式 */
+.task-details-container {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.focus-energy-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+}
+
+/* 模态框样式 */
+.modal-footer {
+    justify-content: space-between;
+}
+
+/* 重复选项样式 */
+.repeat-options {
+    margin-top: 10px;
+    display: none;
+}
+
+.repeat-days {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.day-checkbox {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}

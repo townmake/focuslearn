@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<!-- saved from url=(0012)about:srcdoc -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英语完形填空格式转换工具</title>
+    <script src="https://cdn.tailwindcss.com/3.3.3"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+        }
+        .input-field {
+            transition: all 0.3s ease;
+            border: 1px solid #e2e8f0;
+        }
+        .input-field:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+        }
+    </style>
+<style>/* ! tailwindcss v3.3.3 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: }.mx-auto{margin-left:auto;margin-right:auto}.mb-10{margin-bottom:2.5rem}.mb-2{margin-bottom:0.5rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.mr-2{margin-right:0.5rem}.mt-2{margin-top:0.5rem}.mt-auto{margin-top:auto}.block{display:block}.flex{display:flex}.hidden{display:none}.min-h-screen{min-height:100vh}.w-full{width:100%}.max-w-3xl{max-width:48rem}.border-collapse{border-collapse:collapse}.flex-col{flex-direction:column}.items-center{align-items:center}.justify-between{justify-content:space-between}.overflow-x-auto{overflow-x:auto}.rounded-lg{border-radius:0.5rem}.border-b{border-bottom-width:1px}.bg-gray-50{--tw-bg-opacity:1;background-color:rgb(249 250 251 / var(--tw-bg-opacity))}.p-3{padding:0.75rem}.p-4{padding:1rem}.p-8{padding:2rem}.px-4{padding-left:1rem;padding-right:1rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-12{padding-top:3rem;padding-bottom:3rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-6{padding-top:1.5rem;padding-bottom:1.5rem}.text-left{text-align:left}.text-center{text-align:center}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.font-semibold{font-weight:600}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128 / var(--tw-text-opacity))}.text-gray-600{--tw-text-opacity:1;color:rgb(75 85 99 / var(--tw-text-opacity))}.text-gray-700{--tw-text-opacity:1;color:rgb(55 65 81 / var(--tw-text-opacity))}.text-gray-800{--tw-text-opacity:1;color:rgb(31 41 55 / var(--tw-text-opacity))}.text-indigo-500{--tw-text-opacity:1;color:rgb(99 102 241 / var(--tw-text-opacity))}.hover\:underline:hover{-webkit-text-decoration-line:underline;text-decoration-line:underline}</style></head>
+<body class="min-h-screen flex flex-col items-center py-12 px-4">
+    <div class="w-full max-w-3xl mx-auto">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">英语完形填空格式转换工具</h1>
+            <p class="text-gray-600">将完形填空选项和答案转换为Excel表格</p>
+        </div>
+
+        <div class="glass-card p-8 mb-8">
+            <div class="mb-6">
+                <label for="optionsInput" class="block text-gray-700 font-medium mb-2">
+                    <i class="fas fa-list-ul mr-2 text-indigo-500"></i>输入选项格式
+                </label>
+                <textarea id="optionsInput" rows="5" class="w-full input-field p-4 rounded-lg" placeholder="例如: 1. [A] affected [B] achieved [C] extracted [D] restored"></textarea>
+                <p class="text-sm text-gray-500 mt-2">每行一个题目，格式为: 序号. [选项字母] 选项内容</p>
+            </div>
+
+            <div class="mb-8">
+                <label for="answersInput" class="block text-gray-700 font-medium mb-2">
+                    <i class="fas fa-check-circle mr-2 text-indigo-500"></i>输入答案格式
+                </label>
+                <textarea id="answersInput" rows="3" class="w-full input-field p-4 rounded-lg" placeholder="例如: 1.A 2.B 3.C"></textarea>
+                <p class="text-sm text-gray-500 mt-2">格式为: 序号.选项字母 (用空格或制表符分隔)</p>
+            </div>
+
+            <button id="convertBtn" class="btn-primary py-3 px-6 rounded-lg font-medium w-full">
+                <i class="fas fa-exchange-alt mr-2"></i>转换格式
+            </button>
+        </div>
+
+        <div id="resultSection" class="glass-card p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold text-gray-800">
+                    <i class="fas fa-table mr-2 text-indigo-500"></i>转换结果
+                </h2>
+                <button id="downloadBtn" class="btn-primary py-2 px-4 rounded-lg text-sm">
+                    <i class="fas fa-download mr-2"></i>下载Excel
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table id="resultTable" class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="p-3 text-left text-gray-700 border-b">题号</th>
+                            <th class="p-3 text-left text-gray-700 border-b">选项JSON</th>
+                            <th class="p-3 text-left text-gray-700 border-b">答案</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <footer class="mt-auto py-6 text-center text-gray-500 text-sm">
+        <p>created by <a href="https://space.coze.cn/" class="text-indigo-500 hover:underline">coze space</a></p>
+        <p>页面内容均由 AI 生成，仅供参考</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const optionsInput = document.getElementById('optionsInput');
+            const answersInput = document.getElementById('answersInput');
+            const convertBtn = document.getElementById('convertBtn');
+            const resultSection = document.getElementById('resultSection');
+            const resultTableBody = document.getElementById('resultTableBody');
+            const downloadBtn = document.getElementById('downloadBtn');
+            
+            let excelData = [];
+
+            convertBtn.addEventListener('click', function() {
+                const optionsText = optionsInput.value.trim();
+                const answersText = answersInput.value.trim();
+                
+                if (!optionsText || !answersText) {
+                    alert('请填写选项和答案内容');
+                    return;
+                }
+
+                // 解析选项
+                const optionLines = optionsText.split('\n');
+                const questions = [];
+                
+                optionLines.forEach(line => {
+                    const match = line.match(/^(\d+)\.\s*\[([A-Z])\]\s*(.+?)\s*(\[([A-Z])\]\s*(.+?))*$/);
+                    if (match) {
+                        const questionNum = match[1];
+                        const options = {};
+                        
+                        // 提取所有选项
+                        const optionParts = line.split(/\[([A-Z])\]/).slice(1);
+                        for (let i = 0; i < optionParts.length; i += 2) {
+                            const optionLetter = optionParts[i];
+                            const optionText = optionParts[i+1].trim();
+                            options[optionLetter] = optionText;
+                        }
+                        
+                        questions.push({
+                            num: questionNum,
+                            options: options
+                        });
+                    }
+                });
+
+                // 解析答案
+                const answerPairs = answersText.split(/\s+/);
+                const answers = {};
+                
+                answerPairs.forEach(pair => {
+                    const match = pair.match(/^(\d+)\.([A-Z])$/);
+                    if (match) {
+                        answers[match[1]] = match[2];
+                    }
+                });
+
+                // 生成结果
+                resultTableBody.innerHTML = '';
+                excelData = [];
+                
+                questions.forEach(q => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-gray-50';
+                    
+                    const numCell = document.createElement('td');
+                    numCell.className = 'p-3 text-gray-700';
+                    numCell.textContent = q.num;
+                    
+                    const optionsCell = document.createElement('td');
+                    optionsCell.className = 'p-3 text-gray-700';
+                    optionsCell.textContent = JSON.stringify(q.options);
+                    
+                    const answerCell = document.createElement('td');
+                    answerCell.className = 'p-3 text-gray-700 font-semibold';
+                    answerCell.textContent = answers[q.num] || '未找到答案';
+                    
+                    row.appendChild(numCell);
+                    row.appendChild(optionsCell);
+                    row.appendChild(answerCell);
+                    resultTableBody.appendChild(row);
+                    
+                    // 准备Excel数据
+                    excelData.push({
+                        '题号': q.num,
+                        '选项JSON': JSON.stringify(q.options),
+                        '答案': answers[q.num] || '未找到答案'
+                    });
+                });
+                
+                resultSection.classList.remove('hidden');
+            });
+
+            downloadBtn.addEventListener('click', function() {
+                if (excelData.length === 0) {
+                    alert('没有可下载的数据');
+                    return;
+                }
+                
+                // 创建工作表
+                const ws = XLSX.utils.json_to_sheet(excelData);
+                
+                // 创建工作簿
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "完形填空数据");
+                
+                // 生成Excel文件并下载
+                XLSX.writeFile(wb, "完形填空转换结果.xlsx");
+            });
+        });
+    </script>
+
+</body></html>
