@@ -17,7 +17,7 @@
         <div class="ant-modal" style="width: 600px;">
             <div class="ant-modal-content">
                 <div class="ant-modal-header">
-                    <div class="ant-modal-title">新建科目</div>create
+                    <div class="ant-modal-title">新建科目</div>
                 </div>
                 <div class="ant-modal-body">
                     <form id="subjectForm" method="POST" action="{% url 'courses:subject_create' %}" enctype="multipart/form-data">
@@ -28,8 +28,17 @@
                             <label>科目描述</label>    <textarea name="description" class="ant-input" rows="3"></textarea></div>
                         <div class="ant-form-item">
                             <label>背景图片</label>    <input type="file" name="background_image" class="ant-input">
-                        </div><div class="ant-form-item">
+                        </div>                        <div class="ant-form-item">
                             <label>主题色</label>    <input type="color" name="color" class="ant-input" value="#3498db">
+                        </div>
+                        <div class="ant-form-item">
+                            <label>科目分类</label>
+                            <select name="category" class="ant-input">
+                                <option value="">无分类</option>
+                                {% for c in subject_categories %}
+                                <option value="{{ c.id }}">{{ c.name }}{% if not c.is_visible %}（列表中不展示该分类）{% endif %}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <input type="number" name="estimated_hours" class="ant-input" min="0" value="0" required>
 
@@ -48,7 +57,7 @@
     <div class="subject-list-header">
         <h2>课程列表</h2>
         <div class="subject-counts">
-            <span class="subject-count">总科：<span class="subject-length-value">{{ subjects|length }}</span>个</span>
+            <span class="subject-count">总科：<span class="subject-length-value">{{ total_subject_count }}</span>个</span>
             <span class="subject-total-hours">预计：<span class="total-hours-value">{{ total_hours }}</span>小时</span>
             <span class="subject-total-actual-hours">已学：<span class="total-actual-hours-value">{{ total_actual_hours }}</span>小时</span>
         </div>
@@ -77,7 +86,11 @@
                 </tr>
             </thead>
             <tbody class="ant-table-tbody">
-                {% for subject in subjects %}
+                {% for block in category_blocks %}
+                <tr class="subject-category-header-row">
+                    <td class="ant-table-cell" colspan="7"><span class="subject-category-title">{{ block.title }}</span></td>
+                </tr>
+                {% for subject in block.subjects %}
                 <tr class="ant-table-row ant-table-row-level-0">
                     <td class="ant-table-cell">
                          <a href="{% url 'courses:subject_detail' subject.id %}">{{ subject.name }}</a>
@@ -102,26 +115,11 @@
                     </td>
                 </tr>
                 {% endfor %}
+                {% empty %}
+                <tr><td class="ant-table-cell" colspan="7">暂无科目，请先新建或前往后台配置科目分类。</td></tr>
+                {% endfor %}
             </tbody>
         </table>
-        <!-- 分页控件 -->
-        <div class="pagination">
-            <span class="step-links">
-                {% if page_obj.has_previous %}
-                    <a href="?page=1" class="ant-btn ant-btn-link">&laquo; 首页</a>
-                    <a href="?page={{ page_obj.previous_page_number }}" class="ant-btn ant-btn-link">上一页</a>
-                {% endif %}
-
-                <span class="current">
-                    第 {{ page_obj.number }} 页 / 共 {{ page_obj.paginator.num_pages }} 页
-                </span>
-
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}" class="ant-btn ant-btn-link">下一页</a>
-                    <a href="?page={{ page_obj.paginator.num_pages }}" class="ant-btn ant-btn-link">末页 &raquo;</a>
-                {% endif %}
-            </span>
-        </div>
     </div>
 </div>
 {% endblock %}

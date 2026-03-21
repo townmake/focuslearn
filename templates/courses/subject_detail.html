@@ -32,6 +32,15 @@
                             <label>预计学时(小时)</label>
                             <input type="number" name="estimated_hours" id="editSubjectEstimatedHours" class="ant-input" min="0" required>
                         </div>
+                        <div class="ant-form-item">
+                            <label>科目分类</label>
+                            <select name="category" id="editSubjectCategory" class="ant-input">
+                                <option value="">无分类</option>
+                                {% for c in subject_categories %}
+                                <option value="{{ c.id }}">{{ c.name }}{% if not c.is_visible %}（列表中不展示该分类）{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </form>
                 </div>
                 <div class="ant-modal-footer">
@@ -121,6 +130,19 @@
                         <tr>
                             <td class="ant-descriptions-item-label">进度描述</td>
                             <td class="ant-descriptions-item-content">{{ subject.description }}</td>
+                        </tr>
+                        <tr>
+                            <td class="ant-descriptions-item-label">科目分类</td>
+                            <td class="ant-descriptions-item-content">
+                                {% if subject.category %}
+                                    {{ subject.category.name }}
+                                    {% if not subject.category.is_visible %}
+                                        <span class="text-muted" style="color:#999;font-size:12px;">（该分类在课程列表中不展示，本科目不会出现在课程列表入口）</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span>无分类</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         <tr>
                             <td class="ant-descriptions-item-label">主题色</td>
@@ -326,6 +348,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('editSubjectDescription').value = data.description;
                 document.getElementById('editSubjectColor').value = data.color;
                 document.getElementById('editSubjectEstimatedHours').value = data.estimated_hours;
+                const catSel = document.getElementById('editSubjectCategory');
+                if (catSel) {
+                    catSel.value = data.category_id ? String(data.category_id) : '';
+                }
                 
                 // 显示现有图片
                 const container = document.getElementById('editSubjectImageContainer');

@@ -18,10 +18,9 @@
     <div class="ant-card">
         <div class="ant-card-body">
             <div class="ant-descriptions">
-                <div class="ant-descriptions-item">
+                <div class="ant-descriptions-item quick-access-detail-editor-item">
                     <label class="ant-descriptions-item-label">详情</label>
-                    <div id="editor-ex-content" style="width:100%; max-width:1200px;height:fit-content; border-radius:4px;"frameborder="0">
-                    </div>
+                    <div id="editor-ex-content" class="quick-access-editor-mount"></div>
                 </div>
                 <input type="hidden" id="description" name="description" value="{{ object.description|default_if_none:'' }}"> 
 
@@ -92,9 +91,12 @@ window.editorContent = new AiEditor({
 </script>
 <style>
 .ant-page-container {
-    max-width: 800px;
+    /* 与编辑器最大宽度一致，避免外层 800px 把内容压窄 */
+    max-width: min(100vw - 40px, 1600px);
+    width: 100%;
     margin: 0 auto;
     padding: 20px;
+    box-sizing: border-box;
 }
 .ant-page-header {
     margin-bottom: 24px;
@@ -146,8 +148,23 @@ window.editorContent = new AiEditor({
 .ant-descriptions-item {
     display: flex;
     flex-direction: row;
-    align-items: center;    
-}   
+    align-items: center;
+}
+/* 详情行：标签置顶，右侧编辑器占满剩余宽度（flex 子项默认可 shrink 导致“撑不开”） */
+.quick-access-detail-editor-item {
+    align-items: flex-start;
+}
+.quick-access-detail-editor-item .ant-descriptions-item-label {
+    padding-top: 6px;
+}
+.quick-access-editor-mount {
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    height: fit-content;
+    border-radius: 4px;
+}
 .ant-descriptions-item-label {
     flex: 0 0 100px;
     font-weight: 500;
@@ -155,6 +172,7 @@ window.editorContent = new AiEditor({
 }
 .ant-descriptions-item-content {
     flex: 1;
+    min-width: 0;
     color: rgba(0, 0, 0, 0.65);
 }
 .ant-link {     

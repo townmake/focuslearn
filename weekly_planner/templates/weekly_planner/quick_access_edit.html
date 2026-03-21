@@ -13,9 +13,9 @@
         <div class="ant-card-body">
             <form method="post" enctype="multipart/form-data" class="ant-form">
                 {% csrf_token %}
-                <div class="ant-form-item">
-                <label class="ant-form-label">详情描述</label>
-                    <div id="editor-ex-content" style="width:100%; max-width:1200px;height:fit-content; min-height: 345px;border:1px solid #ddd; border-radius:4px;"frameborder="0"></div>
+                <div class="ant-form-item quick-access-edit-editor-item">
+                    <label class="ant-form-label">详情描述</label>
+                    <div id="editor-ex-content" class="quick-access-editor-mount quick-access-editor-mount--edit"></div>
                 </div>
                 <input type="hidden" id="description" name="description" value="{{ form.description.value|default_if_none:'' }}"> 
 
@@ -90,9 +90,11 @@ window.editorContent = new AiEditor({
 </script>
 <style>
 .ant-page-container {
-    max-width: 800px;
-    margin: 0 auto; 
+    max-width: min(100vw - 40px, 1600px);
+    width: 100%;
+    margin: 0 auto;
     padding: 20px;
+    box-sizing: border-box;
 }
 .ant-page-header {
     margin-bottom: 24px;
@@ -114,18 +116,38 @@ window.editorContent = new AiEditor({
 .ant-card-body {
     padding: 20px;
 }
-.ant-form-item {        
+.ant-form-item {
     margin-bottom: 16px;
     display: flex;
     flex-direction: row;
 }
+.quick-access-edit-editor-item {
+    align-items: flex-start;
+}
+.quick-access-edit-editor-item .ant-form-label {
+    margin-top: 12px;
+}
+.quick-access-editor-mount--edit {
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    min-height: 345px;
+    height: fit-content;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
 .ant-form-label {
     margin-top: 16px;
+    flex: 0 0 100px;
     width: 100px;
     font-weight: 500;
     color: rgba(0, 0, 0, 0.85);
 }
 .ant-form-item-control {
+    flex: 1;
+    min-width: 0;
     margin-top: 8px;
 }
 .ant-form-item-control input,

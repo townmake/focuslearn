@@ -73,8 +73,37 @@ class DictionaryLookupRecord(models.Model):
             logger.error(f"下载音频失败: {url} - {str(e)}")
         except Exception as e:
             logger.error(f"保存音频异常: {str(e)}")
-    
+
+
+class SubjectCategory(models.Model):
+    """科目分类（后台可配置名称、是否在前台列表展示、展示顺序权重）"""
+
+    name = models.CharField(max_length=100, verbose_name="科目分类名称")
+    is_visible = models.BooleanField(default=True, verbose_name="是否显示")
+    display_weight = models.IntegerField(
+        default=0,
+        verbose_name="显示权重",
+        help_text="数值越大，在课程列表中越靠前展示",
+    )
+
+    class Meta:
+        verbose_name = "科目分类"
+        verbose_name_plural = "科目分类"
+        ordering = ["-display_weight", "id"]
+
+    def __str__(self):
+        return self.name
+
+
 class Subject(models.Model):
+    category = models.ForeignKey(
+        SubjectCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="subjects",
+        verbose_name="科目分类",
+    )
     name = models.CharField(max_length=100, verbose_name="科目名称")
     description = models.TextField(blank=True, verbose_name="科目描述")
     estimated_hours = models.PositiveIntegerField(default=0,verbose_name="预计学时(小时)")

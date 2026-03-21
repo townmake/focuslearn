@@ -1,4 +1,11 @@
+# 环境要求：Python 3.8+（Django 4.2 不支持 3.7 及以下）。
+# 若报错 “Django==4.2.7” 且 pip 列出的版本最高只有 3.2.x，说明当前 python 过旧，请升级 Python 后重建 venv，例如：
+#   python3.11 -m venv venv && source venv/bin/activate && pip install -U pip && pip install -r requirements.txt
+# 镜像可选：-i https://pypi.org/simple 或 https://mirrors.aliyun.com/pypi/simple/
 Django==4.2.7
+# MySQL 驱动（Django DATABASES ENGINE 为 django.db.backends.mysql 时需要）
+# Linux 上若 pip 编译失败，先装系统包：yum install mysql-devel gcc python3.11-devel（或 mariadb-devel）
+mysqlclient==2.2.4
 djangorestframework==3.14.0
 Pillow==10.1.0
 python-dateutil==2.8.2
@@ -10,5 +17,11 @@ django-filter==23.3
 markdown==3.5.1
 whitenoise==6.5.0
 gunicorn==21.2.0
-opencv-python==4.11.0.86
+# 服务器无桌面时不要 opencv-python（会依赖 libGL）；用 headless 即可 import cv2
+opencv-python-headless==4.11.0.86
 aliyun-python-sdk-ocr==1.0.25
+django-mptt==0.16.0
+django-extensions==3.2.3
+requests>=2.31.0,<3
+openpyxl==3.1.2
+langdetect==1.0.9

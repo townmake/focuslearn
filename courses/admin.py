@@ -41,3 +41,23 @@ class KnowledgePointAdmin(MPTTModelAdmin):
         })
     )
     filter_horizontal = ('documents', 'videos', 'exercises')
+
+
+from .models import SubjectCategory, Subject
+
+
+@admin.register(SubjectCategory)
+class SubjectCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_visible', 'display_weight')
+    list_editable = ('is_visible', 'display_weight')
+    list_display_links = ('name',)
+    ordering = ('-display_weight', 'id')
+    search_fields = ('name',)
+
+
+@admin.register(Subject)
+class SubjectAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category', 'order', 'estimated_hours', 'progress')
+    list_filter = ('category',)
+    search_fields = ('name', 'description')
+    autocomplete_fields = ('category',)

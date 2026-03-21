@@ -1,7 +1,7 @@
 from datetime import timezone
 from urllib import request
 from rest_framework import permissions
-from django.db.models import Count
+from django.db.models import Count, Q, Sum
 from .serializers import VideoSerializer
 from django.views.generic import ListView, DetailView
 from django.shortcuts import render, get_object_or_404
@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated
 from .models import (
-        Subject, Chapter, StudyRecord, 
+        Subject, SubjectCategory, Chapter, StudyRecord,
         KnowledgePoint, Video, Comment, Exercise, ExerciseSet, ReviewSet,
         VideoComment, ExerciseSet, ExerciseSetCompletion, ExerciseAnswer, MethodSummary,
     )
@@ -302,33 +302,50 @@ class KnowledgePointDetailView(DetailView):
 
     
 def subjectListView(request):  # 处理GET请求
-    # 处理GET请求，返回科目列表
-    # 这里使用了Django的Paginator类来实现分页功能
-    page_number = request.GET.get('page', 1)
-    page_size = request.GET.get('page_size', 20)
-    
-    queryset = Subject.objects.all().order_by('order')
-    paginator = Paginator(queryset, page_size)
+    """按科目分类分块展示：分类按显示权重降序。
+    归属「是否显示=否」的分类的科目不在本页展示（入口隐藏）；「其他」仅含未分类科目。
+    """
+    # 列表中允许出现的科目：未分类，或分类为「显示」
+    listed_q = Q(category__isnull=True) | Q(category__is_visible=True)
 
-    #计算总学时和实际学时
-    from django.db.models import Sum
+    visible_categories = SubjectCategory.objects.filter(is_visible=True).order_by(
+        '-display_weight', 'id'
+    )
+
+    category_blocks = []
+    for cat in visible_categories:
+        subs = list(
+            Subject.objects.filter(listed_q, category=cat)
+            .select_related('category')
+            .order_by('order', 'name')
+        )
+        if subs:
+            category_blocks.append({'title': cat.name, 'subjects': subs})
+
+    other_subjects = list(
+        Subject.objects.filter(category__isnull=True)
+        .select_related('category')
+        .order_by('order', 'name')
+    )
+    if other_subjects:
+        category_blocks.append({'title': '其他', 'subjects': other_subjects})
+
+    queryset = Subject.objects.filter(listed_q)
     total_hours = queryset.aggregate(Sum('estimated_hours'))['estimated_hours__sum'] or 0
     total_actual_hours = queryset.aggregate(Sum('actual_study_hours'))['actual_study_hours__sum'] or 0
+    subject_categories = SubjectCategory.objects.all().order_by('-display_weight', 'name')
 
-    
-    try:
-        page_obj = paginator.page(page_number)
-    except EmptyPage:
-        page_obj = paginator.page(paginator.num_pages)
-    
-    # 保持与前端兼容的响应格式
-    return render(request, 'courses/subject_list.html', {
-        'subjects': page_obj.object_list,
-        'page_obj': page_obj,  # 分页对象
-        'paginator': paginator,  # 分页器
-        'total_hours': total_hours,
-        'total_actual_hours': total_actual_hours
-    })
+    return render(
+        request,
+        'courses/subject_list.html',
+        {
+            'category_blocks': category_blocks,
+            'total_subject_count': queryset.count(),
+            'subject_categories': subject_categories,
+            'total_hours': total_hours,
+            'total_actual_hours': total_actual_hours,
+        },
+    )
 
 
 def subject_create(request):
@@ -378,7 +395,8 @@ def subject_data(request, pk):
         'description': subject.description,
         'color': subject.color,
         'estimated_hours': subject.estimated_hours,
-        'background_image': subject.background_image.url if subject.background_image else None
+        'background_image': subject.background_image.url if subject.background_image else None,
+        'category_id': subject.category_id,
     })
     
 def subject_refresh(request, pk):
@@ -406,11 +424,13 @@ def subject_refresh(request, pk):
     return JsonResponse({'status': 'success'})
 
 def subject_detail(request, pk):
-    subject = get_object_or_404(Subject, pk=pk)
+    subject = get_object_or_404(Subject.objects.select_related('category'), pk=pk)
     chapters = subject.chapters.all().order_by('order')
+    subject_categories = SubjectCategory.objects.all().order_by('-display_weight', 'name')
     return render(request, 'courses/subject_detail.html', {
         'subject': subject,
-        'chapters': chapters
+        'chapters': chapters,
+        'subject_categories': subject_categories,
     })
 
 def subject_methods(request, pk):

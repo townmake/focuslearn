@@ -10,7 +10,6 @@ import base64
 import io
 from PIL import Image, ImageEnhance
 import numpy as np
-import cv2
 import json
 import re
 from langdetect import detect, LangDetectException
@@ -24,6 +23,19 @@ import urllib.parse
 
 
 logger = logging.getLogger(__name__)
+
+_cv2 = None
+
+
+def _get_cv2():
+    """延迟加载 cv2，避免 migrate / 加载 urls 时在无 libGL 的服务器上 import 失败。"""
+    global _cv2
+    if _cv2 is None:
+        import cv2 as _cv2_mod
+
+        _cv2 = _cv2_mod
+    return _cv2
+
 
 from django.conf import settings
 from django.core.cache import cache
@@ -110,7 +122,8 @@ class OCRBaseAPI(APIView):
             # 增强对比度
             enhancer = ImageEnhance.Contrast(img)
             img = enhancer.enhance(1.5)
-            
+
+            cv2 = _get_cv2()
             # 转换为OpenCV格式进行进一步处理
             img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
             

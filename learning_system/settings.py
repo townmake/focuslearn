@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'weekly_planner',
     
     # Third party apps
+    'mptt',
+    'django_extensions',
     'rest_framework',
     'django_filters',
     # 'django_ckeditor_5',  # 已移除
@@ -150,8 +152,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Logging configuration
+# 仅控制台输出，不写 logs/*.log，避免磁盘占用；Gunicorn/systemd 下日志进 journal
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -169,33 +170,25 @@ LOGGING = {
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose'
-        },
-        'file': {
-            'level': 'INFO',  # 将日志级别调整为 INFO
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/debug.log',
             'formatter': 'verbose',
-            'maxBytes': 1024*1024*10,  # 10MB
-            'backupCount': 5,
         },
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
         'courses': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': False,
         },
     },
     'root': {
-        'handlers': ['console', 'file'],
+        'handlers': ['console'],
         'level': 'DEBUG',
-    }
+    },
 }
 
 

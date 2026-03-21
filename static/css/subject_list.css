@@ -237,3 +237,16 @@
     overflow: auto;
     outline: 0;
 }
+
+/* 课程列表：科目分类分组标题行 */
+.subject-category-header-row .ant-table-cell {
+    background: #f0f5ff;
+    font-size: 15px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #d6e4ff;
+}
+
+.subject-category-title {
+    color: #1d39c4;
+    font-weight: 600;
+}
