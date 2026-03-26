@@ -7,6 +7,8 @@ __pycache__/
 *.egg-info/
 .eggs/
 dist/
+# AiEditor 构建产物需随仓库部署（服务器无 Node 时依赖此目录）
+!static/aieditor-main/dist/
 build/
 
 # Virtual env
