@@ -56,12 +56,16 @@
                 <h3 id="manual-record-title" class="manual-record-modal__title">填写时间投入记录</h3>
                 <form id="manual-record-form" class="manual-record-form" onsubmit="return false;">
                     <div class="manual-record-form__row">
-                        <label for="mr-subject-name">项目名称 <span class="required">*</span></label>
-                        <input type="text" id="mr-subject-name" class="ant-input" required maxlength="100" placeholder="项目名称">
+                        <label for="mr-subject-id">项目名称 <span class="required">*</span></label>
+                        <select id="mr-subject-id" class="ant-input" required onchange="onManualRecordSubjectChange()">
+                            <option value="">请选择项目</option>
+                        </select>
                     </div>
                     <div class="manual-record-form__row">
-                        <label for="mr-chapter-name">任务名称 <span class="required">*</span></label>
-                        <input type="text" id="mr-chapter-name" class="ant-input" required maxlength="100" placeholder="任务名称">
+                        <label for="mr-chapter-id">任务名称 <span class="required">*</span></label>
+                        <select id="mr-chapter-id" class="ant-input" disabled>
+                            <option value="">请先选择项目</option>
+                        </select>
                     </div>
                     <div class="manual-record-form__row">
                         <label for="mr-learning-content">任务描述 <span class="required">*</span></label>
@@ -164,6 +168,9 @@
     {% endif %}
 </div>
 <script>
+/** 与筛选区同源：项目 → 子任务（章节），供「记录」弹窗下拉使用 */
+let manualRecordSubjectTree = [];
+
 // 表格列配置
 const studyRecordColumns = [
     {
@@ -346,11 +353,63 @@ function formatDatetimeLocal(dt) {
     return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
 }
 
+function resetManualRecordChapterSelect() {
+    const chapSel = document.getElementById('mr-chapter-id');
+    if (!chapSel) return;
+    chapSel.innerHTML = '<option value="">请先选择项目</option>';
+    chapSel.disabled = true;
+    chapSel.removeAttribute('required');
+}
+
+function fillManualRecordSubjectSelect() {
+    const subSel = document.getElementById('mr-subject-id');
+    if (!subSel) return;
+    subSel.innerHTML = '<option value="">请选择项目</option>';
+    manualRecordSubjectTree.forEach((s) => {
+        const o = document.createElement('option');
+        o.value = String(s.value);
+        o.textContent = s.label;
+        subSel.appendChild(o);
+    });
+}
+
+function onManualRecordSubjectChange() {
+    const subSel = document.getElementById('mr-subject-id');
+    const chapSel = document.getElementById('mr-chapter-id');
+    if (!subSel || !chapSel) return;
+    const subId = subSel.value;
+    chapSel.innerHTML = '<option value="">请选择任务</option>';
+    chapSel.removeAttribute('required');
+    if (!subId) {
+        chapSel.innerHTML = '<option value="">请先选择项目</option>';
+        chapSel.disabled = true;
+        return;
+    }
+    const node = manualRecordSubjectTree.find((x) => String(x.value) === String(subId));
+    const children = node && Array.isArray(node.children) ? node.children : [];
+    if (!children.length) {
+        chapSel.innerHTML = '<option value="">该项目下暂无任务</option>';
+        chapSel.disabled = true;
+        return;
+    }
+    children.forEach((ch) => {
+        const o = document.createElement('option');
+        o.value = String(ch.value);
+        o.textContent = ch.label;
+        chapSel.appendChild(o);
+    });
+    chapSel.disabled = false;
+    chapSel.setAttribute('required', 'required');
+}
+
 function openManualRecordModal() {
     const modal = document.getElementById('manual-record-modal');
     const form = document.getElementById('manual-record-form');
     if (!modal || !form) return;
     form.reset();
+    fillManualRecordSubjectSelect();
+    document.getElementById('mr-subject-id').value = '';
+    resetManualRecordChapterSelect();
     const now = new Date();
     const start = new Date(now.getTime() - 60 * 60 * 1000);
     document.getElementById('mr-start-time').value = formatDatetimeLocal(start);
@@ -535,16 +594,28 @@ function deleteStudyRecord() {
 }
 
 function submitManualRecord() {
-    const subjectName = document.getElementById('mr-subject-name').value.trim();
-    const chapterName = document.getElementById('mr-chapter-name').value.trim();
+    const subId = document.getElementById('mr-subject-id').value;
+    const chapSel = document.getElementById('mr-chapter-id');
+    const chapId = chapSel ? chapSel.value : '';
     const learningContent = document.getElementById('mr-learning-content').value.trim();
     const pageType = document.getElementById('mr-page-type').value;
     const startVal = document.getElementById('mr-start-time').value;
     const endVal = document.getElementById('mr-end-time').value;
-    if (!subjectName || !chapterName || !learningContent || !pageType || !startVal || !endVal) {
-        notifyRecord('请填写所有必填项', 'warning');
+    if (!subId || !chapId || (chapSel && chapSel.disabled) || !learningContent || !pageType || !startVal || !endVal) {
+        notifyRecord('请选择项目、任务并填写其余必填项', 'warning');
         return;
     }
+    const subNode = manualRecordSubjectTree.find((x) => String(x.value) === String(subId));
+    const chNode = subNode && Array.isArray(subNode.children)
+        ? subNode.children.find((c) => String(c.value) === String(chapId))
+        : null;
+    if (!subNode || !chNode) {
+        notifyRecord('项目或任务选择无效，请重新选择', 'warning');
+        return;
+    }
+    const subjectName = subNode.label;
+    const chapterName = chNode.label;
+    const chapterPk = parseInt(chapId, 10);
     const startTime = new Date(startVal);
     const endTime = new Date(endVal);
     if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
@@ -573,7 +644,7 @@ function submitManualRecord() {
         end_time: endTime.toISOString(),
         duration: duration,
         page_type: pageType,
-        chapter: null,
+        chapter: Number.isFinite(chapterPk) ? chapterPk : null,
         subject_name: subjectName,
         chapter_name: chapterName,
         learning_content: learningContent,
@@ -620,6 +691,8 @@ function initCascader() {
     })
     .then(response => response.json())
     .then(options => {
+        manualRecordSubjectTree = Array.isArray(options) ? options : [];
+        fillManualRecordSubjectSelect();
         ReactDOM.render(
             React.createElement(antd.Cascader, {
                 options: options,
