@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(max_length=100, verbose_name='科目分类名称')),
                 ('is_visible', models.BooleanField(default=True, verbose_name='是否显示')),
-                ('display_weight', models.IntegerField(default=0, help_text='数值越大，在课程列表中越靠前展示', verbose_name='显示权重')),
+                ('display_weight', models.IntegerField(default=0, help_text='数值越大，在项目列表中越靠前展示', verbose_name='显示权重')),
             ],
             options={
                 'verbose_name': '科目分类',

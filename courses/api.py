@@ -37,14 +37,26 @@ class StudyRecordCreateAPI(generics.CreateAPIView):
                 except Chapter.DoesNotExist:
                     logger.warning(f"章节不存在: {data['pageId']}")
 
-            # 创建学习记录
+            raw_pt = data['pageType']
+            page_type_map = {
+                'study': 'thinking',
+                'exercise': 'implementation',
+                'review': 'retrospective',
+                'chapter': 'implementation',
+            }
+            valid_types = {c[0] for c in StudyRecord.PAGE_TYPE_CHOICES}
+            page_type_val = page_type_map.get(raw_pt, raw_pt)
+            if page_type_val not in valid_types:
+                page_type_val = 'other'
+
+            # 创建记录
             record = StudyRecord.objects.create(
                 user=request.user,
                 created_date=timezone.now().date(),
                 start_time=data['startTime'],
                 end_time=data['endTime'],
                 duration=data['duration'],
-                page_type=data['pageType'],
+                page_type=page_type_val,
                 chapter=chapter,
                 subject_name=subject_name,
                 chapter_name=chapter_name,
@@ -55,14 +67,14 @@ class StudyRecordCreateAPI(generics.CreateAPIView):
             return Response(
                 {
                     'id': record.id,
-                    'message': '学习记录创建成功',
+                    'message': '记录创建成功',
                     'duration_display': record.duration_display
                 },
                 status=status.HTTP_201_CREATED
             )
 
         except Exception as e:
-            logger.error(f"创建学习记录失败: {str(e)}")
+            logger.error(f"创建记录失败: {str(e)}")
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

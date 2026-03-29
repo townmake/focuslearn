@@ -153,12 +153,31 @@
         </div>
     </form>
 </div>
-</body>
+
+<script>
+(function () {
+    function getCookie(name) {
+        var m = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+        return m ? decodeURIComponent(m[2]) : '';
+    }
+    window.getAiEditorImageOptionStatic = function () {
+        var t = getCookie('csrftoken');
+        if (!t) return {};
+        return {
+            image: {
+                uploadUrl: '/courses/api/editor/upload/image/',
+                uploadHeaders: function () { return { 'X-CSRFToken': t }; },
+            },
+        };
+    };
+})();
+</script>
 
 <script type="module">
 import { AiEditor } from '/static/aieditor-main/dist/index.js';
 
 window.editorContent = new AiEditor({
+    ...window.getAiEditorImageOptionStatic(),
     element: '#editor-ex-content',
     placeholder: '开始输入题目内容...',
     theme: 'default',
@@ -172,6 +191,7 @@ window.editorContent = new AiEditor({
 
 // 解析编辑器
 window.editorAnalysis = new AiEditor({
+    ...window.getAiEditorImageOptionStatic(),
     element: '#editor-ex-analysis',
     placeholder: '开始输入解析内容...',
     theme: 'default',
@@ -530,4 +550,5 @@ document.addEventListener('DOMContentLoaded', function() {
         color: rgba(0, 0, 0, 0.25);
     }
 </style>
+</body>
 </html>

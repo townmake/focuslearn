@@ -112,10 +112,13 @@ a {
     background-color: rgba(255,255,255,0.1) !important;
 }
 
-/* 日历容器样式 */
+/* 日历容器样式：最大宽度 1440px，大屏居中；窄屏铺满 main 内宽 */
 .calendar-container {
-    margin: 20px;
+    width: 100%;
+    max-width: 1440px;
+    margin: 20px auto;
     padding: 20px;
+    box-sizing: border-box;
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -257,4 +260,46 @@ a {
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+/* 日历上的学习/任务记录：夕阳金色；与计划重叠时记录在上层 */
+.fc-event.calendar-study-record {
+    position: relative;
+    z-index: 14 !important;
+    border-width: 2px !important;
+    border-style: solid !important;
+    box-shadow: 0 1px 3px rgba(139, 90, 43, 0.35);
+    background-image: linear-gradient(
+        160deg,
+        #f0c9a0 0%,
+        #e8b888 35%,
+        #d4a574 70%,
+        #c9956c 100%
+    ) !important;
+    background-color: #d4a574 !important;
+}
+
+.fc-event.calendar-study-record .fc-event-main {
+    background: transparent !important;
+}
+
+/* 计划任务：与记录重叠时在下层 */
+.fc-event.calendar-plan-task {
+    position: relative;
+    z-index: 6 !important;
+}
+
+.fc-timegrid-event-harness:has(.calendar-plan-task) {
+    z-index: 6 !important;
+}
+.fc-timegrid-event-harness:has(.calendar-study-record) {
+    z-index: 14 !important;
+}
+
+/* 月视图：记录盖住计划 */
+.fc-daygrid-event.calendar-study-record {
+    z-index: 14 !important;
+}
+.fc-daygrid-event.calendar-plan-task {
+    z-index: 6 !important;
 }

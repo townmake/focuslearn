@@ -15,7 +15,7 @@ class StudyRecordsAPIView(APIView):
         page = request.GET.get('page', 1)
         page_size = request.GET.get('page_size', 10)
         
-        # 获取当前用户的学习记录
+        # 获取当前用户的记录
         queryset = StudyRecord.objects.filter(user=request.user)
         
         # 应用过滤条件

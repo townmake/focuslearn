@@ -17,8 +17,6 @@ from .serializers import (
     KnowledgePointAnnotationSerializer
 )
 from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-import json
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.utils.dateformat import DateFormat
@@ -178,32 +176,6 @@ def update_knowledge_point_content(request, pk):
     knowledge_point.content = request.data['content']
     knowledge_point.save()
     return Response({'status': 'content updated'})
-
-@require_http_methods(["POST"])
-def update_knowledge_rating(request, pk):
-    data = json.loads(request.body)
-    rating_type = data.get('rating_type')
-    value = data.get('value')
-    
-    if not rating_type or value is None:
-        return JsonResponse({'error': '缺少参数'}, status=400)
-    
-    try:
-        knowledge_point = KnowledgePoint.objects.get(id=pk)
-    except KnowledgePoint.DoesNotExist:
-        return JsonResponse({'error': '知识点不存在'}, status=404)
-    
-    if rating_type == 'kp-difficulty':
-        knowledge_point.difficulty = value
-    elif rating_type == 'kp-memory-level':
-        knowledge_point.memory_level = value
-    elif rating_type == 'kp-mastery-level':
-        knowledge_point.mastery_level = value
-    else:
-        return JsonResponse({'error': '无效的评分类型'}, status=400)
-    
-    knowledge_point.save()
-    return JsonResponse({'success': True})
 
 def search_knowledge_points(request, chapter_id):
     """
@@ -446,9 +418,6 @@ class KnowledgePointImport(APIView):
                                 'title': node.get('title', '未命名知识点'),
                                 'parent': parent.id if parent else None,
                                 'description': node.get('description', ''),
-                                'difficulty': node.get('difficulty', 3),
-                                'memory_level': node.get('memory_level', 3),
-                                'mastery_level': node.get('mastery_level', 3),
                                 'content': node.get('content', ''),
                                 'brother_id': brother_counter,
                             }

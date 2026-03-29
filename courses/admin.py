@@ -24,16 +24,13 @@ from .models import KnowledgePoint
 
 @admin.register(KnowledgePoint)
 class KnowledgePointAdmin(MPTTModelAdmin):
-    list_display = ('title', 'chapter', 'difficulty', 'memory_level', 'mastery_level')
+    list_display = ('title', 'chapter')
     list_filter = ('chapter__subject', 'chapter')
     search_fields = ('title', 'description')
     mptt_level_indent = 20
     fieldsets = (
         (None, {
             'fields': ('chapter', 'title', 'parent', 'description', 'content')
-        }),
-        ('评估指标', {
-            'fields': ('difficulty', 'memory_level', 'mastery_level')
         }),
         ('关联内容', {
             'fields': ('documents', 'videos', 'exercises'),
@@ -57,7 +54,7 @@ class SubjectCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'order', 'estimated_hours', 'progress')
+    list_display = ('name', 'category', 'order', 'estimated_hours', 'already_hours', 'progress')
     list_filter = ('category',)
     search_fields = ('name', 'description')
     autocomplete_fields = ('category',)

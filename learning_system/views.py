@@ -1,68 +1,72 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth import login, authenticate, logout, get_user_model
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
 from courses.models import Subject
+
 
 @login_required(login_url='login')
 def home(request):
     from weekly_planner.models import Task, UserImportantDate
-    from courses.models import Subject, ReviewSet
-    from django.utils import timezone
-    
+    from courses.subject_weekly_stats import build_home_weekly_rows
+
     today = timezone.now().date()
     tasks = Task.objects.filter(
         user=request.user,
         start_date=today
     ).order_by('start_time')
-    
-    # 分离已完成和未完成的任务
+
     completed_tasks = tasks.filter(is_completed=True)
     uncompleted_tasks = tasks.filter(is_completed=False)
-    
-    # 获取当天需要复习的科目习题集（subject_id不为空）
-    start_date = timezone.datetime.combine(today, timezone.datetime.min.time())
-    end_date = timezone.datetime.combine(today, timezone.datetime.max.time())
-    review_sets = ReviewSet.objects.filter(
-        created_at__range=(start_date, end_date),
-        subject_id__isnull=False
-    ).select_related('chapter__subject')  # 关联查询科目信息
-    
-    # 按科目分组，使用科目对象作为key
-    subjects_reviews = {}
-    for review in review_sets:
-        if review.subject not in subjects_reviews:
-            subjects_reviews[review.subject] = []
-        subjects_reviews[review.subject].append(review)
 
-    # 查询 UserImportantDate 并计算倒计时
-    important_dates = UserImportantDate.objects.filter(user=request.user)
-    important_dates_with_countdown = []
-    for important_date in important_dates:
-        if important_date.date:
-            time_diff = (important_date.date - today).days
-            if time_diff < 0:
-                days_left = '日期已过'
-            else:
-                days_left = f' {time_diff} '
-            important_dates_with_countdown.append({
-                'id': important_date.id,
-                'name': important_date.name,
-                'date': important_date.date,
-                'days_left': days_left
-            })
-    
+    # 查询 UserImportantDate（与 weekly_planner.important_date_api 序列化一致）
+    from django.db.models import F
+    from weekly_planner.important_date_api import serialize_important_date
+
+    now = timezone.now()
+    important_dates = UserImportantDate.objects.filter(user=request.user).order_by(
+        F("due_at").asc(nulls_last=True), "id"
+    )
+    important_dates_with_countdown = [
+        serialize_important_date(d, now, i) for i, d in enumerate(important_dates)
+    ]
+
+    from weekly_planner.quotable_service import (
+        ensure_today_quotable_quotes,
+        pick_random_welcome_quote,
+    )
+
+    ensure_today_quotable_quotes()
+    welcome_quote = pick_random_welcome_quote()
+
     context = {
-        'completed_tasks': completed_tasks,
-        'uncompleted_tasks': uncompleted_tasks,
-        'subjects': Subject.objects.all(),
-        'reviews_sets':review_sets,
-        'subjects_reviews': subjects_reviews,
-        'daily_review_sets': subjects_reviews,  # 保持兼容
-        'today': today,
-        'important_dates_with_countdown': important_dates_with_countdown
+        "completed_tasks": completed_tasks,
+        "uncompleted_tasks": uncompleted_tasks,
+        "subjects": Subject.objects.all(),
+        "today": today,
+        "important_dates_with_countdown": important_dates_with_countdown,
+        "weekly_dashboard_rows": build_home_weekly_rows(request.user),
+        "welcome_quote": welcome_quote,
     }
-    
-    return render(request, 'home.html', context)
+
+    return render(request, "home.html", context)
+
+
+@login_required(login_url="login")
+@require_POST
+def refresh_weekly_dashboard(request):
+    """批量按本周计划+记录刷新所有项目与子任务统计（不写 already_hours）。"""
+    from courses.subject_weekly_stats import persist_subject_weekly_stats
+
+    for subject in Subject.objects.all().order_by("id"):
+        persist_subject_weekly_stats(request.user, subject)
+    get_user_model().objects.filter(pk=request.user.pk).update(
+        weekly_dashboard_refreshed_at=timezone.now()
+    )
+    return JsonResponse({"status": "success"})
 
 def login_view(request):
     if request.method == 'POST':
@@ -98,29 +102,4 @@ def register_view(request):
 
 def logout_view(request):
     logout(request)
-    return redirect('home')
-
-def generate_daily_review(request):
-    from django.core.management import call_command
-    from django.contrib import messages
-    from django.core.cache import cache
-    from django.utils import timezone
-    
-    # 获取当天日期字符串作为缓存key
-    today_str = timezone.now().strftime('%Y-%m-%d')
-    cache_key = f'daily_review_generated_{today_str}'
-    
-    # 检查是否已生成过
-    if cache.get(cache_key):
-        messages.warning(request, '今日复习任务已生成过，请勿重复操作')
-        return redirect('home')
-    
-    try:
-        call_command('generate_daily_review')
-        # 设置24小时缓存
-        cache.set(cache_key, True, 60*60*24)
-        messages.success(request, '今日复习任务已成功生成')
-    except Exception as e:
-        messages.error(request, f'生成复习任务失败: {str(e)}')
-    
     return redirect('home')

@@ -1,9 +1,11 @@
 
-/* 基础样式 */
+/* 基础样式：列表区域最宽 1440px，大屏居中；窄屏铺满 main 内宽 */
 .subject-list-container {
-    max-width: 1200px;
+    width: 100%;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 20px;
+    box-sizing: border-box;
 }
 
 /* 限制antd样式作用范围 */
@@ -173,28 +175,52 @@
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .search-bar {
     display: flex;
     align-items: center;
+    gap: 8px;
 }
 
-.search-input {
-    padding: 8px 12px;
+/* 与 .ant-btn 主按钮高度对齐（约 32px） */
+.subject-list-header .search-input {
+    width: 200px;
+    min-width: 160px;
+    height: 32px;
+    padding: 4px 11px;
+    font-size: 14px;
+    line-height: 1.5715;
+    color: rgba(0, 0, 0, 0.85);
+    background: #fff;
     border: 1px solid #d9d9d9;
-    border-radius: 4px;
+    border-radius: 2px;
+    box-sizing: border-box;
+    vertical-align: middle;
 }
 
-.search-btn {
-    padding: 8px 16px;
-    background-color: #1890ff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-left: 8px;
+.subject-list-header .search-input:hover {
+    border-color: #40a9ff;
+}
+
+.subject-list-header .search-input:focus {
+    outline: none;
+    border-color: #40a9ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.subject-list-header .header-action-btn.ant-btn {
+    height: 32px;
+    padding: 4px 15px;
+    font-size: 14px;
+    line-height: 1.5715;
+    border-radius: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
 }
 
 .action-buttons {
@@ -238,7 +264,7 @@
     outline: 0;
 }
 
-/* 课程列表：科目分类分组标题行 */
+/* 项目列表：科目分类分组标题行 */
 .subject-category-header-row .ant-table-cell {
     background: #f0f5ff;
     font-size: 15px;

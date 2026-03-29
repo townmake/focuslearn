@@ -298,85 +298,6 @@ function initKnowledgePoints() {
     currentListeners.push({element: window, type: 'beforeunload', handler: cleanupKnowledgePoints});
 }
 
-// 根据评分类型获取容器ID
-function getRatingContainerId(ratingType) {
-    switch (ratingType) {
-        case 'kp-difficulty':
-            return 'kp-difficulty-container';
-        case 'kp-memory-level':
-            return 'kp-memory-level-container';
-        case 'kp-mastery-level':
-            return 'kp-mastery-level-container';
-        default:
-            console.error('未知评分类型:', ratingType);
-            return '';
-    }
-}
-// 转换数值为星星评级，知识点详情部分
-function renderRating(value, max=5, containerId, firstRender=true) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    // 如果是非首次渲染，则移除之前的React组件
-    if (!firstRender) {
-        ReactDOM.unmountComponentAtNode(container);
-    }
-    // 清空容器内容
-    container.innerHTML = '';
-    
-    // 创建Rate组件
-    const Rate = antd.Rate;
-    ReactDOM.render(
-        React.createElement(Rate, {
-            value: value,
-            onChange: (newVal) => {
-                saveRating(containerId.replace('-container', ''), newVal);
-            }
-        }),
-        container
-    );
-}
-
-// 保存评分到后台
-function saveRating(ratingType, value) {
-    const kpId = currentKnowledgePointId;
-    if (!kpId) {
-        console.error('知识点ID不存在');
-        return;
-    }
-    
-    const url = `/courses/api/knowledge-points/${kpId}/update-rating/`;
-    const data = {
-        rating_type: ratingType,
-        value: value
-    };
-    
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('保存失败');
-        }
-        return response.json();
-    })
-    .then(data => {
-        antd.message.success('评分已保存'); 
-
-       // 直接更新星星评分组件
-        const containerId = getRatingContainerId(ratingType);
-        renderRating(value, 5, containerId, false);
-    })
-    .catch(error => {
-        console.error('保存评分失败:', error);
-        antd.message.error('保存评分失败');
-    });
-}
-
 // 可编辑字段配置
 const editableFields = [
     {
@@ -417,11 +338,6 @@ function loadKnowledgePointDetail(kpId) {
                     element.setAttribute('contenteditable', 'false');
                 }
             });
-
-            // 使用新的评分渲染方法
-            renderRating(data.difficulty, 5, 'kp-difficulty-container',false);
-            renderRating(data.memory_level, 5, 'kp-memory-level-container',false);
-            renderRating(data.mastery_level, 5, 'kp-mastery-level-container',false);
 
             document.getElementById('kp-parent').textContent = 
                 data.parent ? data.parent_title : "根节点";
@@ -557,9 +473,6 @@ function deleteKnowledgePoint(kpId) {
                     // 清空右侧面板内容 
                     document.getElementById('kp-title').textContent = '';
                     document.getElementById('kp-description').textContent = '';
-                    document.getElementById('kp-difficulty').textContent = '';
-                    document.getElementById('kp-memory-level').textContent = '';
-                    document.getElementById('kp-mastery-level').textContent = '';
                     document.getElementById('kp-parent').textContent = '';
                     document.getElementById('kp-brother_id').textContent = '';
                     // 清空编辑器内容
@@ -579,14 +492,7 @@ function deleteKnowledgePoint(kpId) {
 
 // 显示添加知识点模态框
 function showAddModal_Knowledge(parentId) {
-    let difficulty = 3;
-    let memoryLevel = 3;
-    let masteryLevel = 3;
     const parent_null = parentId===null;
-    
-    const setDifficulty = (value) => difficulty = value;
-    const setMemoryLevel = (value) => memoryLevel = value;
-    const setMasteryLevel = (value) => masteryLevel = value;
 
     const modalContent = React.createElement('div', { style: { padding: '20px 0' } }, [
         React.createElement('div', { 
@@ -617,78 +523,19 @@ function showAddModal_Knowledge(parentId) {
             defaultValue: 1,
             style: { marginBottom: '15px', width: '100%' }
         }),
-        React.createElement('div', { key: 'difficulty' }, '难度:'),
-        React.createElement(antd.Radio.Group, {
-            key: 'difficulty-group',
-            name: 'difficulty',
-            options: [
-                { label: '非常简单', value: 1 },
-                { label: '简单', value: 2 },
-                { label: '中等', value: 3 },
-                { label: '困难', value: 4 },
-                { label: '非常困难', value: 5 }
-            ],
-            defaultValue:3,
-            onChange: e => setDifficulty(e.target.value),
-            optionType: 'button',
-            buttonStyle: 'solid',
-            style: { marginBottom: '15px' }
-        }),
-        React.createElement('div', { key: 'memory' }, '记忆度:'),
-        React.createElement(antd.Radio.Group, {
-            key: 'memory-group',
-            name: 'memory_level',
-            options: [
-                { label: '完全陌生', value: 1 },
-                { label: '有些印象', value: 2 },
-                { label: '一般熟悉', value: 3 },
-                { label: '比较熟悉', value: 4 },
-                { label: '完全掌握', value: 5 }
-            ],
-            defaultValue:3,
-            onChange: e => setMemoryLevel(e.target.value),
-            optionType: 'button',
-            buttonStyle: 'solid',
-            style: { marginBottom: '15px' }
-        }),
-        React.createElement('div', { key: 'mastery' }, '掌握度:'),
-        React.createElement(antd.Radio.Group, {
-            key: 'mastery-group',
-            name: 'mastery_level',
-            options: [
-                { label: '完全不懂', value: 1 },
-                { label: '初步了解', value: 2 },
-                { label: '基本掌握', value: 3 },
-                { label: '熟练运用', value: 4 },
-                { label: '精通', value: 5 }
-            ],
-            defaultValue:3,
-            onChange: e => {
-                setMasteryLevel(e.target.value);
-                // 强制更新组件
-                const event = new Event('input', { bubbles: true });
-                document.querySelector('[name="mastery_level"]').dispatchEvent(event);
-            },
-            optionType: 'button',
-            buttonStyle: 'solid'
-        })
     ]);
 
-    const modal = antd.Modal.confirm({
+    antd.Modal.confirm({
         title: null,
         icon: null,
         content: modalContent,
-        width: 650,
+        width: 520,
         okText: '保存',
         cancelText: '取消',
         onOk: () => {
             const title = document.getElementById('new-kp-title').value;
             const description = document.getElementById('new-kp-desc').value;
             const brother_id = document.getElementById('new-kp-brother_id').value;
-            // 精确获取各单选按钮组的值
-            const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
-            const memoryLevel = document.querySelector('input[name="memory_level"]:checked').value;
-            const masteryLevel = document.querySelector('input[name="mastery_level"]:checked').value;
             if (!title) {
                 antd.message.error('请输入知识点标题');
                 return Promise.reject();
@@ -697,7 +544,7 @@ function showAddModal_Knowledge(parentId) {
                 antd.message.error('请输入知识点描述');
                 return Promise.reject();
             }
-            submitAddKnowledgePoint(parentId, title, description, difficulty, memoryLevel, masteryLevel, brother_id);
+            submitAddKnowledgePoint(parentId, title, description, brother_id);
             return Promise.resolve();
         },
         onCancel: () => {}
@@ -705,14 +552,11 @@ function showAddModal_Knowledge(parentId) {
 }
 
 // 提交添加知识点
-function submitAddKnowledgePoint(parentId, title, description, difficulty = 3, memoryLevel = 3, masteryLevel = 3,brother_id = 1) {
+function submitAddKnowledgePoint(parentId, title, description, brother_id = 1) {
     chapterId = '{{chapter.id}}';
     const requestData = {
         title: title,
         description: description,
-        difficulty: difficulty,
-        memory_level: memoryLevel,
-        mastery_level: masteryLevel,
         parent: parentId,
         chapter: chapterId,
         brother_id: brother_id

@@ -2,7 +2,7 @@
 
 {% extends 'base.html' %}
 
-{% block title %}学习记录{% endblock %}
+{% block title %}记录{% endblock %}
 
 {% block content %}
 {% load static %}
@@ -28,15 +28,15 @@
 
                     <!-- 科目/章节选择器 -->
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <label class="ant-form-item-label" style="margin-bottom: 0;">科目/章节</label>
+                        <label class="ant-form-item-label" style="margin-bottom: 0;">项目/子任务</label>
                         <div id="subject-chapter-cascader" style="display:inline-block;"></div>
                         <input type="hidden" name="subject" id="subjectValue">
                         <input type="hidden" name="chapter" id="chapterValue">
                     </div>
 
-                    <!-- 学习类型选择器 -->
+                    <!-- 任务类型选择器 -->
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <label class="ant-form-item-label" style="margin-bottom: 0; white-space: nowrap;">学习类型</label>
+                        <label class="ant-form-item-label" style="margin-bottom: 0; white-space: nowrap;">任务类型</label>
                         <div id="page-type-selector"></div>
                         <input type="hidden" name="page_type" id="pageTypeValue">
                     </div>
@@ -44,16 +44,108 @@
                     <!-- 操作按钮 -->
                     <button type="button" class="ant-btn ant-btn-primary" onclick="loadStudyRecords()">查询</button>
                     <button type="button" class="ant-btn" onclick="resetSearch()">重置</button>
+                    <button type="button" class="ant-btn ant-btn-primary" onclick="openManualRecordModal()">记录</button>
                 </form>
             </div>
             
         <div id="study-records-table"  key={tableKey}> </div>
+
+        <div id="manual-record-modal" class="manual-record-modal" aria-hidden="true">
+            <div class="manual-record-modal__backdrop" onclick="closeManualRecordModal()"></div>
+            <div class="manual-record-modal__panel" role="dialog" aria-labelledby="manual-record-title">
+                <h3 id="manual-record-title" class="manual-record-modal__title">填写时间投入记录</h3>
+                <form id="manual-record-form" class="manual-record-form" onsubmit="return false;">
+                    <div class="manual-record-form__row">
+                        <label for="mr-subject-name">项目名称 <span class="required">*</span></label>
+                        <input type="text" id="mr-subject-name" class="ant-input" required maxlength="100" placeholder="项目名称">
+                    </div>
+                    <div class="manual-record-form__row">
+                        <label for="mr-chapter-name">任务名称 <span class="required">*</span></label>
+                        <input type="text" id="mr-chapter-name" class="ant-input" required maxlength="100" placeholder="任务名称">
+                    </div>
+                    <div class="manual-record-form__row">
+                        <label for="mr-learning-content">任务描述 <span class="required">*</span></label>
+                        <textarea id="mr-learning-content" class="ant-input manual-record-form__textarea" required rows="3" placeholder="任务描述"></textarea>
+                    </div>
+                    <div class="manual-record-form__row">
+                        <label for="mr-page-type">任务类型 <span class="required">*</span></label>
+                        <select id="mr-page-type" class="ant-input" required>
+                            {% for type in page_types %}
+                            <option value="{{ type.0 }}">{{ type.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="manual-record-form__row manual-record-form__row--inline">
+                        <div>
+                            <label for="mr-start-time">开始时间 <span class="required">*</span></label>
+                            <input type="datetime-local" id="mr-start-time" class="ant-input" required>
+                        </div>
+                        <div>
+                            <label for="mr-end-time">结束时间 <span class="required">*</span></label>
+                            <input type="datetime-local" id="mr-end-time" class="ant-input" required>
+                        </div>
+                    </div>
+                    <div class="manual-record-modal__actions">
+                        <button type="button" class="ant-btn" onclick="closeManualRecordModal()">取消</button>
+                        <button type="button" class="ant-btn ant-btn-primary" id="mr-save-btn" onclick="submitManualRecord()">保存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="edit-record-modal" class="manual-record-modal" aria-hidden="true">
+            <div class="manual-record-modal__backdrop" onclick="closeEditRecordModal()"></div>
+            <div class="manual-record-modal__panel" role="dialog" aria-labelledby="edit-record-title">
+                <h3 id="edit-record-title" class="manual-record-modal__title">编辑记录</h3>
+                <form id="edit-record-form" class="manual-record-form" onsubmit="return false;">
+                    <input type="hidden" id="er-id" value="">
+                    <input type="hidden" id="er-chapter" value="">
+                    <div class="manual-record-form__row">
+                        <label for="er-subject-name">项目名称 <span class="required">*</span></label>
+                        <input type="text" id="er-subject-name" class="ant-input" required maxlength="100" placeholder="项目名称">
+                    </div>
+                    <div class="manual-record-form__row">
+                        <label for="er-chapter-name">任务名称 <span class="required">*</span></label>
+                        <input type="text" id="er-chapter-name" class="ant-input" required maxlength="100" placeholder="任务名称">
+                    </div>
+                    <div class="manual-record-form__row">
+                        <label for="er-learning-content">任务描述 <span class="required">*</span></label>
+                        <textarea id="er-learning-content" class="ant-input manual-record-form__textarea" required rows="3" placeholder="任务描述"></textarea>
+                    </div>
+                    <div class="manual-record-form__row">
+                        <label for="er-page-type">任务类型 <span class="required">*</span></label>
+                        <select id="er-page-type" class="ant-input" required>
+                            {% for type in page_types %}
+                            <option value="{{ type.0 }}">{{ type.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="manual-record-form__row manual-record-form__row--inline">
+                        <div>
+                            <label for="er-start-time">开始时间 <span class="required">*</span></label>
+                            <input type="datetime-local" id="er-start-time" class="ant-input" required>
+                        </div>
+                        <div>
+                            <label for="er-end-time">结束时间 <span class="required">*</span></label>
+                            <input type="datetime-local" id="er-end-time" class="ant-input" required>
+                        </div>
+                    </div>
+                    <div class="manual-record-modal__actions manual-record-modal__actions--split">
+                        <button type="button" class="ant-btn ant-btn-danger" id="er-delete-btn" onclick="deleteStudyRecord()">删除</button>
+                        <div class="manual-record-modal__actions-right">
+                            <button type="button" class="ant-btn" onclick="closeEditRecordModal()">取消</button>
+                            <button type="button" class="ant-btn ant-btn-primary" id="er-save-btn" onclick="submitEditRecord()">保存</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
         
     </div>
     {% else %}
         <div class="login-container">
             <h1>欢迎来到学习系统</h1>
-            <p>请登录以查看您的学习计划和课程。</p>
+            <p>请登录以查看您的计划和项目。</p>
             <form method="post" action="{% url 'login' %}">
                 {% csrf_token %}
                 <div class="form-group">
@@ -91,42 +183,44 @@ const studyRecordColumns = [
         sorter: (a, b) => new Date(a.start_time) - new Date(b.start_time)
     },
     {
-        title: '科目',
+        title: '项目',
         dataIndex: 'subject_name',
         key: 'subject_name',
         width: 120
     },
     {
-        title: '章节',
+        title: '任务',
         dataIndex: 'chapter_name',
         key: 'chapter_name',
         width: 120
     },
     {
-        title: '学习时长',
+        title: '投入时长',
         dataIndex: 'duration_display',
         key: 'duration',
         width: 80,
         render: (text) => text
     },
     {
-        title: '学习类型',
+        title: '任务类型',
         dataIndex: 'page_type',
         key: 'page_type',
         width: 120,
         render: (text) => {
             const typeMap = {
-                'study': '学习',
-                'exercise': '做题练习',
-                'review': '再复习',
-                'other': '其他'
-                // 添加其他类型的中文映射
+                research: '调研',
+                thinking: '思考',
+                communication: '沟通',
+                implementation: '实施',
+                retrospective: '复盘',
+                process_step: '流程步骤',
+                other: '其他'
             };
             return typeMap[text] || text;
         }
     },
     {
-        title: '学习内容',
+        title: '任务内容',
         dataIndex: 'learning_content',
         key: 'learning_content',
         width: 300,
@@ -134,7 +228,7 @@ const studyRecordColumns = [
     }
 ];
 
-// 加载学习记录数据
+// 加载记录数据
 function loadStudyRecords(params = {}) {
     forceRerender(); // 强制重新渲染表格组件
     const container = document.getElementById('study-records-table');
@@ -190,6 +284,7 @@ function loadStudyRecords(params = {}) {
             React.createElement(antd.Table, {
                 columns: studyRecordColumns,
                 dataSource: data,
+                rowKey: 'id',
                 bordered: true,
                 pagination: {
                     current: pagination.page,
@@ -199,6 +294,10 @@ function loadStudyRecords(params = {}) {
                     pageSizeOptions: ['10', '20', '50'],
                     showTotal: total => `共 ${total} 条记录`
                 },
+                onRow: (record) => ({
+                    onClick: () => openEditRecordModal(record),
+                    style: { cursor: 'pointer' }
+                }),
                 onChange: (pagination, filters, sorter) => {
                     const params = {
                         page: pagination.current,
@@ -235,7 +334,281 @@ function resetSearch() {
     document.getElementById('subjectValue').value = '';
     document.getElementById('chapterValue').value = '';
     document.getElementById('pageTypeValue').value = '';
+    initPageTypeSelector();
     loadStudyRecords();
+}
+
+function pad2(n) {
+    return String(n).padStart(2, '0');
+}
+
+function formatDatetimeLocal(dt) {
+    return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+}
+
+function openManualRecordModal() {
+    const modal = document.getElementById('manual-record-modal');
+    const form = document.getElementById('manual-record-form');
+    if (!modal || !form) return;
+    form.reset();
+    const now = new Date();
+    const start = new Date(now.getTime() - 60 * 60 * 1000);
+    document.getElementById('mr-start-time').value = formatDatetimeLocal(start);
+    document.getElementById('mr-end-time').value = formatDatetimeLocal(now);
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeManualRecordModal() {
+    const modal = document.getElementById('manual-record-modal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+function notifyRecord(msg, type) {
+    if (typeof antd !== 'undefined' && antd.message) {
+        if (type === 'error') antd.message.error(msg);
+        else if (type === 'warning') antd.message.warning(msg);
+        else antd.message.success(msg);
+    } else {
+        alert(msg);
+    }
+}
+
+function studyRecordDetailUrl(pk) {
+    return '{% url "courses:study-records-detail" pk=999999999 %}'.replace('999999999', String(pk));
+}
+
+function formatDrfError(data) {
+    if (!data || typeof data !== 'object') return '操作失败';
+    if (data.detail) {
+        return typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+    }
+    const parts = [];
+    for (const key of Object.keys(data)) {
+        const v = data[key];
+        if (Array.isArray(v)) parts.push(`${key}: ${v.join(', ')}`);
+        else if (v && typeof v === 'object') parts.push(`${key}: ${JSON.stringify(v)}`);
+        else parts.push(`${key}: ${v}`);
+    }
+    return parts.length ? parts.join('；') : '操作失败';
+}
+
+function openEditRecordModal(record) {
+    if (!record || record.id == null) {
+        notifyRecord('无法编辑：缺少记录编号', 'warning');
+        return;
+    }
+    const modal = document.getElementById('edit-record-modal');
+    if (!modal) return;
+    document.getElementById('er-id').value = String(record.id);
+    document.getElementById('er-chapter').value =
+        record.chapter != null && record.chapter !== '' ? String(record.chapter) : '';
+    document.getElementById('er-subject-name').value = record.subject_name || '';
+    document.getElementById('er-chapter-name').value = record.chapter_name || '';
+    const content =
+        (record.learning_content && String(record.learning_content).trim()) ||
+        (record.description && String(record.description).trim()) ||
+        '';
+    document.getElementById('er-learning-content').value = content;
+    document.getElementById('er-page-type').value = record.page_type || 'other';
+    const st = new Date(record.start_time);
+    const et = new Date(record.end_time);
+    document.getElementById('er-start-time').value = formatDatetimeLocal(st);
+    document.getElementById('er-end-time').value = formatDatetimeLocal(et);
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeEditRecordModal() {
+    const modal = document.getElementById('edit-record-modal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+function submitEditRecord() {
+    const id = document.getElementById('er-id').value;
+    if (!id) {
+        notifyRecord('记录无效', 'warning');
+        return;
+    }
+    const subjectName = document.getElementById('er-subject-name').value.trim();
+    const chapterName = document.getElementById('er-chapter-name').value.trim();
+    const learningContent = document.getElementById('er-learning-content').value.trim();
+    const pageType = document.getElementById('er-page-type').value;
+    const startVal = document.getElementById('er-start-time').value;
+    const endVal = document.getElementById('er-end-time').value;
+    if (!subjectName || !chapterName || !learningContent || !pageType || !startVal || !endVal) {
+        notifyRecord('请填写所有必填项', 'warning');
+        return;
+    }
+    const startTime = new Date(startVal);
+    const endTime = new Date(endVal);
+    if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        notifyRecord('开始或结束时间无效', 'warning');
+        return;
+    }
+    if (endTime <= startTime) {
+        notifyRecord('结束时间必须晚于开始时间', 'warning');
+        return;
+    }
+    const duration = Math.floor((endTime - startTime) / 1000);
+    if (duration < 1) {
+        notifyRecord('时长至少为 1 秒', 'warning');
+        return;
+    }
+    const chapterRaw = document.getElementById('er-chapter').value.trim();
+    const chapter = chapterRaw === '' ? null : parseInt(chapterRaw, 10);
+    const createdDate = `${startTime.getFullYear()}-${pad2(startTime.getMonth() + 1)}-${pad2(startTime.getDate())}`;
+    const payload = {
+        created_date: createdDate,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        duration: duration,
+        page_type: pageType,
+        chapter: Number.isFinite(chapter) ? chapter : null,
+        subject_name: subjectName,
+        chapter_name: chapterName,
+        learning_content: learningContent,
+        description: learningContent
+    };
+    const btn = document.getElementById('er-save-btn');
+    btn.disabled = true;
+    fetch(studyRecordDetailUrl(id), {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(payload)
+    })
+        .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(formatDrfError(data));
+            return data;
+        })
+        .then(() => {
+            notifyRecord('已保存');
+            closeEditRecordModal();
+            loadStudyRecords();
+        })
+        .catch((err) => {
+            notifyRecord(err.message || '保存失败', 'error');
+        })
+        .finally(() => {
+            btn.disabled = false;
+        });
+}
+
+function deleteStudyRecord() {
+    const id = document.getElementById('er-id').value;
+    if (!id) return;
+    if (!window.confirm('确定删除这条记录？删除后不可恢复。')) return;
+    const delBtn = document.getElementById('er-delete-btn');
+    delBtn.disabled = true;
+    fetch(studyRecordDetailUrl(id), {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+        .then((res) => {
+            if (!res.ok) {
+                return res.json().then((data) => {
+                    throw new Error(formatDrfError(data));
+                });
+            }
+        })
+        .then(() => {
+            notifyRecord('已删除');
+            closeEditRecordModal();
+            loadStudyRecords();
+        })
+        .catch((err) => {
+            notifyRecord(err.message || '删除失败', 'error');
+        })
+        .finally(() => {
+            delBtn.disabled = false;
+        });
+}
+
+function submitManualRecord() {
+    const subjectName = document.getElementById('mr-subject-name').value.trim();
+    const chapterName = document.getElementById('mr-chapter-name').value.trim();
+    const learningContent = document.getElementById('mr-learning-content').value.trim();
+    const pageType = document.getElementById('mr-page-type').value;
+    const startVal = document.getElementById('mr-start-time').value;
+    const endVal = document.getElementById('mr-end-time').value;
+    if (!subjectName || !chapterName || !learningContent || !pageType || !startVal || !endVal) {
+        notifyRecord('请填写所有必填项', 'warning');
+        return;
+    }
+    const startTime = new Date(startVal);
+    const endTime = new Date(endVal);
+    if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        notifyRecord('开始或结束时间无效', 'warning');
+        return;
+    }
+    if (endTime <= startTime) {
+        notifyRecord('结束时间必须晚于开始时间', 'warning');
+        return;
+    }
+    const duration = Math.floor((endTime - startTime) / 1000);
+    if (duration < 1) {
+        notifyRecord('时长至少为 1 秒', 'warning');
+        return;
+    }
+    const userId = document.body.dataset.userId;
+    if (!userId || userId === '0') {
+        notifyRecord('请先登录', 'error');
+        return;
+    }
+    const createdDate = `${startTime.getFullYear()}-${pad2(startTime.getMonth() + 1)}-${pad2(startTime.getDate())}`;
+    const payload = {
+        user: parseInt(userId, 10),
+        created_date: createdDate,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        duration: duration,
+        page_type: pageType,
+        chapter: null,
+        subject_name: subjectName,
+        chapter_name: chapterName,
+        learning_content: learningContent,
+        description: learningContent
+    };
+    const btn = document.getElementById('mr-save-btn');
+    btn.disabled = true;
+    fetch(`{% url 'courses:study-records-create' %}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(payload)
+    })
+        .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const err = data.detail || data.user || data.non_field_errors || data.error || JSON.stringify(data);
+                const msg = typeof err === 'string' ? err : (Array.isArray(err) ? err.join(', ') : '保存失败');
+                throw new Error(msg);
+            }
+            return data;
+        })
+        .then(() => {
+            notifyRecord('记录已保存');
+            closeManualRecordModal();
+            loadStudyRecords();
+        })
+        .catch((err) => {
+            notifyRecord(err.message || '保存失败', 'error');
+        })
+        .finally(() => {
+            btn.disabled = false;
+        });
 }
 
 // 初始化级联选择器
@@ -262,7 +635,7 @@ function initCascader() {
     });
 }
 
-// 初始化学习类型选择器
+// 初始化任务类型选择器
 function initPageTypeSelector() {
     const options = [
         { value: '', label: '所有类型' },
@@ -273,7 +646,7 @@ function initPageTypeSelector() {
     
     ReactDOM.render(
         React.createElement(antd.Select, {
-            style: { width: 120 },
+            style: { width: 168 },
             options: options,
             defaultValue: '',
             onChange: (value) => {
@@ -296,7 +669,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <style>
 .study-records-container {
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
     padding: 24px;
+    box-sizing: border-box;
     background: #fff;
     border-radius: 8px;
     box-shadow: 0 1px 2px 0 rgba(0,0,0,0.03);
@@ -353,6 +730,112 @@ document.addEventListener('DOMContentLoaded', () => {
 
 .ant-select {
     min-width: 120px;
+}
+
+.manual-record-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    align-items: center;
+    justify-content: center;
+}
+
+.manual-record-modal.is-open {
+    display: flex;
+}
+
+.manual-record-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.manual-record-modal__panel {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    margin: 16px;
+    padding: 24px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.manual-record-modal__title {
+    margin: 0 0 20px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.manual-record-form__row {
+    margin-bottom: 16px;
+}
+
+.manual-record-form__row label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.85);
+}
+
+.manual-record-form__row .ant-input,
+.manual-record-form__row select.ant-input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.manual-record-form__textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.manual-record-form__row--inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.manual-record-form__row--inline > div {
+    min-width: 0;
+}
+
+.manual-record-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 24px;
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.manual-record-modal__actions--split {
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.manual-record-modal__actions-right {
+    display: flex;
+    gap: 8px;
+}
+
+.ant-btn-danger {
+    color: #fff;
+    background: #ff4d4f;
+    border-color: #ff4d4f;
+}
+
+.ant-btn-danger:hover {
+    background: #ff7875;
+    border-color: #ff7875;
+    color: #fff;
+}
+
+.manual-record-form .required {
+    color: #ff4d4f;
 }
 </style>
 

@@ -1,6 +1,8 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import api, views
+from .important_date_api import important_dates_api, important_date_detail_api
+from .calendar_study_records_api import calendar_study_records
 from .views import (
     QuickAccessListView,
     QuickAccessDetailView,
@@ -22,6 +24,17 @@ urlpatterns = [
     path('quick-access/<int:pk>/edit/', QuickAccessUpdateView.as_view(), name='quick_access_edit'),
     path('quick-access/<int:pk>/delete/', QuickAccessDeleteView.as_view(), name='quick_access_delete'),
     path('word-view/', views.word_view, name='word_view'),
+    path('api/important-dates/', important_dates_api, name='important_dates_api'),
+    path(
+        'api/important-dates/<int:pk>/',
+        important_date_detail_api,
+        name='important_date_detail_api',
+    ),
+    path(
+        'api/calendar-study-records/',
+        calendar_study_records,
+        name='calendar_study_records',
+    ),
 ]
 
 # API endpoints (单独包含)

@@ -17,7 +17,7 @@ class StudyRecordListView(APIView):
         learning_content = request.GET.get('learning_content')
         chapter_id = request.GET.get('chapter')
         
-        # 获取当前用户的学习记录
+        # 获取当前用户的记录
         queryset = StudyRecord.objects.filter(user=request.user)
         
         # 应用过滤条件
@@ -68,7 +68,7 @@ class BaseStudyRecordListView(StudyRecordListView):
         learning_content = request.GET.get('learning_content')
         chapter_id = request.GET.get('chapter')
         
-        # 获取当前用户的学习记录
+        # 获取当前用户的记录
         queryset = StudyRecord.objects.filter(user=request.user)
         
         # 应用过滤条件

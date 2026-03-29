@@ -71,6 +71,7 @@
 import { AiEditor } from '/static/aieditor-main/dist/index.js';
 
 window.editorContent = new AiEditor({
+    ...window.getAiEditorImageOption(),
     element: '#editor-ex-content',
     toolbarKeys:[],
     placeholder: '开始输入题目内容...',

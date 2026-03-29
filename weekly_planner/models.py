@@ -131,8 +131,9 @@ class DailySummary(models.Model):
     
 class UserImportantDate(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100, blank=True, null=True)
-    date = models.DateField(null=True, blank=True)  # 允许为空，以便用户可以在稍后设置
+    name = models.CharField(max_length=100, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    due_at = models.DateTimeField(null=True, blank=True, verbose_name="到期时间")
 
     def __str__(self):
         return self.user.username
@@ -170,3 +171,31 @@ class Words(models.Model):
         verbose_name_plural = '单词'
     def __str__(self):
         return self.word
+
+
+class DailyQuotableQuote(models.Model):
+    """
+    每日三条备用名言（早/中/晚），数据来自 Quotable API。
+    见 https://github.com/lukePeavey/quotable
+    """
+
+    class Slot(models.TextChoices):
+        MORNING = "morning", "早"
+        NOON = "noon", "中"
+        EVENING = "evening", "晚"
+
+    date = models.DateField("日期", db_index=True)
+    slot = models.CharField("时段", max_length=10, choices=Slot.choices)
+    content = models.TextField("正文")
+    author = models.CharField("作者", max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "每日名言（Quotable）"
+        verbose_name_plural = "每日名言（Quotable）"
+        constraints = [
+            models.UniqueConstraint(fields=["date", "slot"], name="uniq_daily_quotable_date_slot"),
+        ]
+
+    def __str__(self):
+        return f"{self.date} {self.get_slot_display()} — {self.author}"

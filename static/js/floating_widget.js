@@ -16,15 +16,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 存储radioGroup实例和当前选中值
     let radioGroupInstance = null;
-    let currentSelectedValue = 'study';
-    let currentSelectedLabel = '学习';
+    let currentSelectedValue = 'thinking';
+    let currentSelectedLabel = '思考';
 
     // 初始化radioGroup
     if (window.antd && window.React && window.ReactDOM) {
         const options = [
-            { label: '学习', value: 'study' },
-            { label: '练习', value: 'exercise' },
-            { label: '复习', value: 'review' },
+            { label: '调研', value: 'research' },
+            { label: '思考', value: 'thinking' },
+            { label: '沟通', value: 'communication' },
+            { label: '实施', value: 'implementation' },
+            { label: '复盘', value: 'retrospective' },
+            { label: '流程步骤', value: 'process_step' },
             { label: '其他', value: 'other' }
         ];
         
@@ -32,16 +35,17 @@ document.addEventListener('DOMContentLoaded', function() {
             currentSelectedValue = e.target.value;
             currentSelectedLabel = options.find(
                 opt => opt.value === currentSelectedValue
-            )?.label || '学习';
-            console.log('当前选择的学习类型:', currentSelectedValue);
-            console.log('当前选择的学习标签:', currentSelectedLabel);
+            )?.label || '思考';
+            console.log('当前选择的任务类型:', currentSelectedValue);
+            console.log('当前选择的任务类型标签:', currentSelectedLabel);
         };
 
         const radioGroup = React.createElement(antd.Radio.Group, {
-            defaultValue: "学习",
+            defaultValue: 'thinking',
             name: "study-type",
             optionType: "button",
             buttonStyle: "solid",
+            size: "small",
             options: options,
             onChange: handleChange
         });
@@ -52,8 +56,8 @@ document.addEventListener('DOMContentLoaded', function() {
         );
         
         // 初始化默认值
-        currentSelectedValue = 'study';
-        currentSelectedLabel = '学习';
+        currentSelectedValue = 'thinking';
+        currentSelectedLabel = '思考';
     }
     
     // 初始化状态
@@ -240,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
     timerWidget.querySelector('.timer-save').addEventListener('click', () => {
         const description = timerWidget.querySelector('.description-input').value;
         if (!description.trim()) {
-            alert('请填写学习内容');
+            alert('请填写任务内容');
             return;
         }
         // 组装数据
@@ -255,8 +259,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // 使用状态变量获取选中项
         const selectedValue = currentSelectedValue;
         const selectedLabel = currentSelectedLabel;
-        console.log('当前选择的学习类型:', selectedValue);
-        console.log('当前选择的学习标签:', selectedLabel);
+        console.log('当前选择的任务类型:', selectedValue);
+        console.log('当前选择的任务类型标签:', selectedLabel);
 
         
         const data = {
@@ -290,14 +294,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // 使用antd的message提示
             if (typeof antd !== 'undefined' && antd.message) {
                 antd.message.success({
-                    content: '学习记录已保存!',
+                    content: '记录已保存!',
                     duration: 2,
                     className: 'custom-message-notice'
                 });
             } else {
                 // 回退方案
                 const toast = document.createElement('div');
-                toast.textContent = '学习记录已保存!';
+                toast.textContent = '记录已保存!';
                 toast.style.position = 'fixed';
                 toast.style.bottom = '20px';
                 toast.style.left = '50%';

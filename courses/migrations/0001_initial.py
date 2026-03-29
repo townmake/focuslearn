@@ -322,8 +322,8 @@ class Migration(migrations.Migration):
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL, verbose_name='用户')),
             ],
             options={
-                'verbose_name': '学习记录',
-                'verbose_name_plural': '学习记录',
+                'verbose_name': '记录',
+                'verbose_name_plural': '记录',
                 'ordering': ['-start_time'],
             },
         ),

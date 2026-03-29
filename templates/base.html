@@ -11,7 +11,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}学习系统{% endblock %}</title>
+    <title>{% block title %}时间管理系统{% endblock %}</title>
 
     <style>
         .navbar {
@@ -88,15 +88,36 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body data-user-id="{% if user.is_authenticated %}{{ user.id }}{% else %}0{% endif %}">
+    <form id="django-csrf-holder" style="display:none" aria-hidden="true">{% csrf_token %}</form>
+    <script>
+    (function () {
+        function csrfHeaders() {
+            var el = document.querySelector('#django-csrf-holder input[name=csrfmiddlewaretoken]');
+            return el ? { 'X-CSRFToken': el.value } : {};
+        }
+        window.getAiEditorImageOption = function () {
+            {% if user.is_authenticated %}
+            return {
+                image: {
+                    uploadUrl: '{% url "courses:aieditor_image_upload" %}',
+                    uploadHeaders: csrfHeaders,
+                },
+            };
+            {% else %}
+            return {};
+            {% endif %}
+        };
+    })();
+    </script>
     <nav class="navbar">
-        <a href="{% url 'home' %}" class="navbar-brand">学习系统</a>
+        <a href="{% url 'home' %}" class="navbar-brand">时间管理系统</a>
         <ul class="navbar-nav">
             {% if user.is_authenticated %}
                 <li class="nav-item"><a href="{% url 'home' %}">首页</a></li>
-                <li class="nav-item"><a href="{% url 'courses:subject_list' %}">课程</a></li>
-                <li class="nav-item"><a href="{% url 'weekly_planner:calendar' %}">学习计划</a></li>
-                <li class="nav-item"><a href="{% url 'courses:base_study_record' %}">学习记录</a></li>
-                <li class="nav-item"><a href="{% url 'weekly_planner:quick_access_list' %}">便捷记录</a></li>
+                <li class="nav-item"><a href="{% url 'courses:subject_list' %}">项目</a></li>
+                <li class="nav-item"><a href="{% url 'weekly_planner:calendar' %}">计划</a></li>
+                <li class="nav-item"><a href="{% url 'courses:base_study_record' %}">记录</a></li>
+                <li class="nav-item"><a href="{% url 'weekly_planner:quick_access_list' %}">速记</a></li>
                 <li class="nav-item"><a href="{% url 'admin:index' %}">管理后台</a></li>
                 <li class="nav-item"><a href="{% url 'logout' %}">退出登录</a></li>
             {% else %}

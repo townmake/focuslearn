@@ -244,10 +244,11 @@ class ChapterSerializer(serializers.ModelSerializer):
 
 class StudyRecordSerializer(serializers.ModelSerializer):
     duration_display = serializers.CharField(read_only=True)
-    
+
     class Meta:
         model = StudyRecord
         fields = [
+            'id',
             'user',
             'created_date',
             'start_time',
@@ -259,10 +260,11 @@ class StudyRecordSerializer(serializers.ModelSerializer):
             'subject_name',
             'chapter_name',
             'learning_content',
-            'description'
+            'description',
         ]
+        read_only_fields = ['id', 'user', 'duration_display']
         extra_kwargs = {
-            'user': {'required': False}  # 从请求中自动获取
+            'user': {'required': False},
         }
 
 class KnowledgePointSerializer(serializers.ModelSerializer):
@@ -275,9 +277,6 @@ class KnowledgePointSerializer(serializers.ModelSerializer):
             'title',
             'description',
             'content',
-            'difficulty',
-            'memory_level',
-            'mastery_level',
             'chapter',
             'chapter_title',
             'parent',

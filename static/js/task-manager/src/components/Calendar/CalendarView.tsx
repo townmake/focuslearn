@@ -259,7 +259,7 @@ const CalendarView: React.FC = () => {
       <CalendarHeader>
         <Box display="flex" alignItems="center" gap={2}>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 500 }}>
-            学习计划日历
+            计划日历
           </Typography>
           <ViewControls>
             <StyledButtonGroup>

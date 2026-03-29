@@ -11,7 +11,6 @@ from .api_views import (
     KnowledgeTreeAPI,
     knowledge_points_list,
     update_knowledge_point_content,
-    update_knowledge_rating,
     knowledge_point_resources,
     search_knowledge_points,
     KnowledgePointAnnotationListAPI,
@@ -72,6 +71,7 @@ from .views import (
     ChapterBasicView,
     ChapterListAPI,
     StudyRecordCreateAPI,
+    StudyRecordDetailAPI,
     BaseStudyRecordListView,
     StudyRecordListView,
     StudyRecordsAPIView,
@@ -100,6 +100,7 @@ from .document_views import (
 from .comment_views import get_comments, submit_comment
 from .document_views import document_detail, document_file_view
 from .ocr_views import ChapterImportKnowledgeAPI, AIKnowledgeAPI,DictionaryLookupAPI,formula_to_img
+from .editor_upload_views import aieditor_image_upload
 
 app_name = 'courses'
 
@@ -117,7 +118,6 @@ urlpatterns = [
     path('api/knowledge-points-list/', knowledge_points_list, name='knowledge-points-list'),
     path('api/knowledge-points/', KnowledgePointAPI.as_view(), name='knowledge-point-api'),
     path('api/knowledge-points/<int:pk>/content/', update_knowledge_point_content, name='knowledge-point-content'),
-    path('api/knowledge-points/<int:pk>/update-rating/', update_knowledge_rating, name='knowledge-point-update-rating'),
         #模糊查询知识点-自动补全
     path('api/chapters/<int:chapter_id>/search-knowledge-points/', search_knowledge_points, name='search_knowledge_points'),
     path('api/knowledge-points/<int:pk>/resources/', knowledge_point_resources, name='knowledge-point-resources'),
@@ -127,13 +127,15 @@ urlpatterns = [
     path('api/dictionary-lookup/', DictionaryLookupAPI.as_view(), name='dictionary-lookup'),
     path('api/knowledge_points/formula-to-img/',formula_to_img, name='formula_to_img'),
 
+    # AiEditor 图片上传（字段名默认为 image）
+    path('api/editor/upload/image/', aieditor_image_upload, name='aieditor_image_upload'),
 
     #知识点 注释相关
     path('api/knowledge_points/<int:pk>/annotations/', KnowledgePointAnnotationListAPI.as_view(), name='annotation-list'),
     path('api/knowledge_points/annotations/<int:pk>/', KnowledgePointAnnotationDetailAPI.as_view(), name='annotation-detail'),
 
 
-    # 学习记录路由
+    # 记录路由
     path('study-records/', StudyRecordListView.as_view(), name='study_records'),
     path('study-records/list/', StudyRecordsAPIView.as_view(), name='study_record_list'),
     path('base_study_record/', BaseStudyRecordListView.as_view(), name='base_study_record'),
@@ -143,6 +145,7 @@ urlpatterns = [
     # API路由--待更改
     path('api/study-records/list/', StudyRecordsAPIView.as_view(), name='study-records-list'),
     path('api/chapters/', ChapterListAPI.as_view(), name='chapter-list'),
+    path('api/study-records/<int:pk>/', StudyRecordDetailAPI.as_view(), name='study-records-detail'),
     path('api/study-records/', StudyRecordCreateAPI.as_view(), name='study-records-create'),
     # 练习集相关API
     path('api/exercise-sets/', ExerciseSetListCreateAPI.as_view(), name='exercise-set-list'),

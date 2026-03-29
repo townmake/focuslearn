@@ -1,5 +1,4 @@
 <!-- 已更新为AiEditor，编辑器为AiEditor_knowledge -->
-<!-- AiEditor 编辑器里的图片上传还未配置-->
 {% load static %}
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
@@ -16,8 +15,8 @@
 <div class="embedded-container">
     <div class="page-header">
         <button class="view-btn" id="basic-view-btn">基础信息</button>
-        <button class="view-btn" id="exercise-view-btn">查看习题</button>
-        <button class="view-btn" id="back-view-btn">返回科目</button>
+        <button class="view-btn" id="exercise-view-btn">查看回顾</button>
+        <button class="view-btn" id="back-view-btn">返回项目</button>
     </div>
     <!-- 上部分（左右分栏） -->
     <div class="top-section">
@@ -37,7 +36,7 @@
         </div>
         <div class="right-column">
             <div class="detail-header" >
-                <h2>知识点详情</h2>
+                <h2>任务详情</h2>
                 <div class="action-buttons-detail">
                     <button class="delete-btn" id="tree-delete-btn">删除</button>
                     <button class="add-child-btn" id="add-child-btn">添加子节点</button>
@@ -83,20 +82,6 @@
                                 onblur="saveEdit(this)">
                                 暂无信息
                             </span>
-                        </div>
-                    </div>
-                    <div class="info-item-group">
-                        <div class="info-item-star">
-                            <span class="info-label-basic">难度：</span>
-                            <span id="kp-difficulty-container"> </span>
-                        </div>
-                        <div class="info-item-star">
-                            <span class="info-label-basic">记忆度：</span>
-                            <span id="kp-memory-level-container"> </span>
-                        </div>
-                        <div class="info-item-star">
-                            <span class="info-label-basic">掌握度：</span>
-                            <span id="kp-mastery-level-container"> </span>
                         </div>
                     </div>
 
@@ -685,6 +670,7 @@ function ReplaceSymbol(editor) {
 
 // 知识点内容编辑器
 window.AiEditor_knowledge = new AiEditor({
+    ...window.getAiEditorImageOption(),
     element: '#Aiditor-knowledge-content',
     placeholder: '开始输入知识点内容...',
     pasteAsText: false,
@@ -1008,44 +994,48 @@ function SaveBtnLogic () {
 </script>
 
 <script>
-//左右高度动态调整
+// 左右栏高度：初始以右侧内容高度为基准（不再强制 300px）；树加载与展开后再按左侧实际增高
 const treeContainer_height = document.getElementById('knowledge-points-tree');
 const rightColumn = document.querySelector('.right-column');
 const leftColumn = document.querySelector('.left-column');
-// 获取实际内容高度（包括padding）
-const getFullHeight = (el) => {
-        const style = window.getComputedStyle(el);
-        const paddingTop = parseFloat(style.paddingTop);
-        const paddingBottom = parseFloat(style.paddingBottom);
-        return el.scrollHeight + paddingTop + paddingBottom;
-    };
-// 获取初始高度-右侧高度，后续高度调整逻辑基于此值
-const rightHeight_0 = Math.max(getFullHeight(rightColumn), 300);
+
+/** 临时 height:auto 测量列内容真实所需高度（避免上一轮写死的 height 压住 scrollHeight） */
+function measureColumnContentHeight(el) {
+    if (!el) return 0;
+    const prev = el.style.height;
+    el.style.height = 'auto';
+    const h = el.scrollHeight;
+    el.style.height = prev;
+    return h;
+}
+
+const KP_TOP_MIN_BASE = 100;
 
 const syncHeights = () => {
+    if (!leftColumn || !rightColumn) return;
+    const leftH = measureColumnContentHeight(leftColumn);
+    const rightH = measureColumnContentHeight(rightColumn);
+    const targetHeight = Math.max(leftH, rightH, KP_TOP_MIN_BASE);
 
-    const leftHeight = Math.max(getFullHeight(treeContainer_height)+70, 300);
-    const targetHeight = Math.max(leftHeight, rightHeight_0);
-    
-    // 应用新高度和背景
-    [leftColumn, rightColumn].forEach(el => {
+    [leftColumn, rightColumn].forEach((el) => {
         el.style.height = `${targetHeight}px`;
+        el.style.minHeight = '';
         el.style.background = `linear-gradient(to bottom, #fbf9f9 0%, #fbf9f9 ${targetHeight}px, transparent ${targetHeight}px)`;
     });
-
 };
 
-// 创建 ResizeObserver 实例
-const resizeObserver = new ResizeObserver(entries => {
-    // 实时同步高度，无延迟
+function scheduleSyncHeightsAfterTreeLayout() {
     syncHeights();
-});
+    requestAnimationFrame(() => syncHeights());
+    [50, 150, 400].forEach((ms) => setTimeout(syncHeights, ms));
+}
 
-// 开始观察
-resizeObserver.observe(leftColumn);
-// resizeObserver.observe(rightColumn);
+const resizeObserver = new ResizeObserver(() => syncHeights());
 
-// 初始同步
+if (leftColumn) resizeObserver.observe(leftColumn);
+if (rightColumn) resizeObserver.observe(rightColumn);
+if (treeContainer_height) resizeObserver.observe(treeContainer_height);
+
 syncHeights();
 
 
@@ -1082,9 +1072,6 @@ function renderKnowledgeTree(treeData) {
         if (!formattedData || formattedData.length === 0) {
             throw new Error('无效的树形数据');
         }
-         // 1. 计算一级节点数量，用于设定左侧高度
-        const firstLevelCount = formattedData.length;
-
         // node.key很重要，用于后续加载详情,这里用的是id作为key
         const treeElement = React.createElement(antd.Tree, {
             showLine: true,
@@ -1112,21 +1099,18 @@ function renderKnowledgeTree(treeData) {
         // 渲染到DOM并强制验证状态
         ReactDOM.render(treeElement, treeContainer, () => {
             clearTimeout(renderTimeout);
-            
-            // 强制检查渲染结果
+            scheduleSyncHeightsAfterTreeLayout();
+
             setTimeout(() => {
                 if (!treeContainer.querySelector('.ant-tree')) {
                     console.warn('React渲染结果未显示，尝试恢复');
                     treeContainer.innerHTML = '';
-                    ReactDOM.render(treeElement, treeContainer);
+                    ReactDOM.render(treeElement, treeContainer, scheduleSyncHeightsAfterTreeLayout);
+                } else {
+                    scheduleSyncHeightsAfterTreeLayout();
                 }
-                // 3. 动态调整左侧栏高度
-                adjustLeftColumnHeight(firstLevelCount);
-
             }, 100);
         });
-        // 同步高度，并记录此刻右侧栏高度
-
         
     } catch (error) {
         clearTimeout(renderTimeout);
@@ -1140,23 +1124,6 @@ function renderKnowledgeTree(treeData) {
     } finally {
         console.groupEnd();
     }
-}
-
-// 动态调整左侧栏高度
-function adjustLeftColumnHeight(firstLevelCount) {
-    const leftColumn = document.querySelector('.left-column');
-    if (!leftColumn) return;
-
-    // 基础高度
-    let baseHeight = 300;
-
-    // 根据一级节点数量动态调整
-    if (firstLevelCount > 8) {
-        baseHeight += (firstLevelCount - 8) * 28; // 大于8个节点，每个增加30px
-    }
-
-    // 设置最小高度
-    leftColumn.style.minHeight = `${Math.max(baseHeight, 300)}px`;
 }
 
 // 优化后的树形数据格式化
@@ -1366,85 +1333,6 @@ function initKnowledgePoints() {
     currentListeners.push({element: window, type: 'beforeunload', handler: cleanupKnowledgePoints});
 }
 
-// 根据评分类型获取容器ID
-function getRatingContainerId(ratingType) {
-    switch (ratingType) {
-        case 'kp-difficulty':
-            return 'kp-difficulty-container';
-        case 'kp-memory-level':
-            return 'kp-memory-level-container';
-        case 'kp-mastery-level':
-            return 'kp-mastery-level-container';
-        default:
-            console.error('未知评分类型:', ratingType);
-            return '';
-    }
-}
-// 转换数值为星星评级，知识点详情部分
-function renderRating(value, max=5, containerId, firstRender=true) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    // 如果是非首次渲染，则移除之前的React组件
-    if (!firstRender) {
-        ReactDOM.unmountComponentAtNode(container);
-    }
-    // 清空容器内容
-    container.innerHTML = '';
-    
-    // 创建Rate组件
-    const Rate = antd.Rate;
-    ReactDOM.render(
-        React.createElement(Rate, {
-            value: value,
-            onChange: (newVal) => {
-                saveRating(containerId.replace('-container', ''), newVal);
-            }
-        }),
-        container
-    );
-}
-
-// 保存评分到后台
-function saveRating(ratingType, value) {
-    const kpId = currentKnowledgePointId;
-    if (!kpId) {
-        console.error('知识点ID不存在');
-        return;
-    }
-    
-    const url = `/courses/api/knowledge-points/${kpId}/update-rating/`;
-    const data = {
-        rating_type: ratingType,
-        value: value
-    };
-    
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('保存失败');
-        }
-        return response.json();
-    })
-    .then(data => {
-        antd.message.success('评分已保存'); 
-
-       // 直接更新星星评分组件
-        const containerId = getRatingContainerId(ratingType);
-        renderRating(value, 5, containerId, false);
-    })
-    .catch(error => {
-        console.error('保存评分失败:', error);
-        antd.message.error('保存评分失败');
-    });
-}
-
 // 可编辑字段配置
 const editableFields = [
     {
@@ -1485,11 +1373,6 @@ function loadKnowledgePointDetail(kpId) {
                     element.setAttribute('contenteditable', 'false');
                 }
             });
-
-            // 使用新的评分渲染方法
-            renderRating(data.difficulty, 5, 'kp-difficulty-container',false);
-            renderRating(data.memory_level, 5, 'kp-memory-level-container',false);
-            renderRating(data.mastery_level, 5, 'kp-mastery-level-container',false);
 
             document.getElementById('kp-parent').textContent = 
                 data.parent ? data.parent_title : "根节点";
@@ -1636,9 +1519,6 @@ function deleteKnowledgePoint(kpId) {
                     // 清空右侧面板内容 
                     document.getElementById('kp-title').textContent = '';
                     document.getElementById('kp-description').textContent = '';
-                    document.getElementById('kp-difficulty').textContent = '';
-                    document.getElementById('kp-memory-level').textContent = '';
-                    document.getElementById('kp-mastery-level').textContent = '';
                     document.getElementById('kp-parent').textContent = '';
                     document.getElementById('kp-brother_id').textContent = '';
                     // 清空编辑器内容
@@ -1658,33 +1538,26 @@ function deleteKnowledgePoint(kpId) {
 
 // 显示添加知识点模态框
 function showAddModal_Knowledge(parentId) {
-    let difficulty = 3;
-    let memoryLevel = 3;
-    let masteryLevel = 3;
     const parent_null = parentId===null;
-    
-    const setDifficulty = (value) => difficulty = value;
-    const setMemoryLevel = (value) => memoryLevel = value;
-    const setMasteryLevel = (value) => masteryLevel = value;
 
     const modalContent = React.createElement('div', { style: { padding: '20px 0' } }, [
         React.createElement('div', { 
             key: 'type',
             className: 'modal-header-title' 
         }, 
-            `添加${parent_null ? '章节根节点' : '子节点'}`),
-        React.createElement('div', { key: 'title', style: { marginTop: '10px' } }, '知识点标题:'),
+            `添加${parent_null ? '任务根节点' : '子节点'}`),
+        React.createElement('div', { key: 'title', style: { marginTop: '10px' } }, '子任务标题:'),
         React.createElement(antd.Input, {
             key: 'title-input',
             id: 'new-kp-title',
-            placeholder: '输入知识点标题',
+            placeholder: '输入任务标题',
             style: { marginBottom: '15px', width: '100%' }
         }),
-        React.createElement('div', { key: 'desc' }, '知识点描述:'),
+        React.createElement('div', { key: 'desc' }, '任务描述:'),
         React.createElement(antd.Input.TextArea, {
             key: 'textarea',
             id: 'new-kp-desc',
-            placeholder: '输入知识点描述',
+            placeholder: '输入任务描述',
             rows: 4,
             style: { marginBottom: '15px', width: '100%' }
         }),
@@ -1696,78 +1569,19 @@ function showAddModal_Knowledge(parentId) {
             defaultValue: 1,
             style: { marginBottom: '15px', width: '100%' }
         }),
-        React.createElement('div', { key: 'difficulty' }, '难度:'),
-        React.createElement(antd.Radio.Group, {
-            key: 'difficulty-group',
-            name: 'difficulty',
-            options: [
-                { label: '非常简单', value: 1 },
-                { label: '简单', value: 2 },
-                { label: '中等', value: 3 },
-                { label: '困难', value: 4 },
-                { label: '非常困难', value: 5 }
-            ],
-            defaultValue:3,
-            onChange: e => setDifficulty(e.target.value),
-            optionType: 'button',
-            buttonStyle: 'solid',
-            style: { marginBottom: '15px' }
-        }),
-        React.createElement('div', { key: 'memory' }, '记忆度:'),
-        React.createElement(antd.Radio.Group, {
-            key: 'memory-group',
-            name: 'memory_level',
-            options: [
-                { label: '完全陌生', value: 1 },
-                { label: '有些印象', value: 2 },
-                { label: '一般熟悉', value: 3 },
-                { label: '比较熟悉', value: 4 },
-                { label: '完全掌握', value: 5 }
-            ],
-            defaultValue:3,
-            onChange: e => setMemoryLevel(e.target.value),
-            optionType: 'button',
-            buttonStyle: 'solid',
-            style: { marginBottom: '15px' }
-        }),
-        React.createElement('div', { key: 'mastery' }, '掌握度:'),
-        React.createElement(antd.Radio.Group, {
-            key: 'mastery-group',
-            name: 'mastery_level',
-            options: [
-                { label: '完全不懂', value: 1 },
-                { label: '初步了解', value: 2 },
-                { label: '基本掌握', value: 3 },
-                { label: '熟练运用', value: 4 },
-                { label: '精通', value: 5 }
-            ],
-            defaultValue:3,
-            onChange: e => {
-                setMasteryLevel(e.target.value);
-                // 强制更新组件
-                const event = new Event('input', { bubbles: true });
-                document.querySelector('[name="mastery_level"]').dispatchEvent(event);
-            },
-            optionType: 'button',
-            buttonStyle: 'solid'
-        })
     ]);
 
     const modal = antd.Modal.confirm({
         title: null,
         icon: null,
         content: modalContent,
-        width: 650,
+        width: 520,
         okText: '保存',
         cancelText: '取消',
         onOk: () => {
             const title = document.getElementById('new-kp-title').value;
             const description = document.getElementById('new-kp-desc').value;
             const brother_id = document.getElementById('new-kp-brother_id').value;
-            // 精确获取各单选按钮组的值
-            const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
-            const memoryLevel = document.querySelector('input[name="memory_level"]:checked').value;
-            const masteryLevel = document.querySelector('input[name="mastery_level"]:checked').value;
             if (!title) {
                 antd.message.error('请输入知识点标题');
                 return Promise.reject();
@@ -1776,7 +1590,7 @@ function showAddModal_Knowledge(parentId) {
                 antd.message.error('请输入知识点描述');
                 return Promise.reject();
             }
-            submitAddKnowledgePoint(parentId, title, description, difficulty, memoryLevel, masteryLevel, brother_id);
+            submitAddKnowledgePoint(parentId, title, description, brother_id);
             return Promise.resolve();
         },
         onCancel: () => {}
@@ -1786,14 +1600,11 @@ function showAddModal_Knowledge(parentId) {
 
 
 // 提交添加知识点
-function submitAddKnowledgePoint(parentId, title, description, difficulty = 3, memoryLevel = 3, masteryLevel = 3,brother_id = 1) {
+function submitAddKnowledgePoint(parentId, title, description, brother_id = 1) {
     chapterId = '{{chapter.id}}';
     const requestData = {
         title: title,
         description: description,
-        difficulty: difficulty,
-        memory_level: memoryLevel,
-        mastery_level: masteryLevel,
         parent: parentId,
         chapter: chapterId,
         brother_id: brother_id

@@ -73,6 +73,31 @@
     </div>
 </div>
 
+<!-- 学习/任务记录详情（日历上的金色块，只读） -->
+<div class="modal fade" id="studyRecordDetailsModal" tabindex="-1" aria-labelledby="studyRecordDetailsModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="studyRecordDetailsModalLabel">记录详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2"><strong>任务类型：</strong> <span id="recordPageTypeDisplay"></span></div>
+                <div class="mb-2"><strong>项目：</strong> <span id="recordSubjectName"></span></div>
+                <div class="mb-2"><strong>子任务：</strong> <span id="recordChapterName"></span></div>
+                <div class="mb-2"><strong>时段：</strong> <span id="recordTimeRange"></span></div>
+                <div class="mb-2"><strong>投入时长：</strong> <span id="recordDurationDisplay"></span></div>
+                <div class="mb-2"><strong>记录内容：</strong></div>
+                <div id="recordLearningContent" class="border rounded p-2 bg-light" style="white-space: pre-wrap; max-height: 220px; overflow-y: auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="recordOpenChapterBtn" style="display: none;">打开子任务</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 创建/编辑任务模态框 -->
 <div class="modal fade" id="taskFormModal" tabindex="-1" aria-labelledby="taskFormModalLabel">
     <div class="modal-dialog">
@@ -271,6 +296,7 @@ function getContrastYIQ(hexcolor) {
     // 初始化模态框
     const taskDetailsModal = new bootstrap.Modal(document.getElementById('taskDetailsModal'));
     const taskFormModal = new bootstrap.Modal(document.getElementById('taskFormModal'));
+    const studyRecordDetailsModal = new bootstrap.Modal(document.getElementById('studyRecordDetailsModal'));
     
     // 获取CSRF Token
     const csrftoken = getCookie('csrftoken');
@@ -391,74 +417,121 @@ function getContrastYIQ(hexcolor) {
             minute: '2-digit',
             hour12: false
         },
+        /* 重叠时段：计划先排、记录后排，叠放时记录在上（与创建先后无关） */
+        eventOrder: function (a, b) {
+            const layer = (e) => (e.extendedProps && e.extendedProps.kind === 'study_record') ? 1 : 0;
+            return layer(a) - layer(b);
+        },
 
-
-        // 获取事件数据
+        // 获取事件数据：计划任务 + 学习记录（记录为夕阳金色，只读）
         events: function(info, successCallback, failureCallback) {
-            // 确保时区信息正确
-            // const startDate = new Date(info.start);
-            // const endDate = new Date(info.end);
-                // 使用 ISO 格式的日期字符串
             const startDate = info.startStr.split('T')[0];
             const endDate = info.endStr.split('T')[0];
-            
-            fetch(`/planner/api/tasks/?start_date=${startDate}&end_date=${endDate}`, {
-                headers: {
-                    'X-CSRFToken': csrftoken,
-                    'Accept': 'application/json'
-                }
-            })
+            const headers = {
+                'X-CSRFToken': csrftoken,
+                'Accept': 'application/json'
+            };
+
+            const tasksReq = fetch(`/planner/api/tasks/?start_date=${startDate}&end_date=${endDate}`, { headers })
                 .then(response => {
                     if (!response.ok) {
                         return response.text().then(text => {
-                            console.error('API错误响应:', text);
+                            console.error('任务 API 错误:', text);
                             throw new Error(`HTTP error! status: ${response.status}`);
                         });
                     }
                     return response.json();
-                })
-                .then(data => {
-                    const events = data.map(task => {
-                // 计算文字颜色
-                const color = task.subject_color || '#3498db';
-                const textColor = getContrastYIQ(color);
-                // console.log("task", task);
+                });
 
-                
-                return {
-                    id: task.id,
-                    title: task.title,
-                    start: task.start,
-                    end: task.end,
-                    backgroundColor: color,
-                    borderColor: color,
-                    textColor: textColor,
-                    description: task.description,
-                    classNames: task.is_completed ? ['task-completed'] : [],
-                    extendedProps: {
-                        subject_name: task.subject_name,
-                        chapter_name: task.chapter_name,
-                        focus_level: task.focus_level,
-                        energy_level: task.energy_level,
-                        is_completed: task.is_completed,
-                        subject_id: task.subject,
-                        chapter_id: task.chapter,
-                        repeat_type: task.repeat_type,
-                        repeat_ends: task.repeat_ends,
+            const recordsReq = fetch(`/planner/api/calendar-study-records/?start_date=${startDate}&end_date=${endDate}`, { headers })
+                .then(response => {
+                    if (!response.ok) {
+                        console.warn('记录 API 不可用，仅显示计划');
+                        return [];
                     }
-                };
-            });
-                    successCallback(events);
+                    return response.json();
+                })
+                .catch(err => {
+                    console.warn('加载记录失败:', err);
+                    return [];
+                });
+
+            Promise.all([tasksReq, recordsReq])
+                .then(([data, records]) => {
+                    const recordList = Array.isArray(records) ? records : [];
+                    const sunsetGold = '#D4A574';
+                    const sunsetBorder = '#B8894A';
+                    const recordTextColor = getContrastYIQ(sunsetGold);
+
+                    const taskEvents = data.map(task => {
+                        const color = task.subject_color || '#3498db';
+                        const textColor = getContrastYIQ(color);
+                        return {
+                            id: task.id,
+                            title: task.title,
+                            start: task.start,
+                            end: task.end,
+                            backgroundColor: color,
+                            borderColor: color,
+                            textColor: textColor,
+                            description: task.description,
+                            classNames: ['calendar-plan-task'].concat(task.is_completed ? ['task-completed'] : []),
+                            extendedProps: {
+                                kind: 'task',
+                                subject_name: task.subject_name,
+                                chapter_name: task.chapter_name,
+                                focus_level: task.focus_level,
+                                energy_level: task.energy_level,
+                                is_completed: task.is_completed,
+                                subject_id: task.subject,
+                                chapter_id: task.chapter,
+                                repeat_type: task.repeat_type,
+                                repeat_ends: task.repeat_ends,
+                            }
+                        };
+                    });
+
+                    const recordEvents = recordList.map(r => ({
+                        id: 'sr-' + r.id,
+                        title: '「记录」' + (r.title || ''),
+                        start: r.start,
+                        end: r.end,
+                        backgroundColor: sunsetGold,
+                        borderColor: sunsetBorder,
+                        textColor: recordTextColor,
+                        classNames: ['calendar-study-record'],
+                        editable: false,
+                        startEditable: false,
+                        durationEditable: false,
+                        resourceEditable: false,
+                        extendedProps: {
+                            kind: 'study_record',
+                            learning_content: r.learning_content,
+                            description: r.description,
+                            page_type_display: r.page_type_display,
+                            subject_name: r.subject_name,
+                            chapter_name: r.chapter_name,
+                            chapter_id: r.chapter_id,
+                            duration_display: r.duration_display,
+                        }
+                    }));
+
+                    /* 先传计划、再传记录，DOM 中记录靠后更易叠在上层 */
+                    successCallback(taskEvents.concat(recordEvents));
                 })
                 .catch(error => {
                     console.error('Error fetching events:', error);
-                    alert(`获取任务数据失败: ${error.message}`);
+                    alert(`获取日历数据失败: ${error.message}`);
                     failureCallback(error);
                 });
         },
 
-        // 事件拖拽更新——待调整
+        // 事件拖拽更新（记录块不可拖拽）
         eventDrop: function(info) {
+            if (info.event.extendedProps.kind === 'study_record') {
+                info.revert();
+                return;
+            }
             const taskId = info.event.id;
             const taskStart = info.event.start;
             const taskEnd = info.event.end;
@@ -466,8 +539,12 @@ function getContrastYIQ(hexcolor) {
             updateTaskTimes(taskId, taskStart, taskEnd);
         },
 
-        // 事件时长调整——待调整
+        // 事件时长调整（记录块不可调）
         eventResize: function(info) {
+            if (info.event.extendedProps.kind === 'study_record') {
+                info.revert();
+                return;
+            }
             const taskId = info.event.id;
             const taskStart = info.event.start;
             const taskEnd = info.event.end;
@@ -505,7 +582,36 @@ function getContrastYIQ(hexcolor) {
         // 点击事件处理
         eventClick: function(info) {
             const event = info.event;
-            
+
+            if (event.extendedProps.kind === 'study_record') {
+                document.getElementById('recordPageTypeDisplay').textContent =
+                    event.extendedProps.page_type_display || '—';
+                document.getElementById('recordSubjectName').textContent =
+                    event.extendedProps.subject_name || '—';
+                document.getElementById('recordChapterName').textContent =
+                    event.extendedProps.chapter_name || '—';
+                document.getElementById('recordTimeRange').textContent =
+                    formatDateTimeRange(event.start, event.end);
+                document.getElementById('recordDurationDisplay').textContent =
+                    event.extendedProps.duration_display || '—';
+                document.getElementById('recordLearningContent').textContent =
+                    event.extendedProps.learning_content || '（无）';
+
+                const openBtn = document.getElementById('recordOpenChapterBtn');
+                const cid = event.extendedProps.chapter_id;
+                if (cid) {
+                    openBtn.style.display = 'inline-block';
+                    openBtn.onclick = function() {
+                        window.location.href = '/courses/chapter/' + cid + '/detail/';
+                    };
+                } else {
+                    openBtn.style.display = 'none';
+                    openBtn.onclick = null;
+                }
+                studyRecordDetailsModal.show();
+                return;
+            }
+
             // 填充任务详情
             document.getElementById('taskTitle').textContent = event.title;
             document.getElementById('taskSubject').textContent = event.extendedProps.subject_name;
@@ -663,7 +769,11 @@ function getContrastYIQ(hexcolor) {
 
     // 更新任务时间的辅助函数
     function updateTaskTimes(taskId, taskStart, taskEnd) {
-        
+        if (String(taskId).startsWith('sr-')) {
+            calendar.refetchEvents();
+            return;
+        }
+
         // 格式化日期时间
         const startDateTime = taskStart.toISOString();
         const endDateTime = taskEnd.toISOString();

@@ -1,25 +1,26 @@
 
 {% extends "base.html" %}
+{% block title %}项目详情{% endblock %}
 {% load static %}
 {% include "courses/_subject_modal.html" %}
 
 {% block content %}
 <div class="subject-detail-container">
 
-        <!-- 编辑科目弹窗 -->
+        <!-- 编辑项目弹窗 -->
     <div class="ant-modal-mask" id="editSubjectModalMask" style="display:none;"></div>
     <div class="ant-modal-wrap" id="editSubjectModalWrap" style="display:none;">
         <div class="ant-modal" style="width: 600px;">
             <div class="ant-modal-content">
                 <div class="ant-modal-header">
-                    <div class="ant-modal-title">编辑科目</div>
+                    <div class="ant-modal-title">编辑项目</div>
                 </div>
                 <div class="ant-modal-body">
                     <form id="editSubjectForm" method="POST" action="" enctype="multipart/form-data">
                         {% csrf_token %}
                         <input type="hidden" name="id" id="editSubjectId">
                         <div class="ant-form-item">
-                            <label>科目名称</label>    <input type="text" name="name" id="editSubjectName" class="ant-input" required>
+                            <label>项目名称</label>    <input type="text" name="name" id="editSubjectName" class="ant-input" required>
                         </div><div class="ant-form-item">
                             <label>进度描述</label>    <textarea name="description" id="editSubjectDescription" class="ant-input" rows="3"></textarea></div>
                         <div class="ant-form-item">
@@ -33,7 +34,7 @@
                             <input type="number" name="estimated_hours" id="editSubjectEstimatedHours" class="ant-input" min="0" required>
                         </div>
                         <div class="ant-form-item">
-                            <label>科目分类</label>
+                            <label>项目分类</label>
                             <select name="category" id="editSubjectCategory" class="ant-input">
                                 <option value="">无分类</option>
                                 {% for c in subject_categories %}
@@ -58,18 +59,18 @@
         <div class="ant-modal" style="width:600px">
             <div class="ant-modal-content">
                 <div class="ant-modal-header">
-                    <div class="ant-modal-title">添加新章节</div>
+                    <div class="ant-modal-title">添加任务</div>
                 </div>
                 <div class="ant-modal-body">
                     <form id="addChapterForm" method="POST" action="{% url 'courses:chapter_create' %}">
                         {% csrf_token %}
                         <input type="hidden" name="subject_id" value="{{ subject.id }}">
                         <div class="ant-form-item">
-                            <label>章节标题</label>
+                            <label>任务标题</label>
                             <input type="text" name="title" class="ant-input" required>
                         </div>
                         <div class="ant-form-item">
-                            <label>章节描述</label>
+                            <label>任务描述</label>
                             <textarea name="description" class="ant-input" rows="3"></textarea>
                         </div>
                         <div class="ant-form-item">
@@ -88,7 +89,7 @@
     </div>
 
 
-    <!-- 上部：科目基本信息 -->
+    <!-- 上部：项目基本信息 -->
     <div class="subject-list-header">
         <h2>{{ subject.name }}</h2>
         <div class="header-actions">
@@ -111,14 +112,14 @@
     <div class="subject-info-section" style="display:none">
         <div class="ant-descriptions">
             <div class="ant-descriptions-header">
-                <div class="ant-descriptions-title">科目信息</div>
+                <div class="ant-descriptions-title">项目信息</div>
             </div>
 
             <div class="ant-descriptions-view">
                 <table>
                     <tbody>
                         <tr>
-                            <td class="ant-descriptions-item-label">科目图片</td>
+                            <td class="ant-descriptions-item-label">项目图片</td>
                             <td class="ant-descriptions-item-content">
                                 {% if subject.background_image %}
                                 <img src="{{ subject.background_image.url }}" alt="{{ subject.name }}" class="subject-image">
@@ -132,12 +133,12 @@
                             <td class="ant-descriptions-item-content">{{ subject.description }}</td>
                         </tr>
                         <tr>
-                            <td class="ant-descriptions-item-label">科目分类</td>
+                            <td class="ant-descriptions-item-label">项目分类</td>
                             <td class="ant-descriptions-item-content">
                                 {% if subject.category %}
                                     {{ subject.category.name }}
                                     {% if not subject.category.is_visible %}
-                                        <span class="text-muted" style="color:#999;font-size:12px;">（该分类在课程列表中不展示，本科目不会出现在课程列表入口）</span>
+                                        <span class="text-muted" style="color:#999;font-size:12px;">（该分类在项目列表中不展示，本项目不会出现在项目列表入口）</span>
                                     {% endif %}
                                 {% else %}
                                     <span>无分类</span>
@@ -156,23 +157,20 @@
                             <td class="ant-descriptions-item-content">
                                 <div class="stats-container">
                                     <div class="stat-item">
-                                        <span class="stat-label">知识点数量:</span>
+                                        <span class="stat-label">任务数量:</span>
                                         <span class="stat-value">{{ subject.knowledge_points_count }}</span>
                                     </div>
                                     <div class="stat-item">
-                                        <span class="stat-label">预计学时:</span>
+                                        <span class="stat-label">累计已投时长:</span>
+                                        <span class="stat-value">{{ subject.already_hours|floatformat:2 }}小时</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">本周计划时长:</span>
                                         <span class="stat-value">{{ subject.estimated_hours }}小时</span>
                                     </div>
                                     <div class="stat-item">
-                                        <span class="stat-label">已学时长:</span>
+                                        <span class="stat-label">本周投入时长:</span>
                                         <span class="stat-value">{{ subject.actual_study_hours }}小时</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">学习进度:</span>
-                                        <div class="progress-container">
-                                            <div class="progress-bar" style="width: {{ subject.progress }}%"></div>
-                                            <span style="color:chocolate;">{{ subject.progress }}%</span>
-                                        </div>
                                     </div>
                                 </div>
                             </td>
@@ -183,52 +181,58 @@
         </div>
     </div>
 
-    <!-- 下部：章节列表 -->
+    <!-- 下部：章节列表（表格结构与项目列表 subject_list 一致） -->
     <div class="chapter-list-section">
-        <div class="ant-table">
-            <div class="ant-table-container">
-                <div class="ant-table-title">
-                    章节列表
-                    <button class="ant-btn ant-btn-primary ant-btn-sm" onclick="viewSubjectMethods('{{ subject.id|escapejs }}')">
-                        <i class="anticon anticon-plus">题型方法快速复习</i> 
-                    </button>
-                    <button class="ant-btn ant-btn-primary ant-btn-sm" onclick="showAddChapterModal()" style="margin-left:10px">
-                        <i class="anticon anticon-plus">添加章节</i>
-                    </button>
-                </div>
-                <div class="ant-table-content">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>章节名称</th>
-                                <th>知识点数量</th>
-                                <th>预计学时·小时</th>
-                                <th>累计学时·小时</th>
-                                <th>进度描述</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for chapter in chapters %}
-                            <tr>
-                                <td>
-                                    <a href="{% url 'courses:chapter_detail' pk=chapter.id %}" class="action-link">{{ chapter.title }}</a>
-                                </td>
-                                <td>{{ chapter.knowledge_points_count }}</td>
-                                <td>{{ chapter.estimated_hours|default:0 }}</td>
-                                <td>{{ chapter.actual_hours|default:0 }}</td>
-                                <td>{{ chapter.process_description|default:'未开始' }}</td>
-                                <td>
-                                    <a href="{% url 'courses:chapter_detail' pk=chapter.id %}" class="action-link">查看</a>
-                                    <a href="#" class="action-link text-danger" onclick="confirmDeleteChapter({{ chapter.id }})" style="margin-left:10px">删除</a>
-                                    <a href="{% url 'courses:chapter_exercise' pk=chapter.id %}" class="action-link">习题</a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+        <div class="chapter-list-toolbar">
+            <h3 class="chapter-list-toolbar-title">子任务列表</h3>
+            <div class="header-actions">
+                <button type="button" class="ant-btn ant-btn-primary ant-btn-sm" onclick="viewSubjectMethods('{{ subject.id|escapejs }}')">
+                    <i class="anticon anticon-plus"></i> 事项review
+                </button>
+                <button type="button" class="ant-btn ant-btn-primary ant-btn-sm" onclick="showAddChapterModal()">
+                    <i class="anticon anticon-plus"></i> 添加任务
+                </button>
             </div>
+        </div>
+        <div class="subject-table">
+            <table class="ant-table ant-table-bordered ant-table-striped">
+                <thead class="ant-table-thead">
+                    <tr>
+                        <th class="ant-table-cell">任务名称</th>
+                        <th class="ant-table-cell">子任务数量</th>
+                        <th class="ant-table-cell">计划投入时长</th>
+                        <th class="ant-table-cell">已投入时长</th>
+                        <th class="ant-table-cell">进度描述</th>
+                        <th class="ant-table-cell">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="ant-table-tbody">
+                    {% for chapter in chapters %}
+                    <tr class="ant-table-row ant-table-row-level-0">
+                        <td class="ant-table-cell">
+                            <a href="{% url 'courses:chapter_detail' pk=chapter.id %}">{{ chapter.title }}</a>
+                        </td>
+                        <td class="ant-table-cell">{{ chapter.knowledge_points_count }}</td>
+                        <td class="ant-table-cell">{{ chapter.estimated_hours|default:0 }}</td>
+                        <td class="ant-table-cell">{{ chapter.actual_hours|default:0 }}</td>
+                        <td class="ant-table-cell">{{ chapter.process_description|default:'未开始' }}</td>
+                        <td class="ant-table-cell">
+                            <button type="button" class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href='{% url 'courses:chapter_detail' pk=chapter.id %}'">
+                                <i class="anticon anticon-edit"></i> 查看
+                            </button>
+                            <button type="button" class="ant-btn ant-btn-text ant-btn-sm chapter-delete-btn" onclick="confirmDeleteChapter({{ chapter.id }})">
+                                <i class="anticon anticon-delete"></i> 删除
+                            </button>
+                            <button type="button" class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href='{% url 'courses:chapter_exercise' pk=chapter.id %}'">
+                                <i class="anticon anticon-file"></i> 回顾
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td class="ant-table-cell" colspan="6">暂无子任务，请点击「添加任务」新建。</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -239,14 +243,8 @@
 <link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
 <link rel="stylesheet" href="{% static 'css/subject_detail.css' %}">
 <style>
-.chapter-list-section {
-    margin-top: 0;  /* 移除或减小上边距 */
-    padding-top: 0; /* 移除或减小内边距 */
-}
-
-/* 如果需要更紧凑的布局，可以添加 */
 .subject-info-section + .chapter-list-section {
-    margin-top: 5px; /* 设置较小的间距值 */
+    margin-top: 8px;
 }
 
 .subject-list-header {
@@ -270,16 +268,6 @@
     gap: 8px; /* 按钮间距 */
     margin-left: auto; /* 靠右对齐 */
 }
-.ant-table-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.action-link {
-    color: #1890ff; /* Ant Design 默认链接颜色 */
-    text-decoration: none;
-    width: 160px; /* 设置固定宽度 */
-}
 </style>
 
 {% endblock %}
@@ -287,7 +275,7 @@
 {% block extra_js %}
 <script src="{% static 'js/subject_detail.js' %}"></script>
 <script>
-// 展开/收起科目信息区域
+// 展开/收起项目信息区域
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('toggleInfoSection').addEventListener('click', function() {
         const infoSection = document.querySelector('.subject-info-section');
@@ -382,9 +370,10 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if(data.status === 'success') {
-                // 显示成功提示
-                alert('统计数据更新成功');
-                // 重新加载页面或局部更新数据
+                const p = typeof data.weekly_planned_hours === 'number' ? data.weekly_planned_hours.toFixed(2) : '';
+                const a = typeof data.weekly_actual_hours === 'number' ? data.weekly_actual_hours.toFixed(2) : '';
+                const extra = (p !== '' && a !== '') ? `\n本周计划（来自周历）: ${p} 小时\n本周投入（来自记录）: ${a} 小时` : '';
+                alert('统计数据更新成功' + extra);
                 location.reload();
             } else {
                 alert('更新失败: ' + (data.message || '未知错误'));

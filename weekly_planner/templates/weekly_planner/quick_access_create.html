@@ -65,6 +65,7 @@
 import { AiEditor } from '/static/aieditor-main/dist/index.js';
 
 window.editorContent = new AiEditor({
+    ...window.getAiEditorImageOption(),
     element: '#editor-ex-content',
     placeholder: '开始输入题目内容...',
     theme: 'default',

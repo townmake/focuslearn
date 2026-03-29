@@ -31,6 +31,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 import json
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 import logging
 
 
@@ -120,9 +121,6 @@ def get_tree_data(queryset):
     nodes = {node.id: {
         'id': node.id,
         'title': node.title,
-        'difficulty': node.difficulty,
-        'memory_level': node.memory_level,
-        'mastery_level': node.mastery_level,
         'tree_id': node.tree_id,
         'created_at': node.created,
         'children': [],
@@ -145,7 +143,7 @@ def get_tree_data(queryset):
 
 
 
-# 学习记录视图
+# 记录视图
 class StudyRecordListView(APIView):
     def get(self, request):
         created_date_start = request.GET.get('created_date_start')
@@ -241,7 +239,7 @@ class StudyRecordsAPIView(APIView):
         page = request.GET.get('page', 1)
         page_size = request.GET.get('page_size', 10)
         
-        # 获取当前用户的学习记录
+        # 获取当前用户的记录
         queryset = StudyRecord.objects.filter(user=request.user)
         
         # 应用过滤条件
@@ -399,29 +397,29 @@ def subject_data(request, pk):
         'category_id': subject.category_id,
     })
     
+@login_required
+@require_POST
 def subject_refresh(request, pk):
-    subject = get_object_or_404(Subject, pk=pk)
-    # 重新计算统计数据
-    chapters= Chapter.objects.filter(subject=subject)
+    """
+    子任务（Chapter）：本周计划/实际投入写入 estimated_hours、actual_hours，并重算 progress。
+    项目（Subject）：写入本周合计（各子任务 + 未归属周历/记录）到 estimated_hours、actual_study_hours。
+    累计已投 already_hours 仍仅由周日 management command 更新。
+    """
+    from .subject_weekly_stats import persist_subject_weekly_stats
 
-    # 初始化统计数据
-    subject.Chapters_count = chapters.count()
-    subject.knowledge_points_count = 0
-    subject.estimated_hours = 0
-    subject.actual_study_hours = 0
-    # 累加统计数据
-    for chapter in chapters:
-        subject.knowledge_points_count += chapter.knowledge_points_count
-        subject.estimated_hours += chapter.estimated_hours
-        subject.actual_study_hours += chapter.actual_hours
-    # 计算进度
-    if subject.estimated_hours > 0:
-        subject.progress = min(max(int((subject.actual_study_hours / subject.estimated_hours) * 100), 0), 100)
-    else:
-        subject.progress = 0  # 如果没有预计学时，进度设为0
-        
-    subject.save()  # 会触发模型的save方法中的统计逻辑
-    return JsonResponse({'status': 'success'})
+    subject = get_object_or_404(Subject, pk=pk)
+    stats = persist_subject_weekly_stats(request.user, subject)
+    return JsonResponse(
+        {
+            "status": "success",
+            "weekly_planned_hours": stats["planned_hours"],
+            "weekly_actual_hours": stats["actual_hours"],
+            "planned_unassigned_hours": stats["planned_unassigned_hours"],
+            "actual_unassigned_hours": stats["actual_unassigned_hours"],
+            "planned_by_chapter": stats["planned_by_chapter"],
+            "actual_by_chapter": stats["actual_by_chapter"],
+        }
+    )
 
 def subject_detail(request, pk):
     subject = get_object_or_404(Subject.objects.select_related('category'), pk=pk)
@@ -926,7 +924,7 @@ class StudyRecordCreateAPI(generics.CreateAPIView):
     queryset = StudyRecord.objects.all()
     serializer_class = StudyRecordSerializer
     permission_classes = []  # 移除认证要求
-    
+
     def perform_create(self, serializer):
         user_id = self.request.data.get('user')
         try:
@@ -939,6 +937,16 @@ class StudyRecordCreateAPI(generics.CreateAPIView):
             raise serializers.ValidationError({'user': '用户不存在'})
         except Exception as e:
             raise serializers.ValidationError(str(e))
+
+
+class StudyRecordDetailAPI(generics.RetrieveUpdateDestroyAPIView):
+    """当前用户单条学习记录的查看、修改、删除。"""
+
+    serializer_class = StudyRecordSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return StudyRecord.objects.filter(user=self.request.user)
 
 class VideoListCreateAPIView(generics.ListCreateAPIView):
     queryset = Video.objects.all()

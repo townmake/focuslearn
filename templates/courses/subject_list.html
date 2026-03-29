@@ -1,7 +1,7 @@
 
 {% extends "base.html" %}
 
-{% block title %}课程列表{% endblock %}
+{% block title %}项目列表{% endblock %}
 
 {% block content %}
 {% load static %}
@@ -11,28 +11,28 @@
 <link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
 <div class="subject-list-container">
     <!-- 弹窗部分保持不变 -->
-    <!-- 新建科目弹窗 -->
+    <!-- 新建项目弹窗 -->
     <div class="ant-modal-mask" id="createSubjectModalMask" style="display:none;"></div>
     <div class="ant-modal-wrap" id="createSubjectModal" style="display:none;">
         <div class="ant-modal" style="width: 600px;">
             <div class="ant-modal-content">
                 <div class="ant-modal-header">
-                    <div class="ant-modal-title">新建科目</div>
+                    <div class="ant-modal-title">新建项目</div>
                 </div>
                 <div class="ant-modal-body">
                     <form id="subjectForm" method="POST" action="{% url 'courses:subject_create' %}" enctype="multipart/form-data">
                         {% csrf_token %}
                         <div class="ant-form-item">
-                            <label>科目名称</label>    <input type="text" name="name" class="ant-input" required>
+                            <label>项目名称</label>    <input type="text" name="name" class="ant-input" required>
                         </div><div class="ant-form-item">
-                            <label>科目描述</label>    <textarea name="description" class="ant-input" rows="3"></textarea></div>
+                            <label>项目描述</label>    <textarea name="description" class="ant-input" rows="3"></textarea></div>
                         <div class="ant-form-item">
                             <label>背景图片</label>    <input type="file" name="background_image" class="ant-input">
                         </div>                        <div class="ant-form-item">
                             <label>主题色</label>    <input type="color" name="color" class="ant-input" value="#3498db">
                         </div>
                         <div class="ant-form-item">
-                            <label>科目分类</label>
+                            <label>项目分类</label>
                             <select name="category" class="ant-input">
                                 <option value="">无分类</option>
                                 {% for c in subject_categories %}
@@ -55,19 +55,19 @@
 
     <!-- 页面主体内容 -->
     <div class="subject-list-header">
-        <h2>课程列表</h2>
+        <h2>项目列表</h2>
         <div class="subject-counts">
-            <span class="subject-count">总科：<span class="subject-length-value">{{ total_subject_count }}</span>个</span>
+            <span class="subject-count">总项目：<span class="subject-length-value">{{ total_subject_count }}</span>个</span>
             <span class="subject-total-hours">预计：<span class="total-hours-value">{{ total_hours }}</span>小时</span>
-            <span class="subject-total-actual-hours">已学：<span class="total-actual-hours-value">{{ total_actual_hours }}</span>小时</span>
+            <span class="subject-total-actual-hours">已投：<span class="total-actual-hours-value">{{ total_actual_hours }}</span>小时</span>
         </div>
         <div class="header-actions">
             <div class="search-bar">
-                <input type="text" placeholder="搜索课程或章节..." class="search-input">
-                <button class="search-btn">搜索</button>
+                <input type="text" placeholder="搜索项目或任务..." class="search-input" id="subjectSearchInput">
+                <button type="button" class="ant-btn ant-btn-primary header-action-btn">搜索</button>
             </div>
-            <button class="ant-btn " onclick="showCreateSubjectModal()">
-                <i class="anticon anticon-plus"></i> 新建科目
+            <button type="button" class="ant-btn ant-btn-primary header-action-btn" onclick="showCreateSubjectModal()">
+                <i class="anticon anticon-plus"></i> 新建项目
             </button>
         </div>
     </div>
@@ -76,10 +76,10 @@
         <table class="ant-table ant-table-bordered ant-table-striped">
             <thead class="ant-table-thead">
                 <tr>
-                    <th class="ant-table-cell">科目名称</th>
-                    <th class="ant-table-cell">章节数</th>
-                    <th class="ant-table-cell">预计学时</th>
-                    <th class="ant-table-cell">已学时长</th>
+                    <th class="ant-table-cell">项目名称</th>
+                    <th class="ant-table-cell">任务数</th>
+                    <th class="ant-table-cell">本周计划时长</th>
+                    <th class="ant-table-cell">本周已投时长</th>
                     <th class="ant-table-cell">进度</th>
                     <th class="ant-table-cell">进度描述</th>
                     <th class="ant-table-cell">操作</th>
@@ -116,7 +116,7 @@
                 </tr>
                 {% endfor %}
                 {% empty %}
-                <tr><td class="ant-table-cell" colspan="7">暂无科目，请先新建或前往后台配置科目分类。</td></tr>
+                <tr><td class="ant-table-cell" colspan="7">暂无项目，请先新建或前往后台配置项目分类。</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -176,9 +176,9 @@
         });
     }
 
-    // 删除科目
+    // 删除项目
     function delSubject(subjectId){
-        if(confirm("确定要删除该科目吗？")) {
+        if(confirm("确定要删除该项目吗？")) {
             fetch(`/courses/subject/${subjectId}/delete/`, {
                 method: 'POST',
                 headers: {

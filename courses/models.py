@@ -83,7 +83,7 @@ class SubjectCategory(models.Model):
     display_weight = models.IntegerField(
         default=0,
         verbose_name="显示权重",
-        help_text="数值越大，在课程列表中越靠前展示",
+        help_text="数值越大，在项目列表中越靠前展示",
     )
 
     class Meta:
@@ -109,6 +109,12 @@ class Subject(models.Model):
     estimated_hours = models.PositiveIntegerField(default=0,verbose_name="预计学时(小时)")
     order = models.PositiveIntegerField(default=0, verbose_name="排序序号")
     actual_study_hours = models.PositiveIntegerField(default=0, verbose_name="实际学时(小时)")
+    already_hours = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="累计已投时长(小时)",
+    )
     progress = models.PositiveIntegerField( default=0,  verbose_name="学习进度(%)", help_text="学习进度，0-100之间" )
     background_image = models.ImageField(
         upload_to='subject_bg/', 
@@ -240,21 +246,6 @@ class KnowledgePoint(MPTTModel):
     title = models.CharField(_('标题'), max_length=255)
     description = models.TextField(_('描述'), blank=True)
     content = TextField(_('详细内容'), blank=True)
-    difficulty = models.PositiveSmallIntegerField(
-        _('难度'), 
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        default=3
-    )
-    memory_level = models.PositiveSmallIntegerField(
-        _('记忆度'),
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        default=3
-    )
-    mastery_level = models.PositiveSmallIntegerField(
-        _('掌握度'),
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        default=3
-    )
     parent = TreeForeignKey(
         'self',
         on_delete=models.CASCADE,
@@ -982,15 +973,18 @@ class StudyRecord(models.Model):
     duration = models.PositiveIntegerField(verbose_name="学习时长(秒)")
     
     PAGE_TYPE_CHOICES = [
-        ('study', '学习'),
-        ('exercise', '练习'),
-        ('review', '复习'),
+        ('research', '调研'),
+        ('thinking', '思考'),
+        ('communication', '沟通'),
+        ('implementation', '实施'),
+        ('retrospective', '复盘'),
+        ('process_step', '流程步骤'),
         ('other', '其他'),
     ]
     page_type = models.CharField(
-        max_length=20, 
-        choices=PAGE_TYPE_CHOICES, 
-        verbose_name="学习类型"
+        max_length=20,
+        choices=PAGE_TYPE_CHOICES,
+        verbose_name="任务类型"
     )
     chapter = models.ForeignKey(
         Chapter, 
@@ -1011,8 +1005,8 @@ class StudyRecord(models.Model):
     description = models.TextField(blank=True, verbose_name="学习描述")
     
     class Meta:
-        verbose_name = "学习记录"
-        verbose_name_plural = "学习记录"
+        verbose_name = "记录"
+        verbose_name_plural = "记录"
         ordering = ['-start_time']
     
     def __str__(self):
@@ -1065,7 +1059,7 @@ class StudyRecord(models.Model):
     @receiver(post_save, sender='courses.StudyRecord')
     def update_chapter_study_hours(sender, instance, created, **kwargs):
         """
-        当学习记录保存时更新章节的实际学习时长
+        当记录保存时更新章节的实际学习时长
         """
         if created and instance.chapter:  # 只处理新建记录且有关联章节的情况
             from decimal import Decimal

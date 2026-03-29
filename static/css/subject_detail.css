@@ -1,18 +1,20 @@
 
 /* 科目详情容器 */
 .subject-detail-container {
-    padding: 24px;
-    max-width: 1200px;
+    width: 100%;
+    max-width: 1440px;
     margin: 0 auto;
+    padding: 24px;
+    box-sizing: border-box;
 }
 
-/* 科目信息部分 */
+/* 科目信息部分（无外层卡片框，与内容区同宽铺平） */
 .subject-info-section {
-    margin-bottom: 32px;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-    padding: 24px;
+    margin-bottom: 24px;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
 }
 
 /* Ant Descriptions样式 */
@@ -118,51 +120,90 @@
     font-size: 12px;
 }
 
-/* 章节列表部分 */
+/* 章节列表部分（无外层卡片框，与内容区同宽铺平） */
 .chapter-list-section {
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-    padding: 24px;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
 }
 
-/* Ant Table样式 */
-.ant-table {
-    width: 100%;
+/* 子任务列表工具栏（与项目列表页头部布局一致） */
+.chapter-list-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 4px;
 }
 
-.ant-table-container {
-    position: relative;
-}
-
-.ant-table-title {
+.chapter-list-toolbar-title {
+    margin: 0;
     font-size: 16px;
     font-weight: 500;
     color: rgba(0, 0, 0, 0.85);
-    margin-bottom: 16px;
 }
 
-.ant-table-content table {
+.chapter-list-section .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* 子任务表格：与 subject_list 中 .subject-table + .ant-table 一致，限定在章节区域内 */
+.chapter-list-section .subject-table {
+    margin-top: 16px;
     width: 100%;
-    border-collapse: collapse;
+    overflow-x: auto;
 }
 
-.ant-table-content th {
+.chapter-list-section table.ant-table {
+    font-size: 14px;
+    border-radius: 0;
+    overflow: hidden;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    background: #fff;
+    box-shadow: none;
+}
+
+.chapter-list-section .ant-table-thead > tr > th {
     background-color: #fafafa;
-    color: rgba(0, 0, 0, 0.85);
     font-weight: 500;
-    padding: 16px;
-    text-align: left;
+    color: rgba(0, 0, 0, 0.85);
 }
 
-.ant-table-content td {
-    padding: 16px;
-    color: rgba(0, 0, 0, 0.65);
-    border-bottom: 1px solid #f0f0f0;
+.chapter-list-section .ant-table-tbody > tr:hover > td {
+    background-color: #f5f5f5 !important;
 }
 
-.ant-table-content tr:hover td {
-    background-color: #fafafa;
+.chapter-list-section .ant-table-cell {
+    padding: 16px;
+}
+
+.chapter-list-section .ant-table-striped .ant-table-tbody tr:nth-child(even) td {
+    background-color: #f9f9f9;
+}
+
+.chapter-list-section .ant-btn-text {
+    color: #1890ff;
+}
+
+.chapter-list-section .ant-btn-text:hover {
+    color: #40a9ff;
+    background-color: rgba(24, 144, 255, 0.1);
+}
+
+.chapter-list-section .chapter-delete-btn.ant-btn-text {
+    color: #ff4d4f;
+}
+
+.chapter-list-section .chapter-delete-btn.ant-btn-text:hover {
+    color: #ff7875;
+    background-color: rgba(255, 77, 79, 0.1);
 }
 
 /* 操作链接 */

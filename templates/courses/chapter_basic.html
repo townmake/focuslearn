@@ -44,23 +44,23 @@ function checkReactLoaded() {
             <table>
                 <tbody>
                     <tr>
-                        <td class="ant-descriptions-item-label">章节名称</td>
+                        <td class="ant-descriptions-item-label">子任务名称</td>
                         <td class="ant-descriptions-item-content">{{ chapter.title }}</td>
                     </tr>
                     <tr>
-                        <td class="ant-descriptions-item-label">章节描述</td>
+                        <td class="ant-descriptions-item-label">任务描述</td>
                         <td class="ant-descriptions-item-content">{{ chapter.description }}</td>
                     </tr>
                     <tr>
-                        <td class="ant-descriptions-item-label">预计学时</td>
+                        <td class="ant-descriptions-item-label">预计时长</td>
                         <td class="ant-descriptions-item-content">{{ chapter.estimated_hours }}小时</td>
                     </tr>
                     <tr>
-                        <td class="ant-descriptions-item-label">累计学时</td>
+                        <td class="ant-descriptions-item-label">累计时长</td>
                         <td class="ant-descriptions-item-content">{{ chapter.actual_hours }}小时</td>
                     </tr>
                     <tr>
-                        <td class="ant-descriptions-item-label">学习进度</td>
+                        <td class="ant-descriptions-item-label">本周进度</td>
                         <td class="ant-descriptions-item-content">
                             <div class="progress-container">
                                 <div class="progress-bar" style="width: {{ chapter.progress }}%"></div>
@@ -106,21 +106,21 @@ function checkReactLoaded() {
         <div class="ant-modal" style="width:100%; min-height: 400px; background: white; overflow: visible;">
             <div class="ant-modal-content" style="display: block; height: 100%;">
                 <div class="ant-modal-header" style="display: block;">
-                    <div class="ant-modal-title">编辑章节信息</div>
+                    <div class="ant-modal-title">编辑任务信息</div>
                 </div>
                 <div class="ant-modal-body" style="display: block; height: calc(100% - 100px); overflow-y: auto;">
                     <form id="editForm" method="POST" action="{% url 'courses:chapter_update' chapter.id %}" style="display: block;">
                         {% csrf_token %}
                         <div class="ant-form-item-chapter">
-                            <label class="label-chapter">章节标题</label>
+                            <label class="label-chapter">任务标题</label>
                             <input type="text" name="title" class="ant-input-chapter" value="{{ chapter.title }}" required>
                         </div>
                         <div class="ant-form-item-chapter">
-                            <label class="label-chapter">章节描述</label>
+                            <label class="label-chapter">任务描述</label>
                             <textarea name="description" class="ant-input-chapter" rows="3">{{ chapter.description }}</textarea>
                         </div>
                         <div class="ant-form-item-chapter">
-                            <label class="label-chapter">预计学时</label>
+                            <label class="label-chapter">预计学长</label>
                             <input type="number" name="estimated_hours" class="ant-input-chapter" 
                                 value="{{ chapter.estimated_hours }}" min="0" required>
                         </div>
@@ -425,42 +425,44 @@ window.addEventListener('load', updateProgressTextColor);
             sorter: (a, b) => new Date(a.start_time) - new Date(b.start_time)
         },
         {
-            title: '科目',
+            title: '项目',
             dataIndex: 'subject_name',
             key: 'subject_name',
             width: 120
         },
         {
-            title: '章节',
+            title: '任务',
             dataIndex: 'chapter_name',
             key: 'chapter_name',
             width: 120
         },
         {
-            title: '学习时长',
+            title: '投入时长',
             dataIndex: 'duration_display',
             key: 'duration',
             width: 80,
             render: (text) => text
         },
         {
-            title: '学习类型',
+            title: '任务类型',
             dataIndex: 'page_type',
             key: 'page_type',
             width: 120,
             render: (text) => {
                 const typeMap = {
-                    'study': '学习',
-                    'exercise': '做题练习',
-                    'review': '再复习',
-                    'other': '其他'
-                    // 添加其他类型的中文映射
+                    research: '调研',
+                    thinking: '思考',
+                    communication: '沟通',
+                    implementation: '实施',
+                    retrospective: '复盘',
+                    process_step: '流程步骤',
+                    other: '其他'
                 };
                 return typeMap[text] || text;
             }
         },
         {
-            title: '学习内容',
+            title: '任务内容',
             dataIndex: 'learning_content',
             key: 'learning_content',
             width: 300,
@@ -468,7 +470,7 @@ window.addEventListener('load', updateProgressTextColor);
         }
     ];
 
-    // 加载学习记录数据
+    // 加载记录数据
     function loadStudyRecords(params = {}) {
         forceRerender(); // 强制重新渲染表格组件
         const container = document.getElementById('study-records-table');

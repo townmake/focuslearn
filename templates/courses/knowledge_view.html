@@ -61,20 +61,6 @@
                         </span>
                     </div>
                 </div>
-                <div class="info-item-group">
-                    <div class="info-item-star">
-                        <span class="info-label-basic">难度：</span>
-                        <span id="kp-difficulty-container"> </span>
-                    </div>
-                    <div class="info-item-star">
-                        <span class="info-label-basic">记忆度：</span>
-                        <span id="kp-memory-level-container"> </span>
-                    </div>
-                    <div class="info-item-star">
-                        <span class="info-label-basic">掌握度：</span>
-                        <span id="kp-mastery-level-container"> </span>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -375,6 +361,7 @@ window.editorReadyPromise = new Promise((resolve) => {
 });
 
 window.AiEditor_knowledge = new AiEditor({
+    ...window.getAiEditorImageOption(),
     element: '#Aiditor-knowledge-content',
     placeholder: '开始输入知识点内容...',
     htmlPasteConfig: {
@@ -649,85 +636,6 @@ document.getElementById('save-btn-content').addEventListener('click', function()
 // let currentKnowledgePointId = null;
 
 
-// 根据评分类型获取容器ID
-function getRatingContainerId(ratingType) {
-    switch (ratingType) {
-        case 'kp-difficulty':
-            return 'kp-difficulty-container';
-        case 'kp-memory-level':
-            return 'kp-memory-level-container';
-        case 'kp-mastery-level':
-            return 'kp-mastery-level-container';
-        default:
-            console.error('未知评分类型:', ratingType);
-            return '';
-    }
-}
-// 转换数值为星星评级，知识点详情部分
-function renderRating(value, max=5, containerId, firstRender=true) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    // 如果是非首次渲染，则移除之前的React组件
-    if (!firstRender) {
-        ReactDOM.unmountComponentAtNode(container);
-    }
-    // 清空容器内容
-    container.innerHTML = '';
-    
-    // 创建Rate组件
-    const Rate = antd.Rate;
-    ReactDOM.render(
-        React.createElement(Rate, {
-            value: value,
-            onChange: (newVal) => {
-                saveRating(containerId.replace('-container', ''), newVal);
-            }
-        }),
-        container
-    );
-}
-
-// 保存评分到后台
-function saveRating(ratingType, value) {
-    const kpId = currentKnowledgePointId;
-    if (!kpId) {
-        console.error('知识点ID不存在');
-        return;
-    }
-    
-    const url = `/courses/api/knowledge-points/${kpId}/update-rating/`;
-    const data = {
-        rating_type: ratingType,
-        value: value
-    };
-    
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('保存失败');
-        }
-        return response.json();
-    })
-    .then(data => {
-        antd.message.success('评分已保存'); 
-
-       // 直接更新星星评分组件
-        const containerId = getRatingContainerId(ratingType);
-        renderRating(value, 5, containerId, false);
-    })
-    .catch(error => {
-        console.error('保存评分失败:', error);
-        antd.message.error('保存评分失败');
-    });
-}
-
 // 可编辑字段配置
 const editableFields = [
     {
@@ -770,11 +678,6 @@ function loadKnowledgePointDetail() {
                     element.setAttribute('contenteditable', 'false');
                 }
             });
-
-            // 使用新的评分渲染方法
-            renderRating(data.difficulty, 5, 'kp-difficulty-container',false);
-            renderRating(data.memory_level, 5, 'kp-memory-level-container',false);
-            renderRating(data.mastery_level, 5, 'kp-mastery-level-container',false);
 
             document.getElementById('kp-parent').textContent = 
                 data.parent ? data.parent_title : "根节点";
