@@ -63,17 +63,11 @@ class TaskSerializer(serializers.ModelSerializer):
             return None
         
         try:
-            # 组合日期和时间
+            # 组合日期和时间（墙钟时间），再用 make_aware 绑定当前时区，避免 replace+pytz 错位
             local_datetime = datetime.combine(obj.start_date, obj.start_time)
-            
-            # 获取当前时区
-            current_timezone = timezone.get_current_timezone()
-            
-            # 使用 replace 方法设置时区
-            localized_datetime = local_datetime.replace(tzinfo=current_timezone)
-            
-            # 转换为 ISO 格式字符串
-            return localized_datetime.isoformat()
+            if timezone.is_naive(local_datetime):
+                local_datetime = timezone.make_aware(local_datetime)
+            return local_datetime.replace(microsecond=0).isoformat()
         except Exception as e:
             print(f"Error converting start datetime: {e}")
             return None
@@ -86,17 +80,10 @@ class TaskSerializer(serializers.ModelSerializer):
             return None
         
         try:
-            # 组合日期和时间
             local_datetime = datetime.combine(obj.end_date, obj.end_time)
-            
-            # 获取当前时区
-            current_timezone = timezone.get_current_timezone()
-            
-            # 使用 replace 方法设置时区
-            localized_datetime = local_datetime.replace(tzinfo=current_timezone)
-            
-            # 转换为 ISO 格式字符串
-            return localized_datetime.isoformat()
+            if timezone.is_naive(local_datetime):
+                local_datetime = timezone.make_aware(local_datetime)
+            return local_datetime.replace(microsecond=0).isoformat()
         except Exception as e:
             print(f"Error converting end datetime: {e}")
             return None

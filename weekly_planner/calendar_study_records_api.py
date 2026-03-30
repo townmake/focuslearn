@@ -42,6 +42,12 @@ def calendar_study_records(request):
         .order_by("start_time")
     )
 
+    def _fc_iso(dt):
+        """转为当前时区墙钟时间 ISO，去掉微秒，便于前端稳定解析。"""
+        if dt is None:
+            return None
+        return timezone.localtime(dt).replace(microsecond=0).isoformat()
+
     out = []
     for r in qs:
         text = (r.learning_content or "").strip()
@@ -51,8 +57,8 @@ def calendar_study_records(request):
             {
                 "id": r.id,
                 "title": title,
-                "start": r.start_time.astimezone(tz).isoformat(),
-                "end": r.end_time.astimezone(tz).isoformat(),
+                "start": _fc_iso(r.start_time),
+                "end": _fc_iso(r.end_time),
                 "learning_content": r.learning_content or "",
                 "description": r.description or "",
                 "page_type": r.page_type,

@@ -15,35 +15,6 @@
     </div>
 </div>
 <div class="container-ex">
-    <!-- <div class="card-header-ocr">
-        <div class="card-body card-body-ocr">
-            <div class="dropzone ocr-dropzone" id="exercise-image-dropzone">
-                <div class="dz-message">
-                    <i class="fas fa-cloud-upload-alt fa-3x mb-3 ocr-upload-icon"></i>
-                    <p class="ocr-upload-text">拖放图片到此处或点击上传</p>
-                    <p class="text-muted ocr-upload-hint">支持截图粘贴 (Ctrl+V)</p>
-                </div>
-            </div>
-        </div>
-        <div class="card-body card-body-ocr">
-            <textarea id="ocr-result" class="form-control mb-3 ocr-textarea" rows="5" placeholder="OCR识别结果将显示在这里..." style="height: 170px;width: 100%;"></textarea>
-            <div class="btn-group ocr-btn-group" role="group">
-                <button id="input-title" class="btn btn-primary ocr-action-btn">
-                    <i class="fas fa-project-diagram"></i> 题目
-                </button>
-                <button id="input-choice" class="btn btn-primary ocr-action-btn">
-                    <i class="fas fa-sync"></i> 选项
-                </button>
-                <button id="input-analyse" class="btn btn-primary ocr-action-btn">
-                    <i class="fas fa-check"></i> 解析
-                </button>
-                <button id="input-clear" class="btn btn-primary ocr-action-btn">
-                    <i class="fas fa-eraser"></i> 清空
-                </button>
-            </div>
-        </div>
-    </div> -->
-
     <form id="exerciseForm" class="ant-form-ex ant-form-vertical">
         {% csrf_token %}
         <div class="ant-form-item-ex">
@@ -251,92 +222,6 @@ window.editorAnalysis = new AiEditor({
 <script>
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 题目按钮点击事件
-    document.getElementById('input-title').addEventListener('click', function() {
-        const ocrText = document.getElementById('ocr-result').value;
-        if (window.editorContent) {
-            window.editorContent.focus().insert(ocrText);
-            document.getElementById('content').value = ocrText;
-        }
-    });
-    // 选项按钮点击事件
-    document.getElementById('input-choice').addEventListener('click', function() {
-        const ocrText = document.getElementById('ocr-result').value;
-        document.getElementById('options').value = ocrText;
-    });
-    // 解析按钮点击事件
-    document.getElementById('input-analyse').addEventListener('click', function() {
-        const ocrText = document.getElementById('ocr-result').value;
-        if (window.editorAnalysis) {
-            window.editorAnalysis.focus().insert(ocrText);
-            document.getElementById('analysis').value = ocrText;
-        }
-    });
-    document.getElementById('input-clear').addEventListener('click', function() {
-        document.getElementById('ocr-result').value='';
-    });
-});
-    
-document.addEventListener('DOMContentLoaded', function() {
-    const chapterId = document.body.dataset.chapterId;
-    // 初始化习题图片上传Dropzone
-    // const exerciseDropzone = new Dropzone("#exercise-image-dropzone", {
-    //     url: `/courses/api/chapters/${chapterId}/import-knowledge/`,
-    //     acceptedFiles: "image/*",
-    //     dictDefaultMessage: "拖放习题图片到此处或点击上传",
-    //     autoProcessQueue: true,
-    //     addRemoveLinks: true,
-    //     maxFiles: 1,
-    //     headers: {
-    //         'X-CSRFToken': '{{ csrf_token }}',
-    //         'Accept': 'application/json'
-    //     },
-    //     sending: function(file, xhr, formData) {
-    //         formData.append('chapter_id', chapterId );
-    //         formData.append('image', file);
-    //     },
-    //     init: function() {
-    //         this.on("addedfile", function(file) {
-    //             if (this.files.length > 1) {
-    //                 this.removeFile(this.files[0]);
-    //             }
-    //         });
-    //         this.on("removedfile", function(file) {
-    //             document.getElementById('ocr-result').value = ''; 
-    //         });
-    //         this.on("success", function(file, response) {
-    //             if (response.ocr_result && response.ocr_result.words_result) {
-    //                     // 拼接OCR识别结果
-    //                     const ocrText = response.ocr_result.words_result
-    //                         .map(item => item.words)
-    //                         .join('\n');
-    //                     $('#ocr-result').val(ocrText);
-    //                 }
-    //         });
-    //         this.on("error", function(file, error) {
-    //             console.error('OCR处理错误:', error);
-    //             document.getElementById('ocr-result').value = "OCR处理失败";
-    //         });
-    //     }
-    // });
-    // // 支持粘贴图片
-    // document.addEventListener('paste', function(e) {
-    //     const items = e.clipboardData.items;
-    //     let hasImage = false;
-        
-    //     for (let i = 0; i < items.length; i++) {
-    //         if (items[i].type.indexOf('image') !== -1) {
-    //             const blob = items[i].getAsFile();
-    //             // 生成唯一文件名
-    //             const fileName = 'paste-' + Date.now() + '.png';
-    //             const file = new File([blob], fileName, {type: 'image/png'});
-    //             exerciseDropzone.addFile(file);
-    //             hasImage = true;
-    //         }
-    //     }
-    // });
-
-
 
 
 

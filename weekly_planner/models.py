@@ -98,13 +98,10 @@ class Task(models.Model):
     
 
     def save(self, *args, **kwargs):
-
-
-        # 确保结束时间不早于开始时间
-        if self.end_time < self.start_time:
+        # 仅同一天内比较时刻；跨日时 end_time 可小于 start_time（如 23:00→次日 01:00）
+        if self.start_date == self.end_date and self.end_time < self.start_time:
             self.end_time = self.start_time
 
-        # 保存任务
         super().save(*args, **kwargs)
         
 

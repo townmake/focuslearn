@@ -6,7 +6,6 @@ from django.conf.urls.static import static
 from .api_views import (
     KnowledgePointDetailAPI,
     KnowledgePointListAPI,
-    KnowledgePointImport,
     KnowledgePointAPI,
     KnowledgeTreeAPI,
     knowledge_points_list,
@@ -99,7 +98,6 @@ from .document_views import (
 )
 from .comment_views import get_comments, submit_comment
 from .document_views import document_detail, document_file_view
-from .ocr_views import ChapterImportKnowledgeAPI, AIKnowledgeAPI,DictionaryLookupAPI,formula_to_img
 from .editor_upload_views import aieditor_image_upload
 
 app_name = 'courses'
@@ -112,8 +110,6 @@ urlpatterns = [
     path('knowledgepoints/view/<int:pk>/', KnowledgePointDetailView.as_view(), name='knowledgepoint_view'),
     path('knowledge-points/<int:pk>/', KnowledgePointDetailAPI.as_view(), name='knowledgepoint-detail'),
     path('knowledge-points/', KnowledgePointListAPI.as_view(), name='knowledgepoint-list'),
-    path('knowledge-points/<int:chapter_id>/import/<int:knowledge_id>/', KnowledgePointImport.as_view(), name='knowledgepoint-import'),
-    
     # 知识点API路由
     path('api/knowledge-points-list/', knowledge_points_list, name='knowledge-points-list'),
     path('api/knowledge-points/', KnowledgePointAPI.as_view(), name='knowledge-point-api'),
@@ -122,10 +118,6 @@ urlpatterns = [
     path('api/chapters/<int:chapter_id>/search-knowledge-points/', search_knowledge_points, name='search_knowledge_points'),
     path('api/knowledge-points/<int:pk>/resources/', knowledge_point_resources, name='knowledge-point-resources'),
     path('api/chapters/<int:chapter_id>/knowledge-tree/', KnowledgeTreeAPI.as_view(), name='knowledge-tree-api'),
-    path('api/chapters/<int:chapter_id>/import-knowledge/', ChapterImportKnowledgeAPI.as_view(), name='chapter-import-knowledge'),
-    path('api/ai-question/', AIKnowledgeAPI.as_view(), name='AI-knowledge-point'),
-    path('api/dictionary-lookup/', DictionaryLookupAPI.as_view(), name='dictionary-lookup'),
-    path('api/knowledge_points/formula-to-img/',formula_to_img, name='formula_to_img'),
 
     # AiEditor 图片上传（字段名默认为 image）
     path('api/editor/upload/image/', aieditor_image_upload, name='aieditor_image_upload'),

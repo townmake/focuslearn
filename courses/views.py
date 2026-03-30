@@ -234,7 +234,10 @@ class StudyRecordsAPIView(APIView):
         created_date_start = request.GET.get('created_date_start')
         created_date_end = request.GET.get('created_date_end')
         page_type = request.GET.get('page_type')
-        learning_content = request.GET.get('learning_content')
+        content_search = (request.GET.get('content_search') or '').strip()
+        if not content_search:
+            # 兼容旧参数名
+            content_search = (request.GET.get('learning_content') or '').strip()
         chapter_id = request.GET.get('chapter')
         page = request.GET.get('page', 1)
         page_size = request.GET.get('page_size', 10)
@@ -247,8 +250,11 @@ class StudyRecordsAPIView(APIView):
             queryset = queryset.filter(created_date__range=[created_date_start, created_date_end])
         if page_type:
             queryset = queryset.filter(page_type=page_type)
-        if learning_content:
-            queryset = queryset.filter(learning_content__icontains=learning_content)
+        if content_search:
+            queryset = queryset.filter(
+                Q(learning_content__icontains=content_search)
+                | Q(description__icontains=content_search)
+            )
         if chapter_id:
             queryset = queryset.filter(chapter_id=chapter_id)
             

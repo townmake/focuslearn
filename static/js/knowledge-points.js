@@ -610,37 +610,6 @@ document.getElementById('add-root-btn').addEventListener('click', function() {
     }
 });
 
-// 添加根节点按钮事件处理
-document.getElementById('import-root-btn').addEventListener('click', function() {
-    try {
-        const chapterId = '{{chapter.id}}';
-        const knowledgePoints_id = document.getElementById('kp-id').value;
-        // 检查URL格式
-        const importUrl = `/courses/knowledge-points/${chapterId}/import/${knowledgePoints_id}/`;
-
-        // 打开新窗口
-        const newWindow = window.open(importUrl, '_blank');
-        
-        if (!newWindow || newWindow.closed) {
-            throw new Error('无法打开导入页面，请检查弹出窗口是否被阻止');
-        }
-        
-        // 恢复按钮状态
-        setTimeout(() => {
-            this.textContent = originalText;
-            this.disabled = false;
-        }, 1000);
-        
-    } catch (error) {
-        console.error('打开导入页面失败:', error);
-        alert('打开导入页面失败: ' + error.message);
-        
-        // 恢复按钮状态
-        this.textContent = '导入';
-        this.disabled = false;
-    }
-});
-
 // 初始化
 document.addEventListener('DOMContentLoaded', initKnowledgePoints);
 // 额外确保SPA路由变化也能触发

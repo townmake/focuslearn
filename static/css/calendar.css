@@ -134,10 +134,10 @@ a {
     margin: 0 2px !important;
 }
 
-/* 事件样式优化 */
+/* 事件样式优化（勿加 position，避免覆盖 FC 对 .fc-timegrid-event 的 absolute 布局导致条与 harness 错位） */
 .fc-timegrid-event {
     border-radius: 4px !important;
-    margin: 1px 0 !important;
+    margin: 0 !important;
     padding: 2px 4px !important;
 }
 
@@ -262,9 +262,8 @@ a {
     align-items: center;
 }
 
-/* 日历上的学习/任务记录：夕阳金色；与计划重叠时记录在上层 */
+/* 日历上的学习/任务记录：夕阳金色；叠放顺序由 .fc-timegrid-event-harness:has(...) 的 z-index 控制 */
 .fc-event.calendar-study-record {
-    position: relative;
     z-index: 14 !important;
     border-width: 2px !important;
     border-style: solid !important;
@@ -283,9 +282,15 @@ a {
     background: transparent !important;
 }
 
-/* 计划任务：与记录重叠时在下层 */
+/* 多行展示「项目 > 任务 > 描述」时换行，避免单行被裁切 */
+.fc-timegrid-event .fc-event-title,
+.fc-timegrid-event .fc-event-title-container {
+    white-space: normal;
+    line-height: 1.25;
+}
+
+/* 计划任务：与记录重叠时在下层（同上，不用 position:relative 以免破坏时间轴定位） */
 .fc-event.calendar-plan-task {
-    position: relative;
     z-index: 6 !important;
 }
 

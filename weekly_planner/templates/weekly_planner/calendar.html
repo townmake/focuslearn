@@ -30,8 +30,8 @@
             <div class="modal-body">
                 <h4 id="taskTitle"></h4>
                 <div class="task-details-container">
-                    <div><strong>科目：</strong> <span id="taskSubject"></span></div>
-                    <div><strong>章节：</strong> <span id="taskChapter"></span>
+                    <div><strong>项目：</strong> <span id="taskSubject"></span></div>
+                    <div><strong>任务：</strong> <span id="taskChapter"></span>
                                                 <span id="taskChapterID" style="display: none;"></span></div>
                     <div><strong>时间：</strong> <span id="taskTime"></span></div>
                     <div id="descriptionRow" style="display: none;"><strong>描述：</strong> <span id="taskDescription"></span></div>
@@ -119,21 +119,21 @@
                     </div>
                     <div class="mb-3 row align-items-center">
                         <div class="col-3">
-                            <label for="subject" class="form-label mb-0">科目</label>
+                            <label for="subject" class="form-label mb-0">项目</label>
                         </div>
                         <div class="col-9">
                             <select class="form-select" id="subject" required>
-                                <option value="">选择科目</option>
+                                <option value="">选择项目</option>
                             </select>
                         </div>
                     </div>
                     <div class="mb-3 row align-items-center">
                         <div class="col-3">
-                            <label for="chapter" class="form-label mb-0">章节</label>
+                            <label for="chapter" class="form-label mb-0">任务</label>
                         </div>
                         <div class="col-9">
                             <select class="form-select" id="chapter" required>
-                                <option value="">请先选择科目</option>
+                                <option value="">请先选择项目</option>
                             </select>
                         </div>
                     </div>
@@ -292,6 +292,46 @@ function getContrastYIQ(hexcolor) {
     return (yiq >= 128) ? '#000000' : '#ffffff';
 }
 
+/** 日历块标题：项目 > 任务 > 描述 */
+function buildCalendarTieredLabel(parts) {
+    return parts
+        .map(function (p) { return (p && String(p).trim()) ? String(p).trim() : ''; })
+        .filter(Boolean)
+        .join(' > ');
+}
+
+function truncateCalendarLabel(s, maxLen) {
+    if (!s) return '';
+    if (s.length <= maxLen) return s;
+    return s.slice(0, maxLen - 1) + '…';
+}
+
+/** 计划任务：标题 + 描述合并为第三段，避免只显示其一 */
+function planCalendarTitle(task) {
+    const t = (task.title && String(task.title).trim()) ? String(task.title).trim() : '';
+    const d = (task.description && String(task.description).trim()) ? String(task.description).trim() : '';
+    let third = t;
+    if (t && d) {
+        third = t + ' — ' + d;
+    } else if (!t && d) {
+        third = d;
+    }
+    return truncateCalendarLabel(
+        buildCalendarTieredLabel([task.subject_name, task.chapter_name, third || '（无）']),
+        140
+    );
+}
+
+function recordCalendarTitle(r) {
+    const desc = (r.learning_content && String(r.learning_content).trim())
+        ? String(r.learning_content).trim()
+        : '（无描述）';
+    return truncateCalendarLabel(
+        '「记录」' + buildCalendarTieredLabel([r.subject_name, r.chapter_name, desc]),
+        140
+    );
+}
+
     document.addEventListener('DOMContentLoaded', function() {
     // 初始化模态框
     const taskDetailsModal = new bootstrap.Modal(document.getElementById('taskDetailsModal'));
@@ -406,6 +446,7 @@ function getContrastYIQ(hexcolor) {
         },
 
         slotDuration: '00:30:00',
+        snapDuration: '00:01:00',
         navLinks: true,
         editable: true,
         dayMaxEvents: true,
@@ -468,16 +509,18 @@ function getContrastYIQ(hexcolor) {
                         const textColor = getContrastYIQ(color);
                         return {
                             id: task.id,
-                            title: task.title,
+                            title: planCalendarTitle(task),
                             start: task.start,
                             end: task.end,
+                            allDay: false,
                             backgroundColor: color,
                             borderColor: color,
                             textColor: textColor,
-                            description: task.description,
                             classNames: ['calendar-plan-task'].concat(task.is_completed ? ['task-completed'] : []),
                             extendedProps: {
                                 kind: 'task',
+                                task_raw_title: task.title || '',
+                                description: task.description || '',
                                 subject_name: task.subject_name,
                                 chapter_name: task.chapter_name,
                                 focus_level: task.focus_level,
@@ -493,9 +536,10 @@ function getContrastYIQ(hexcolor) {
 
                     const recordEvents = recordList.map(r => ({
                         id: 'sr-' + r.id,
-                        title: '「记录」' + (r.title || ''),
+                        title: recordCalendarTitle(r),
                         start: r.start,
                         end: r.end,
+                        allDay: false,
                         backgroundColor: sunsetGold,
                         borderColor: sunsetBorder,
                         textColor: recordTextColor,
@@ -517,7 +561,9 @@ function getContrastYIQ(hexcolor) {
                     }));
 
                     /* 先传计划、再传记录，DOM 中记录靠后更易叠在上层 */
-                    successCallback(taskEvents.concat(recordEvents));
+                    const mergedEvents = taskEvents.concat(recordEvents);
+
+                    successCallback(mergedEvents);
                 })
                 .catch(error => {
                     console.error('Error fetching events:', error);
@@ -613,7 +659,8 @@ function getContrastYIQ(hexcolor) {
             }
 
             // 填充任务详情
-            document.getElementById('taskTitle').textContent = event.title;
+            document.getElementById('taskTitle').textContent =
+                (event.extendedProps && event.extendedProps.task_raw_title) || event.title;
             document.getElementById('taskSubject').textContent = event.extendedProps.subject_name;
             document.getElementById('taskChapter').textContent = event.extendedProps.chapter_name;
             document.getElementById('taskChapterID').textContent = event.extendedProps.chapter_id;
@@ -762,6 +809,10 @@ function getContrastYIQ(hexcolor) {
             
     calendar.render();
 
+    /* 控制台里勿用变量名 calendar：会与 <div id="calendar"> 的全局 DOM 冲突。
+       调试 FullCalendar 实例请用：window.focuslearnPlannerCalendar */
+    window.focuslearnPlannerCalendar = calendar;
+
     // 保存任务按钮点击事件
     document.getElementById('saveTaskBtn').addEventListener('click', function() {
         saveTask();
@@ -774,14 +825,15 @@ function getContrastYIQ(hexcolor) {
             return;
         }
 
-        // 格式化日期时间
+        if (!taskStart || !taskEnd) {
+            console.warn('updateTaskTimes: 缺少 start 或 end，已回退刷新');
+            calendar.refetchEvents();
+            return;
+        }
+
         const startDateTime = taskStart.toISOString();
         const endDateTime = taskEnd.toISOString();
-        console.log("startDateTime", startDateTime);
-        console.log("endDateTime", endDateTime);
 
-
-        // 直接发送更新请求
         fetch(`/planner/api/tasks/${taskId}/move/`, {
             method: 'PATCH',
             headers: {
@@ -801,12 +853,20 @@ function getContrastYIQ(hexcolor) {
             return response.json();
         })
         .then(data => {
-            calendar.refetchEvents(); // 刷新日历
+            if (data && data.start && data.end) {
+                const ev = calendar.getEventById(taskId) || calendar.getEventById(String(taskId));
+                if (ev) {
+                    ev.setStart(data.start);
+                    ev.setEnd(data.end);
+                    return;
+                }
+            }
+            calendar.refetchEvents();
         })
         .catch(error => {
             console.error('Error updating task:', error);
             alert(`更新任务失败: ${error.message}`);
-            calendar.refetchEvents(); // 刷新日历以恢复原状
+            calendar.refetchEvents();
         });
     }
 
@@ -820,7 +880,7 @@ function getContrastYIQ(hexcolor) {
         .then(response => response.json())
         .then(data => {
             const subjectSelect = document.getElementById('subject');
-            subjectSelect.innerHTML = '<option value="">选择科目</option>';
+            subjectSelect.innerHTML = '<option value="">选择项目</option>';
             
             data.forEach(subject => {
                 const option = document.createElement('option');
@@ -835,7 +895,7 @@ function getContrastYIQ(hexcolor) {
     // 加载章节列表
     function loadChapters(subjectId) {
         if (!subjectId) {
-            document.getElementById('chapter').innerHTML = '<option value="">请先选择科目</option>';
+            document.getElementById('chapter').innerHTML = '<option value="">请先选择项目</option>';
             return;
         }
         
@@ -847,7 +907,7 @@ function getContrastYIQ(hexcolor) {
         .then(response => response.json())
         .then(data => {
             const chapterSelect = document.getElementById('chapter');
-            chapterSelect.innerHTML = '<option value="">选择章节</option>';
+            chapterSelect.innerHTML = '<option value="">选择任务</option>';
             
             data.forEach(chapter => {
                 const option = document.createElement('option');
@@ -860,28 +920,12 @@ function getContrastYIQ(hexcolor) {
         .catch(error => console.error('Error loading chapters:', error));
     }
 
-    // 格式化日期时间为输入框格式
+    // 与日历/数据库时刻一致，供 <input type="time">（勿再定义同名函数覆盖本函数）
     function formatDateTimeForInput(date) {
+        if (!date) return null;
         const d = new Date(date);
-        
-        // 获取小时和分钟
-        let hours = d.getHours();
-        let minutes = d.getMinutes();
-        
-        // 确保小时在6-24范围内
-        hours = Math.max(6, Math.min(24, hours));
-        
-        // 处理特殊情况：24点只能是24:00
-        if (hours === 24 && minutes > 0) {
-            hours = 24;
-            minutes = 0;
-        }
-        
-        // 格式化输出
-        const hoursStr = String(hours).padStart(2, '0');
-        const minutesStr = String(minutes).padStart(2, '0');
-        
-        return `${hoursStr}:${minutesStr}`;
+        if (isNaN(d.getTime())) return null;
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
     
     // 设置时间选择器的值
@@ -1189,78 +1233,6 @@ function getContrastYIQ(hexcolor) {
         
         return date.toISOString();
     }
-    
-    // 根据背景色计算对比度最佳的文字颜色
-    function getContrastYIQ(hexcolor) {
-        // 移除 # 号（如果有）
-        hexcolor = hexcolor.replace('#', '');
-        
-        // 转换为 RGB
-        const r = parseInt(hexcolor.substr(0,2), 16);
-        const g = parseInt(hexcolor.substr(2,2), 16);
-        const b = parseInt(hexcolor.substr(4,2), 16);
-        
-        // 计算 YIQ 值
-        const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-        
-        // 根据 YIQ 值返回黑色或白色
-        return (yiq >= 128) ? '#000000' : '#ffffff';
-    }
-
-    // 格式化日期时间为时间选择器格式
-    function formatDateTimeForInput(date) {
-        if (!date) return null;
-        
-        const d = new Date(date);
-        if (isNaN(d.getTime())) return null;
-        
-        // 获取小时和分钟
-        let hours = d.getHours();
-        let minutes = d.getMinutes();
-        
-        // 确保小时在6-23范围内
-        hours = Math.max(6, Math.min(23, hours));
-        
-        // 将分钟调整到最近的15分钟间隔
-        minutes = Math.round(minutes / 15) * 15;
-        
-        // 处理特殊情况：如果分钟是60，调整为下一个小时的00分
-        if (minutes === 60) {
-            minutes = 0;
-            hours = Math.min(23, hours + 1);
-        }
-        
-        // 格式化输出
-        const hoursStr = String(hours).padStart(2, '0');
-        const minutesStr = String(minutes).padStart(2, '0');
-        
-        return `${hoursStr}:${minutesStr}`;
-    }
-    
-    // 设置时间选择器的值
-    function setTimeSelectValue(selectId, timeValue) {
-        const input = document.getElementById(selectId);
-        if (!input) return;
-        
-        let formattedTime;
-        if (typeof timeValue === 'string') {
-            // 如果是字符串格式的时间，直接使用
-            formattedTime = timeValue;
-        } else if (timeValue instanceof Date) {
-            // 如果是Date对象，格式化为HH:mm格式
-            formattedTime = formatDateTimeForInput(timeValue);
-        } else {
-            // 默认时间
-            formattedTime = '09:00';
-        }
-        
-        if (formattedTime) {
-            input.value = formattedTime;
-            // 触发change事件
-            const event = new Event('change');
-            input.dispatchEvent(event);
-        }
-    }
 
     // // 打开编辑任务表单
     function openEditTaskForm(event) {
@@ -1283,7 +1255,8 @@ function getContrastYIQ(hexcolor) {
         
         // 填充表单数据
         document.getElementById('taskId').value = event.id;
-        document.getElementById('title').value = event.title;
+        document.getElementById('title').value =
+            (event.extendedProps && event.extendedProps.task_raw_title) || '';
         document.getElementById('taskFormModalLabel').textContent = '编辑任务';
         
         // 存储事件的日期，用于后续提交

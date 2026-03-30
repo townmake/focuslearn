@@ -5,8 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from django.utils import dateparse
 from .models import TaskList, Task, Subject, Chapter, DailySummary, Words
 from .serializers import (  # 使用括号和逗号分隔
     TaskListSerializer, 
@@ -17,7 +16,6 @@ from .serializers import (  # 使用括号和逗号分隔
     TaskBulkSerializer,
     WordsSerializer
 )
-from django.utils import timezone
 from django.db import transaction
 
 
@@ -309,44 +307,22 @@ class TaskViewSet(viewsets.ModelViewSet):
         
         # 安全获取数据并转换为字符串
         def parse_datetime(datetime_str):
-            """
-            解析ISO格式的日期时间字符串，并转换为本地时间
-            :param datetime_str: ISO格式日期时间字符串
-            :return: 解析后的日期和时间
-            """
+            """解析 ISO 时间，统一到 Django 当前时区（与 settings.TIME_ZONE / 序列化一致）。"""
+            if not datetime_str:
+                return None
             try:
-                # 处理带Z的ISO格式字符串
-                if datetime_str.endswith('Z'):
-                    datetime_str = datetime_str[:-1] + '+00:00'
-                
-                # 解析日期时间，并转换为上海时区
-                dt = datetime.fromisoformat(datetime_str)
-                shanghai_tz = ZoneInfo('Asia/Shanghai')
-                
-                # 将UTC时间转换为上海时区
-                local_dt = dt.astimezone(shanghai_tz)  
-
+                dt = dateparse.parse_datetime(str(datetime_str))
+                if dt is None:
+                    return None
+                if timezone.is_naive(dt):
+                    dt = timezone.make_aware(dt)
+                local_dt = timezone.localtime(dt)
+                t = local_dt.time().replace(microsecond=0)
                 return {
                     'date': local_dt.date(),
-                    'time': local_dt.time(),
-                    'datetime': local_dt
+                    'time': t,
+                    'datetime': local_dt,
                 }
-
-                 # 如果已经是带时区的datetime，直接使用
-                # if dt.tzinfo is not None:
-                  
-                #     return {
-                #         'date': dt.date(),
-                #         'time': dt.time()
-                #     }
-                # # 如果是naive datetime，使用make_aware
-                # aware_dt = timezone.make_aware(dt)
-                # local_dt = timezone.localtime(aware_dt)
-                
-                # return {
-                #     'date': local_dt.date(),
-                #     'time': local_dt.time()
-                # }
             except Exception as e:
                 print(f"日期时间解析错误: {datetime_str}, error={str(e)}")
                 return None
