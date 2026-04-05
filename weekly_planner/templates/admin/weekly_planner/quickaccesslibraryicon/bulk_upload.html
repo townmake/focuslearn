@@ -1,0 +1,50 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:weekly_planner_quickaccesslibraryicon_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; 批量上传
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>批量上传图标</h1>
+<p class="help">
+  支持 <strong>png、jpg、jpeg、gif、webp、svg</strong>；栅格图须为正方形。「名称」取文件名（不含扩展名），排序接在现有最大值之后。
+</p>
+<form method="post" action="" enctype="multipart/form-data" id="qa-bulk-icons-form">
+  {% csrf_token %}
+  <fieldset class="module aligned">
+    <h2 style="font-size:1rem;margin:0 0 10px;">方式一：选择文件夹</h2>
+    <div class="form-row">
+      <label for="id_icons_folder">文件夹：</label>
+      <input type="file" name="icons_folder" id="id_icons_folder" multiple
+        accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+      <p class="help" style="margin-top:8px;">
+        在 Chrome / Edge / Firefox 中一般会出现「上传」对话框里的文件夹选择；会包含子文件夹中的符合扩展名的文件。
+      </p>
+    </div>
+    <h2 style="font-size:1rem;margin:20px 0 10px;">方式二：多选文件</h2>
+    <div class="form-row">
+      <label for="id_icons_files">文件（可多选）：</label>
+      <input type="file" name="icons_files" id="id_icons_files" multiple
+        accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+    </div>
+  </fieldset>
+  <div class="submit-row">
+    <input type="submit" class="default" value="上传并入库">
+    <a href="{% url 'admin:weekly_planner_quickaccesslibraryicon_changelist' %}" class="button">返回列表</a>
+  </div>
+</form>
+<script>
+(function() {
+  var input = document.getElementById('id_icons_folder');
+  if (input && input.setAttribute) {
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+  }
+})();
+</script>
+{% endblock %}

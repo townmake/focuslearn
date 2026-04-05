@@ -1,6 +1,10 @@
+from pathlib import Path
+
 from django import forms
 from django.contrib import admin, messages
+from django.db.models import Max
 from django.shortcuts import redirect
+from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -8,11 +12,41 @@ from .models import (
     DailyQuotableQuote,
     DeepSeekProviderSettings,
     LocalFamousQuote,
+    QUICK_ACCESS_LIBRARY_ICON_EXTENSIONS,
     QuickAccessLibraryIcon,
     Task,
     TaskList,
     WeeklyAiSummary,
 )
+
+_LIBRARY_ICON_EXT_SET = frozenset(QUICK_ACCESS_LIBRARY_ICON_EXTENSIONS)
+
+
+def validate_quick_access_library_icon_file(uploaded_file):
+    """校验速记图标库上传文件。通过返回 None，否则返回错误文案（短句）。"""
+    name = getattr(uploaded_file, "name", "") or ""
+    ext = Path(name).suffix.lower().lstrip(".")
+    if ext not in _LIBRARY_ICON_EXT_SET:
+        return "不支持的文件格式"
+
+    uploaded_file.seek(0)
+    if ext == "svg":
+        head = uploaded_file.read(500)
+        uploaded_file.seek(0)
+        if b"<svg" not in head.lower():
+            return "无效的 SVG 文件"
+        return None
+
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    img = Image.open(uploaded_file)
+    w, h = img.size
+    if w != h:
+        return "图标须为正方形（宽度与高度相等）"
+    uploaded_file.seek(0)
+    return None
 
 
 class QuickAccessLibraryIconAdminForm(forms.ModelForm):
@@ -26,24 +60,115 @@ class QuickAccessLibraryIconAdminForm(forms.ModelForm):
             if self.instance.pk and self.instance.image:
                 return self.instance.image
             raise forms.ValidationError("请上传图片")
-        try:
-            from PIL import Image
-        except ImportError:
-            return f
-        img = Image.open(f)
-        w, h = img.size
-        if w != h or w not in (32, 64):
-            raise forms.ValidationError("图标须为 32×32 或 64×64 像素的正方形")
-        f.seek(0)
+        err = validate_quick_access_library_icon_file(f)
+        if err:
+            raise forms.ValidationError(err)
         return f
 
 
 @admin.register(QuickAccessLibraryIcon)
 class QuickAccessLibraryIconAdmin(admin.ModelAdmin):
     form = QuickAccessLibraryIconAdminForm
+    change_list_template = "admin/weekly_planner/quickaccesslibraryicon/change_list.html"
     list_display = ("id", "name", "sort_order", "preview", "created_at")
     list_editable = ("sort_order",)
     ordering = ("sort_order", "id")
+
+    def get_urls(self):
+        info = self.model._meta.app_label, self.model._meta.model_name
+        extra = [
+            path(
+                "bulk-upload/",
+                self.admin_site.admin_view(self.bulk_upload_view),
+                name="%s_%s_bulk_upload" % info,
+            ),
+        ]
+        return extra + super().get_urls()
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["bulk_upload_url"] = reverse(
+            "admin:%s_%s_bulk_upload" % (self.model._meta.app_label, self.model._meta.model_name)
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def bulk_upload_view(self, request):
+        if not self.has_add_permission(request):
+            messages.error(request, "无添加权限。")
+            return redirect("admin:index")
+
+        if request.method == "POST":
+            files = request.FILES.getlist("icons_folder") + request.FILES.getlist("icons_files")
+            if not files:
+                messages.warning(request, "未选择任何文件。")
+                return redirect(request.path)
+
+            max_so = QuickAccessLibraryIcon.objects.aggregate(m=Max("sort_order"))["m"]
+            next_order = max_so or 0
+            created_names = []
+            skipped = []
+
+            for uf in files:
+                base = Path((uf.name or "")).name
+                if not base or base.startswith("."):
+                    continue
+                if base.lower() in ("thumbs.db", "desktop.ini"):
+                    continue
+                ext = Path(base).suffix.lower().lstrip(".")
+                if ext not in _LIBRARY_ICON_EXT_SET:
+                    skipped.append("%s：跳过（不支持格式）" % base)
+                    continue
+
+                err = validate_quick_access_library_icon_file(uf)
+                if err:
+                    skipped.append("%s：%s" % (base, err))
+                    continue
+
+                display_name = (Path(base).stem or base)[:80]
+                next_order += 1
+                obj = QuickAccessLibraryIcon(name=display_name, sort_order=next_order)
+                try:
+                    obj.image.save(base, uf, save=True)
+                except Exception as exc:
+                    next_order -= 1
+                    skipped.append("%s：保存失败（%s）" % (base, exc))
+
+                else:
+                    created_names.append(base)
+
+            n = len(created_names)
+            if n:
+                self.message_user(
+                    request,
+                    "已成功添加 %s 个图标。" % n,
+                    level=messages.SUCCESS,
+                )
+            if skipped:
+                tail = skipped[:30]
+                more = "" if len(skipped) <= 30 else " … 另有 %s 条未显示" % (len(skipped) - 30)
+                self.message_user(
+                    request,
+                    "部分文件未导入：%s%s" % ("；".join(tail), more),
+                    level=messages.WARNING,
+                )
+            if not n and not skipped:
+                messages.info(request, "没有符合要求的图标文件。")
+
+            return redirect(
+                "admin:%s_%s_changelist"
+                % (self.model._meta.app_label, self.model._meta.model_name)
+            )
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "批量上传图标",
+            "opts": self.model._meta,
+        }
+        return TemplateResponse(
+            request,
+            "admin/weekly_planner/quickaccesslibraryicon/bulk_upload.html",
+            context,
+        )
 
     @admin.display(description="预览")
     def preview(self, obj):

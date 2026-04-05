@@ -1,3 +1,4 @@
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -164,11 +165,23 @@ class ImportantDatesHomeSnapshot(models.Model):
         verbose_name = "首页重要日期快照"
         verbose_name_plural = "首页重要日期快照"
     
+QUICK_ACCESS_LIBRARY_ICON_EXTENSIONS = ("png", "svg", "jpg", "jpeg", "gif", "webp")
+
+
 class QuickAccessLibraryIcon(models.Model):
-    """管理后台维护的速记可选图标（正方形 32 或 64 像素）。"""
+    """管理后台维护的速记可选图标（栅格图须为正方形；SVG 仅做基本格式检查）。"""
 
     name = models.CharField("名称", max_length=80, blank=True, default="")
-    image = models.ImageField("图标", upload_to="quick_access_library_icons/")
+    image = models.FileField(
+        "图标",
+        upload_to="quick_access_library_icons/",
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=QUICK_ACCESS_LIBRARY_ICON_EXTENSIONS,
+            )
+        ],
+        help_text="支持 PNG、SVG 等；栅格图须为正方形（宽高相等），SVG 建议视口为正方形。",
+    )
     sort_order = models.PositiveIntegerField("排序", default=0, help_text="越小越靠前")
     created_at = models.DateTimeField(auto_now_add=True)
 
