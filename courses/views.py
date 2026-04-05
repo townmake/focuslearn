@@ -1,8 +1,9 @@
-from datetime import timezone
+from datetime import timezone, datetime as dt_datetime
+from functools import reduce
+from operator import or_
 from urllib import request
 from rest_framework import permissions
 from django.db.models import Count, Q, Sum
-from .serializers import VideoSerializer
 from django.views.generic import ListView, DetailView
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
@@ -14,18 +15,14 @@ from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated
 from .models import (
         Subject, SubjectCategory, Chapter, StudyRecord,
-        KnowledgePoint, Video, Comment, Exercise, ExerciseSet, ReviewSet,
-        VideoComment, ExerciseSet, ExerciseSetCompletion, ExerciseAnswer, MethodSummary,
-    )
-from .forms import ChapterForm, SubjectForm, MethodSummaryForm,ChapterForm_detail
+        KnowledgePoint,
+        SubjectPlanSummary,
+        )
+from .forms import ChapterForm, SubjectForm, ChapterForm_detail
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
-from django.views.generic.edit import  DeleteView
-from django.urls import reverse_lazy
 from .serializers import (
-        ChapterSerializer, StudyRecordSerializer, ExerciseSetSerializer, 
-        ExerciseSetCompletionSerializer, ExerciseSetCreateSerializer, ExerciseSetCompletionCreateSerializer, MethodSummarySerializer,
-        ExerciseSerializer,MethodSummaryCreateSerializer,MethodSummarySerializer
+        ChapterSerializer, StudyRecordSerializer,
     )
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
@@ -36,82 +33,6 @@ import logging
 
 
 
-
-
-def exercise_set_result(request, exercise_set_id, completion_id):
-    """显示练习集结果"""
-    exercise_set = get_object_or_404(ExerciseSet, id=exercise_set_id)
-    completion = get_object_or_404(ExerciseSetCompletion, id=completion_id)
-    
-    # 获取本次提交的答题记录
-    answer_records = ExerciseAnswer.objects.filter(
-        exercise_set_completion=completion,
-        user=request.user
-    ).order_by('exercise__order')
-    
-    # 准备结果数据
-    results = []
-    correct_count = 0
-    
-    # 按题目类型分组处理
-    from collections import defaultdict
-    grouped_records = defaultdict(list)
-    for record in answer_records:
-        grouped_records[record.exercise.parent_id or record.exercise.id].append(record)
-    
-    # 处理分组后的记录
-    for parent_id, records in grouped_records.items():
-        # 处理母题
-        parent_record = records[0]
-        parent_exercise = parent_record.exercise
-        
-        # 如果是完形填空/阅读理解
-        if parent_exercise.question_type in ['cloze_test', 'reading_answer']:
-            # 添加母题记录
-            results.append({
-                'exercise_id': parent_exercise.id,
-                'title': parent_exercise.title or f"母题 #{parent_exercise.id}",
-                'user_answer': '',
-                'correct_answer': '',
-                'is_correct': all(r.is_correct for r in records),
-                'is_parent': True
-            })
-            
-            # 添加子题记录
-            sub_exercises = Exercise.objects.filter(parent_id=parent_exercise.id).order_by('order')
-            for sub_ex in sub_exercises:
-                sub_record = next((r for r in records if r.exercise_id == sub_ex.id), None)
-                if sub_record:
-                    results.append({
-                        'exercise_id': sub_ex.id,
-                        'title': f"子题 {sub_ex.order}",
-                        'user_answer': sub_record.answer,
-                        'correct_answer': sub_ex.answer,
-                        'is_correct': sub_record.is_correct,
-                        'is_child': True
-                    })
-                    if sub_record.is_correct:
-                        correct_count += 1
-        else:
-            # 普通题目
-            results.append({
-                'exercise_id': parent_exercise.id,
-                'title': parent_exercise.title or f"习题 #{parent_exercise.id}",
-                'user_answer': parent_record.answer,
-                'correct_answer': parent_exercise.answer,
-                'is_correct': parent_record.is_correct
-            })
-            if parent_record.is_correct:
-                correct_count += 1
-    
-    context = {
-        'exercise_set': exercise_set,
-        'results': results,
-        'correct_count': correct_count,
-        'accuracy': completion.score
-    }
-    
-    return render(request, 'courses/exercise_result.html', context)
 
 
 def get_tree_data(queryset):
@@ -236,9 +157,10 @@ class StudyRecordsAPIView(APIView):
         page_type = request.GET.get('page_type')
         content_search = (request.GET.get('content_search') or '').strip()
         if not content_search:
-            # 兼容旧参数名
             content_search = (request.GET.get('learning_content') or '').strip()
+        task_content = (request.GET.get('task_content') or '').strip()
         chapter_id = request.GET.get('chapter')
+        subject_id = request.GET.get('subject')
         page = request.GET.get('page', 1)
         page_size = request.GET.get('page_size', 10)
         
@@ -250,11 +172,22 @@ class StudyRecordsAPIView(APIView):
             queryset = queryset.filter(created_date__range=[created_date_start, created_date_end])
         if page_type:
             queryset = queryset.filter(page_type=page_type)
-        if content_search:
+        if task_content:
+            queryset = queryset.filter(
+                Q(learning_content__icontains=task_content)
+                | Q(description__icontains=task_content)
+            )
+        if not task_content and content_search:
             queryset = queryset.filter(
                 Q(learning_content__icontains=content_search)
                 | Q(description__icontains=content_search)
+                | Q(chapter_name__icontains=content_search)
             )
+        if subject_id:
+            try:
+                queryset = queryset.filter(chapter__subject_id=int(subject_id))
+            except (TypeError, ValueError):
+                pass
         if chapter_id:
             queryset = queryset.filter(chapter_id=chapter_id)
             
@@ -300,8 +233,6 @@ class KnowledgePointDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         # 添加关联的chapter信息
         context['chapter'] = self.object.chapter
-        # 添加关联的文档、视频和习题
-        context['exercises'] = self.object.exercises.all()
         return context
 
     
@@ -312,24 +243,31 @@ def subjectListView(request):  # 处理GET请求
     # 列表中允许出现的科目：未分类，或分类为「显示」
     listed_q = Q(category__isnull=True) | Q(category__is_visible=True)
 
+    unfinished_chapters_sq = Count(
+        'chapters',
+        filter=~Q(chapters__progress_status=Chapter.ProgressStatus.DONE),
+    )
+
+    def subjects_with_unfinished_qs(base_q):
+        return (
+            Subject.objects.filter(base_q)
+            .select_related('category')
+            .annotate(unfinished_tasks_count=unfinished_chapters_sq)
+            .order_by('order', 'name')
+        )
+
     visible_categories = SubjectCategory.objects.filter(is_visible=True).order_by(
         '-display_weight', 'id'
     )
 
     category_blocks = []
     for cat in visible_categories:
-        subs = list(
-            Subject.objects.filter(listed_q, category=cat)
-            .select_related('category')
-            .order_by('order', 'name')
-        )
+        subs = list(subjects_with_unfinished_qs(listed_q & Q(category=cat)))
         if subs:
             category_blocks.append({'title': cat.name, 'subjects': subs})
 
     other_subjects = list(
-        Subject.objects.filter(category__isnull=True)
-        .select_related('category')
-        .order_by('order', 'name')
+        subjects_with_unfinished_qs(Q(category__isnull=True))
     )
     if other_subjects:
         category_blocks.append({'title': '其他', 'subjects': other_subjects})
@@ -429,23 +367,16 @@ def subject_refresh(request, pk):
 
 def subject_detail(request, pk):
     subject = get_object_or_404(Subject.objects.select_related('category'), pk=pk)
-    chapters = subject.chapters.all().order_by('order')
+    chapters_qs = subject.chapters.all().order_by('order')
+    chapters_incomplete = chapters_qs.exclude(progress_status=Chapter.ProgressStatus.DONE)
+    chapters_completed = chapters_qs.filter(progress_status=Chapter.ProgressStatus.DONE)
     subject_categories = SubjectCategory.objects.all().order_by('-display_weight', 'name')
     return render(request, 'courses/subject_detail.html', {
         'subject': subject,
-        'chapters': chapters,
+        'chapters_incomplete': chapters_incomplete,
+        'chapters_completed': chapters_completed,
         'subject_categories': subject_categories,
     })
-
-def subject_methods(request, pk):
-    subject = get_object_or_404(Subject, pk=pk)
-    # chapters = subject.chapters.all().order_by('order')
-    return render(request, 'courses/subject_method_summary.html', {
-        'subject': subject
-    })
-
-
-
 
 def chapter_detail(request, pk):
     chapter = get_object_or_404(Chapter, pk=pk)
@@ -453,39 +384,17 @@ def chapter_detail(request, pk):
     
     tree_data = get_tree_data(knowledge_points) if knowledge_points.exists() else []
     
-    context = {
-        'chapter': chapter,
-        'subject': chapter.subject,
-        'tree_data': tree_data,
-        'comment_type': 'chapter',  # 评论类型
-        'type_id': pk  # 当前章节ID
-    }
-    return render(request, 'courses/chapter_detail.html', context)
+    statuses = [c[0] for c in Chapter.ProgressStatus.choices]
 
-
-@login_required
-def daily_review_sets(request):
-    """获取用户今日复习任务"""
-    today = timezone.now().date()
-    # 获取今日创建的复习集（按科目分组）
-    review_sets = ReviewSet.objects.filter(
-        created_at__date=today
-    ).select_related('chapter__subject')
-    
-    # 按科目分组
-    subjects_reviews = {}
-    for review in review_sets:
-        subject = review.chapter.subject if review.chapter else None
-        if subject not in subjects_reviews:
-            subjects_reviews[subject] = []
-        subjects_reviews[subject].append(review)
-    
     context = {
-        'subjects_reviews': subjects_reviews,
-        'title': '今日复习任务'
+        "chapter": chapter,
+        "subject": chapter.subject,
+        "tree_data": tree_data,
+        "comment_type": "chapter",
+        "type_id": pk,
+        "chapter_progress_statuses": statuses,
     }
-    return render(request, 'courses/daily_reviews.html', context)
-    
+    return render(request, "courses/chapter_detail.html", context)
 
 
 def chapter_create(request):
@@ -500,6 +409,20 @@ def chapter_create(request):
                 return JsonResponse({'status': 'success', 'id': chapter.id})
             return JsonResponse({'status': 'error', 'errors': {'subject_id': ['缺少关联科目ID']}}, status=400)
         return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
+
+
+@login_required
+@require_POST
+def chapter_update_progress_status(request, pk):
+    """知识点页快速切换章节进度状态（仅更新 progress_status）。"""
+    chapter = get_object_or_404(Chapter, pk=pk)
+    raw = (request.POST.get("progress_status") or "").strip()
+    valid = {c[0] for c in Chapter.ProgressStatus.choices}
+    if raw not in valid:
+        return JsonResponse({"status": "error", "message": "无效的进度状态"}, status=400)
+    chapter.progress_status = raw
+    chapter.save(update_fields=["progress_status"])
+    return JsonResponse({"status": "success", "progress_status": raw})
 
 
 def chapter_update(request, pk):
@@ -527,29 +450,6 @@ def chapter_delete(request, pk):
         return JsonResponse({'status': 'success'})
     return JsonResponse({'status': 'error', 'message': '无效的请求方法'}, status=400)
 
-def chapter_nextMethods(request, pk):
-    chapter = get_object_or_404(Chapter, pk=pk)
-    methods = MethodSummary.objects.filter(chapter=chapter).order_by('id')
-    methods_data = [{'id': method.id, 'name': method.name} for method in methods]
-    return JsonResponse({'methods': methods_data}, safe=False)
-
-
-def chapter_nextChapter(request, pk):
-    chapter = get_object_or_404(Chapter, pk=pk)
-    next_chapter = Chapter.objects.filter(subject=chapter.subject, order__gt=chapter.order).first()
-    if next_chapter:
-        return JsonResponse({
-            'status': 'success',
-            'next_chapter_id': next_chapter.id,
-            'message': '找到下一章节'
-        })
-    else:
-        return JsonResponse({
-            'status': 'error',
-            'next_chapter_id': None,
-            'message': '没有下一章节'
-        }, status=404)
-
 def subject_chapter_options(request):
     """提供科目和章节的级联选项数据"""
     subjects = Subject.objects.all().prefetch_related('chapters')
@@ -572,307 +472,6 @@ def subject_chapter_options(request):
     
     return JsonResponse(options, safe=False)
 
-# 原有类视图
-class MethodSummaryListView(generics.ListCreateAPIView):
-    queryset = MethodSummary.objects.all()
-    serializer_class = MethodSummarySerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        
-        # 获取查询参数
-        name = self.request.query_params.get('name')
-        created_at_start = self.request.query_params.get('created_at_start')
-        created_at_end = self.request.query_params.get('created_at_end')
-        chapter = self.request.query_params.get('chapter')
-        
-        # 应用过滤条件
-        if chapter:
-            queryset = queryset.filter(chapter=chapter)
-        if name:
-            queryset = queryset.filter(name__icontains=name)
-        if created_at_start and created_at_end:
-            queryset = queryset.filter(created_at__range=[created_at_start, created_at_end])
-
-        return queryset
-
-class MethodSummarySubjectListView(generics.ListCreateAPIView):
-    queryset = MethodSummary.objects.all()
-    serializer_class = MethodSummarySerializer
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        
-        # 获取查询参数
-        name = self.request.query_params.get('name')
-        created_at_start = self.request.query_params.get('created_at_start')
-        created_at_end = self.request.query_params.get('created_at_end')
-        subject_id = self.kwargs.get('subject_id') or self.request.query_params.get('subject_id')
-        
-        if subject_id:
-            queryset = queryset.filter(chapter__subject_id=subject_id)
-        else:
-            return MethodSummary.objects.none()
-            
-        if name:
-            queryset = queryset.filter(name__icontains=name)
-        if created_at_start and created_at_end:
-            queryset = queryset.filter(created_at__range=[created_at_start, created_at_end])
-
-        # 添加annotated_exercise_count字段避免与模型属性冲突
-        queryset = queryset.annotate(
-            annotated_exercise_count=Count('exercises')
-        )
-        
-        # 打印调试信息
-        # print("MethodSummaryListViewSubject 返回数据示例:", queryset.first())
-        # print("SQL查询:", str(queryset.query))
-        
-        # 添加默认按chapter.id排序
-        queryset = queryset.order_by('chapter__id')
-        return queryset
-
-
-class MethodSummaryListCreateAPI(generics.ListCreateAPIView):
-    serializer_class = MethodSummarySerializer
-    permission_classes = [permissions.IsAuthenticated]
-    def get_serializer_class(self):
-        if self.request.method == 'POST':
-            return MethodSummaryCreateSerializer
-        return MethodSummarySerializer
-
-
-class MethodSummaryDetailView(DetailView):
-    model = MethodSummary
-    template_name = 'courses/method_summary_detail.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        exercises = self.object.exercises.all()
-        knowleges = self.object.knowledgePoint.all().order_by('id')
-        context['method'] = {
-            'id': self.object.id,
-            'name': self.object.name,
-            'created_at': self.object.created_at.strftime('%Y-%m-%d %H:%M'),
-            'description': self.object.description,
-            'note': self.object.note,
-            'exercise_count': self.object.exercise_count,
-            'chapter_id': self.object.chapter_id,
-            'difficulty': self.object.difficulty_level,
-            'importance': self.object.important_level
-        }
-        context['exercises'] = [{
-            'id': ex.id,
-            'title': ex.title,
-            'question_type': ex.get_question_type_display(),
-            'question': ex.content,
-            'wrong_count': ex.wrong_count,
-            'correct_count': ex.correct_count,
-            'mastery_level': ex.mastery_level,
-            'memory_level': ex.memory_level,
-            'difficulty': ex.difficulty
-        } for ex in exercises]
-        context['knowledgepoints'] = [{
-            'id': kp.id,
-            'title': kp.title,
-        } for kp in knowleges]
-        return context
-
-
-class MethodSummaryUpdateAPIView(APIView):
-    def post(self, request, pk):
-        try:
-            method_summary = MethodSummary.objects.get(pk=pk)
-            
-            data = request.data
-            # 创建表单实例
-            form = MethodSummaryForm(data,instance=method_summary)          
-            if form.is_valid():
-                method_summary = form.save()
-                # 序列化返回数据
-                serializer = MethodSummarySerializer(method_summary)
-                return Response({
-                    'success': True,
-                    'message': '更新成功',
-                    'data': serializer.data
-                }, status=status.HTTP_200_OK)
-            else:
-                return Response({
-                    'success': False,
-                    'message': '表单验证失败',
-                    'errors': form.errors
-                }, status=status.HTTP_400_BAD_REQUEST)   
-            
-        except MethodSummary.DoesNotExist:
-            return Response({
-                'success': False,
-                'message': '对象不存在'
-            }, status=status.HTTP_404_NOT_FOUND)
-        except json.JSONDecodeError:
-            return Response({
-                'success': False,
-                'message': '无效的JSON格式'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({
-                'success': False,
-                'message': f'服务器错误: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class MethodSummaryDeleteView(DeleteView):
-    model = MethodSummary
-    success_url = reverse_lazy('courses:method_list')
-    template_name = 'courses/method_summary_confirm_delete.html'
-
-    def dispatch(self, request, *args, **kwargs):
-        if request.method == 'DELETE':
-            return self.delete(request, *args, **kwargs)
-        return super().dispatch(request, *args, **kwargs)
-
-    def delete(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        self.object.delete()
-        return JsonResponse({'status': 'success'})
-    
-class MethodSummaryAddDeleteView(View):
-    def post(self, request, method_id):
-        """
-        添加 MethodSummary 与 Exercise 的关联关系
-        """
-        try:
-            # 获取 MethodSummary 对象
-            method_summary = get_object_or_404(MethodSummary, pk=method_id)
-            
-            # 从请求数据中获取exercise_ids
-            exercise_ids = json.loads(request.body).get('exercise_ids', [])
-            
-            # 获取所有Exercise对象
-            exercises = Exercise.objects.filter(id__in=exercise_ids)
-            
-            # 添加关联关系
-            method_summary.exercises.add(*exercises)
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'成功添加 {len(exercises)} 个习题到方法总结 {method_summary.id}',
-                'added_count': len(exercises)
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': f'添加失败: {str(e)}'
-            }, status=500)
-
-    def delete(self, request, method_id, exercise_id):
-        """
-        删除 MethodSummary 与 Exercise 的关联关系
-        """
-        try:
-            # 获取 MethodSummary 和 Exercise 对象
-            method_summary = get_object_or_404(MethodSummary, pk=method_id)
-            exercise = get_object_or_404(Exercise, pk=exercise_id)
-            
-            # 删除关联关系
-            method_summary.exercises.remove(exercise)
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'成功删除习题 {exercise.id} 与方法总结 {method_summary.id} 的关联'
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': f'删除失败: {str(e)}'
-            }, status=500)
-
-
-# 关联知识点-重写方法
-class MethodSummaryAddKPDeleteView(View):
-    def post(self, request, method_id):
-        """
-        添加 MethodSummary 与 Exercise 的关联关系
-        """
-        try:
-            # 获取 MethodSummary 对象
-            method_summary = get_object_or_404(MethodSummary, pk=method_id)
-            
-            # 从请求数据中获取kpoint_ids
-            kpoints_ids = json.loads(request.body).get('kpoints_ids', [])
-            
-            # 获取所有KnowledgePoint对象
-            knowledgepoints = KnowledgePoint.objects.filter(id__in=kpoints_ids)
-            
-            # 添加关联关系
-            method_summary.knowledgePoint.add(*knowledgepoints)
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'成功添加 {len(knowledgepoints)} 个习题到方法总结 {method_summary.id}',
-                'added_count': len(knowledgepoints)
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': f'添加失败: {str(e)}'
-            }, status=500)
-
-    def delete(self, request, method_id, knowledge_id):
-        """
-        删除 MethodSummary 与 Knowledgepoint 的关联关系
-        """
-        try:
-            # 获取 MethodSummary 和 Knowledgepoint 对象
-            method_summary = get_object_or_404(MethodSummary, pk=method_id)
-            knowledgepoints = get_object_or_404(KnowledgePoint, pk=knowledge_id)
-            
-            # 删除关联关系
-            method_summary.knowledgePoint.remove(knowledgepoints)
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'成功删除习题 {knowledgepoints.id} 与方法总结 {method_summary.id} 的关联'
-            })
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': f'删除失败: {str(e)}'
-            }, status=500)
-
-def method_exercises(request, pk):
-    """获取方法关联的习题列表"""
-    try:
-        method = get_object_or_404(MethodSummary, pk=pk)
-        exercises = method.exercises.all().order_by('id')
-        
-        # 序列化习题数据
-        exercise_list = []
-        for exercise in exercises:
-            exercise_list.append({
-                'id': exercise.id,
-                'title': exercise.title,
-                'question_type': exercise.question_type,
-                'question_type_text': exercise.get_question_type_display(),
-                'content': exercise.content,
-                'answer': exercise.answer,
-                'analysis': exercise.analysis,
-                'difficulty': exercise.difficulty
-            })
-            
-        return JsonResponse({
-            'status': 'success',
-            'exercises': exercise_list
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': str(e)
-        }, status=500)
-
-
 class ChapterDetailView(DetailView):
     model = Chapter
     template_name = 'courses/chapter_detail.html'
@@ -880,37 +479,18 @@ class ChapterDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['form'] = ChapterForm(instance=self.object)
-        return context
-
-class ChapterExerciseView(DetailView):
-    model = Chapter
-    template_name = 'courses/chapter_exercise.html'
-    context_object_name = 'chapter'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['form'] = ChapterForm(instance=self.object)
-        return context
-    
-import math
-
-class ChapterBasicView(DetailView):
-    model = Chapter
-    template_name = 'courses/chapter_basic.html'
-    context_object_name = 'chapter'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['form'] = ChapterForm(instance=self.object)
-        
-        # 计算学习进度(累计学时/预计学时*100并向上取整)
-        if self.object.estimated_hours > 0:
-            progress = (self.object.actual_hours / self.object.estimated_hours) * 100
-            context['chapter'].progress = math.ceil(progress)
-        else:
-            context['chapter'].progress = 0  # 如果没有预计学时，进度设为0
-            
+        chapter = self.object
+        context["form"] = ChapterForm(instance=chapter)
+        knowledge_points = KnowledgePoint.objects.filter(chapter=chapter)
+        context["tree_data"] = (
+            get_tree_data(knowledge_points) if knowledge_points.exists() else []
+        )
+        context["subject"] = chapter.subject
+        context["comment_type"] = "chapter"
+        context["type_id"] = chapter.pk
+        context["chapter_progress_statuses"] = [
+            c[0] for c in Chapter.ProgressStatus.choices
+        ]
         return context
 
 # API视图
@@ -954,290 +534,203 @@ class StudyRecordDetailAPI(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return StudyRecord.objects.filter(user=self.request.user)
 
-class VideoListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Video.objects.all()
-    serializer_class = VideoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class SubjectPlanSummaryListCreateAPI(APIView):
+    permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        # 支持按标题过滤
-        title = self.request.query_params.get('title')
-        if title:
-            queryset = queryset.filter(title__icontains=title)
-        # 支持按章节过滤
-        chapter_id = self.request.query_params.get('chapter_id')
-        if chapter_id:
-            queryset = queryset.filter(chapter_id=chapter_id)
-        return queryset
+    def get(self, request, subject_pk):
+        get_object_or_404(Subject, pk=subject_pk)
+        q = (request.query_params.get('q') or '').strip()
+        qs = SubjectPlanSummary.objects.filter(
+            user=request.user, subject_id=subject_pk
+        )
+        if q:
+            parts = [
+                Q(title__icontains=q),
+                Q(overview__icontains=q),
+                Q(body__icontains=q),
+            ]
+            if len(q) >= 10 and q[4:5] == '-' and q[7:8] == '-':
+                try:
+                    d = dt_datetime.strptime(q[:10], '%Y-%m-%d').date()
+                    parts.append(Q(created_at__date=d))
+                except ValueError:
+                    pass
+            qs = qs.filter(reduce(or_, parts))
+        rows = list(qs.order_by('-created_at')[:500])
+        data = [
+            {
+                'id': s.id,
+                'title': s.title,
+                'overview': s.overview,
+                'created_at': s.created_at.isoformat(),
+                'updated_at': s.updated_at.isoformat(),
+            }
+            for s in rows
+        ]
+        return Response({'data': data})
 
-    def perform_create(self, serializer):
-        # 处理文件上传
-        video_file = self.request.FILES.get('video_file')
-        if video_file:
-            # 保存文件到media目录
-            file_path = f'videos/{video_file.name}'
-            full_path = f'media/{file_path}'
-            with open(full_path, 'wb+') as destination:
-                for chunk in video_file.chunks():
-                    destination.write(chunk)
-            
-            # 获取视频时长(秒)
-            duration = self.get_video_duration(full_path)
-            
-            # 保存文件路径和时长到模型
-            serializer.save(
-                url=f'/media/{file_path}',
-                duration=duration  # 直接保存秒数
-            )
-        else:
-            serializer.save()
+    def post(self, request, subject_pk):
+        get_object_or_404(Subject, pk=subject_pk)
+        title = (request.data.get('title') or '').strip()
+        if not title:
+            return Response({'detail': '标题必填'}, status=status.HTTP_400_BAD_REQUEST)
+        s = SubjectPlanSummary.objects.create(
+            user=request.user,
+            subject_id=subject_pk,
+            title=title,
+            overview=(request.data.get('overview') or '').strip(),
+            body=request.data.get('body') or '',
+        )
+        return Response(
+            {
+                'id': s.id,
+                'title': s.title,
+                'overview': s.overview,
+                'body': s.body,
+                'created_at': s.created_at.isoformat(),
+                'updated_at': s.updated_at.isoformat(),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
-    def get_video_duration(self, file_path):
-        """使用ffmpeg获取视频时长(秒)"""
-        import subprocess
+
+class SubjectPlanSummaryDetailAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, pk):
+        return get_object_or_404(SubjectPlanSummary, pk=pk, user=self.request.user)
+
+    def get(self, request, pk):
+        s = self.get_object(pk)
+        return Response(
+            {
+                'id': s.id,
+                'subject': s.subject_id,
+                'title': s.title,
+                'overview': s.overview,
+                'body': s.body,
+                'created_at': s.created_at.isoformat(),
+                'updated_at': s.updated_at.isoformat(),
+            }
+        )
+
+    def patch(self, request, pk):
+        s = self.get_object(pk)
+        if 'title' in request.data:
+            t = (request.data.get('title') or '').strip()
+            if not t:
+                return Response({'detail': '标题不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+            s.title = t
+        if 'overview' in request.data:
+            s.overview = (request.data.get('overview') or '').strip()
+        if 'body' in request.data:
+            s.body = request.data.get('body') or ''
+        s.save()
+        return Response(
+            {
+                'id': s.id,
+                'subject': s.subject_id,
+                'title': s.title,
+                'overview': s.overview,
+                'body': s.body,
+                'created_at': s.created_at.isoformat(),
+                'updated_at': s.updated_at.isoformat(),
+            }
+        )
+
+    def delete(self, request, pk):
+        s = self.get_object(pk)
+        s.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@login_required
+def subject_plan_review(request, pk):
+    subject = get_object_or_404(Subject, pk=pk)
+    from django.urls import reverse
+    from urllib.parse import urlencode
+
+    cal_q = urlencode({'embed': '1', 'plan_subject': str(subject.id)})
+    calendar_iframe_src = f"{reverse('weekly_planner:calendar')}?{cal_q}"
+    rec_path = reverse('courses:plan_review_records_embed', kwargs={'subject_pk': subject.id})
+    records_iframe_src = f"{rec_path}?{urlencode({'embed': '1'})}"
+    return render(
+        request,
+        'courses/subject_plan_review.html',
+        {
+            'subject': subject,
+            'chapter': None,
+            'show_summary_tab': True,
+            'calendar_iframe_src': calendar_iframe_src,
+            'records_iframe_src': records_iframe_src,
+        },
+    )
+
+
+@login_required
+def chapter_plan_review(request, pk):
+    chapter = get_object_or_404(Chapter, pk=pk)
+    from django.urls import reverse
+    from urllib.parse import urlencode
+
+    subject = chapter.subject
+    cal_q = urlencode(
+        {'embed': '1', 'plan_subject': str(subject.id), 'plan_chapter': str(chapter.id)}
+    )
+    calendar_iframe_src = f"{reverse('weekly_planner:calendar')}?{cal_q}"
+    rec_path = reverse('courses:plan_review_records_embed', kwargs={'subject_pk': subject.id})
+    records_iframe_src = f"{rec_path}?{urlencode({'embed': '1', 'chapter': str(chapter.id)})}"
+    return render(
+        request,
+        'courses/subject_plan_review.html',
+        {
+            'subject': subject,
+            'chapter': chapter,
+            'show_summary_tab': False,
+            'calendar_iframe_src': calendar_iframe_src,
+            'records_iframe_src': records_iframe_src,
+        },
+    )
+
+
+@login_required
+def plan_review_records_embed(request, subject_pk):
+    get_object_or_404(Subject, pk=subject_pk)
+    chapter_raw = request.GET.get('chapter')
+    chapter_id = None
+    if chapter_raw not in (None, ''):
         try:
-            result = subprocess.run(
-                ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', 
-                 '-of', 'default=noprint_wrappers=1:nokey=1', file_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            duration_seconds = float(result.stdout)
-            print(f"获取视频时长成功: {duration_seconds}秒")
-            return duration_seconds
-        except Exception as e:
-            print(f"获取视频时长失败: {e}")
-            return 10  # 默认10秒
+            chapter_id = int(chapter_raw)
+        except (TypeError, ValueError):
+            chapter_id = None
+    return render(
+        request,
+        'courses/study_record_base.html',
+        {
+            'page_types': StudyRecord.PAGE_TYPE_CHOICES,
+            'fixed_subject_id': int(subject_pk),
+            'fixed_chapter_id': chapter_id,
+            'hide_navbar': True,
+        },
+    )
 
-class VideoRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Video.objects.all()
-    serializer_class = VideoSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    lookup_field = 'id'
 
-    def perform_update(self, serializer):
-        serializer.save()
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        # 删除关联的文件
-        if instance.url and instance.url.startswith('/media/'):
-            import os
-            file_path = instance.url.replace('/media/', '')
-            abs_path = os.path.join('media', file_path)
-            if os.path.exists(abs_path):
-                os.remove(abs_path)
-        self.perform_destroy(instance)
-        return Response(status=204)
-
-def video_detail(request, pk):
-    """视频详情页视图"""
-    video = get_object_or_404(Video, pk=pk)
-    comments = Comment.objects.filter(type='videos', type_id=pk).order_by('-created_at')
-    return render(request, 'courses/video_detail.html', {
-        'video': video,
-        'comments': comments,
-        'comment_type': 'videos',
-        'type_id': pk
-    })
-
-class VideoPlayerView(APIView):
-    def get(self, request):
-        file_path = request.GET.get('url')
-        if not file_path:
-            return Response({'error': 'Missing file path'}, status=400)
-        
-        try:
-            # 验证文件路径是否在允许的目录下
-            if not file_path.startswith('/media/'):
-                return Response({'error': 'Invalid file path'}, status=403)
-            
-            # 获取视频对象
-            video = Video.objects.filter(url=file_path).first()
-            if not video:
-                return Response({'error': 'Video not found'}, status=404)
-            
-            # 获取视频评论（包含关联的时间戳信息）
-            # comments = video.video_comment_relations.select_related('comment').annotate(
-            #     content=F('comment__content'),
-            #     user_name=F('comment__user__username')
-            # ).order_by('-is_pinned', '-created_at')
-            
-            # 返回HTML页面用于播放视频
-            return render(request, 'courses/video_player.html', {
-                'video_url': file_path,
-                'video': video,
-                # 'comments': comments
-            })
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
-
-class VideoCommentView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def post(self, request):
-        try:
-            video_id = request.data.get('video_id')
-            content = request.data.get('content')
-            current_time = request.data.get('current_time', 0)
-            
-            if not video_id or not content:
-                return Response({'error': 'Missing required fields'}, status=400)
-                
-            video = Video.objects.get(id=video_id)
-            
-            # 创建评论
-            comment = Comment.objects.create(
-                user=request.user,
-                content=content,
-                chapter=video.chapter
-            )
-            
-            # 关联视频评论
-            VideoComment.objects.create(
-                video=video,
-                comment=comment,
-                timestamp=current_time
-            )
-            
-            return Response({
-                'success': True,
-                'comment': {
-                    'id': comment.id,
-                    'content': comment.content,
-                    'created_at': comment.created_at,
-                    'user': {
-                        'username': comment.user.username
-                    },
-                    'timestamp': current_time
-                }
-            })
-        except Video.DoesNotExist:
-            return Response({'error': 'Video not found'}, status=404)
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
-
-class VideoCommentActionView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def post(self, request, comment_id):
-        try:
-            action = request.data.get('action')
-            comment = Comment.objects.get(id=comment_id)
-            video_comment = VideoComment.objects.get(comment=comment)
-            
-            if action == 'like':
-                video_comment.likes_count += 1
-                video_comment.save()
-            elif action == 'pin':
-                video_comment.is_pinned = not video_comment.is_pinned
-                video_comment.save()
-            elif action == 'delete':
-                if request.user == comment.user or request.user.is_staff:
-                    comment.delete()
-                else:
-                    return Response({'error': 'Permission denied'}, status=403)
-            else:
-                return Response({'error': 'Invalid action'}, status=400)
-            
-            return Response({'success': True})
-        except Comment.DoesNotExist:
-            return Response({'error': 'Comment not found'}, status=404)
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
-
-class ExerciseSetListCreateAPI(generics.ListCreateAPIView):
-    queryset = ExerciseSet.objects.all()
-    serializer_class = ExerciseSetSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        
-        # 获取查询参数
-        name = self.request.query_params.get('name')
-        created_at_start = self.request.query_params.get('created_at_start')
-        created_at_end = self.request.query_params.get('created_at_end')
-        completion_count = self.request.query_params.get('completion_count')
-        chapter_id = self.request.query_params.get('chapter_id')
-        
-        # 应用过滤条件
-        if chapter_id:
-            queryset = queryset.filter(chapter_id=chapter_id)
-        if name:
-            queryset = queryset.filter(name__icontains=name)
-        if created_at_start and created_at_end:
-            queryset = queryset.filter(created_at__range=[created_at_start, created_at_end])
-        if completion_count:
-            if completion_count == '0':
-                queryset = queryset.filter(completion_count=0)
-            elif completion_count == '1':
-                queryset = queryset.filter(completion_count=1)
-            elif completion_count == '2':
-                queryset = queryset.filter(completion_count=2)
-            elif completion_count == '3':
-                queryset = queryset.filter(completion_count=3)
-            elif completion_count == '4':
-                queryset = queryset.filter(completion_count__gte=4)
-
-        return queryset.prefetch_related('exercises')
-
-    def get_serializer_class(self):
-        if self.request.method == 'POST':
-            return ExerciseSetCreateSerializer
-        return ExerciseSetSerializer
-
-class ExerciseSetDetailAPI(generics.RetrieveUpdateDestroyAPIView):
-    queryset = ExerciseSet.objects.all()
-    serializer_class = ExerciseSetSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    lookup_field = 'id'
-
-    def get_queryset(self):
-        return super().get_queryset().prefetch_related('exercises')
-
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        
-        # 如果是API请求，返回JSON数据
-        if request.accepted_renderer.format == 'json':
-            return Response(serializer.data)
-            
-        # 否则返回HTML页面
-        return render(request, 'courses/exercise_set_detail.html', {
-            'exercise_set': instance
-        })
-
-class ExerciseSetExercisesAPI(generics.ListAPIView):
-    serializer_class = ExerciseSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        exercise_set_id = self.kwargs['exercise_set_id']
-        exercise_set = get_object_or_404(ExerciseSet, id=exercise_set_id)
-        return exercise_set.exercises.all().order_by('id')
-
-class ExerciseSetCompletionListCreateAPI(generics.ListCreateAPIView):
-    queryset = ExerciseSetCompletion.objects.all()
-    serializer_class = ExerciseSetCompletionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        exercise_set_id = self.request.query_params.get('exercise_set_id')
-        if exercise_set_id:
-            queryset = queryset.filter(exercise_set_id=exercise_set_id)
-        return queryset.filter(user=self.request.user)
-
-    def get_serializer_class(self):
-        if self.request.method == 'POST':
-            return ExerciseSetCompletionCreateSerializer
-        return ExerciseSetCompletionSerializer
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
+@login_required
+def subject_plan_summary_edit(request, subject_pk, summary_pk=None):
+    subject = get_object_or_404(Subject, pk=subject_pk)
+    summary = None
+    if summary_pk is not None:
+        summary = get_object_or_404(
+            SubjectPlanSummary, pk=summary_pk, user=request.user, subject=subject
+        )
+    summary_body_json = json.dumps(summary.body or '') if summary else json.dumps('')
+    return render(
+        request,
+        'courses/subject_plan_summary_edit.html',
+        {
+            'subject': subject,
+            'summary': summary,
+            'summary_body_json': summary_body_json,
+        },
+    )
 

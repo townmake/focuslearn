@@ -1,5 +1,8 @@
 """
-从 Quotable 拉取今日名言，供 crontab 早/中/晚各跑一次。
+（可选）从 Quotable 拉取今日名言到旧表 DailyQuotableQuote。
+
+首页欢迎语已改为后台「本地名人名言」随机展示，本命令不再影响首页；
+仅当你仍想维护「每日名言（Quotable）」表或 crontab 兼容旧逻辑时使用。
 
 示例（早 8 点只补「早」档，并强制换新）：
     python manage.py quotable_fetch_daily --slot morning --force
@@ -15,7 +18,9 @@ from weekly_planner.quotable_service import ensure_today_quotable_quotes, refres
 
 
 class Command(BaseCommand):
-    help = "拉取 Quotable 名言写入今日早/中/晚备用（见 weekly_planner.DailyQuotableQuote）"
+    help = (
+        "拉取 Quotable 到「每日名言（Quotable）」表；首页已用「本地名人名言」，不受此命令影响。"
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(

@@ -78,17 +78,16 @@
                 <tr>
                     <th class="ant-table-cell">项目名称</th>
                     <th class="ant-table-cell">任务数</th>
+                    <th class="ant-table-cell">未完任务</th>
                     <th class="ant-table-cell">本周计划时长</th>
                     <th class="ant-table-cell">本周已投时长</th>
-                    <th class="ant-table-cell">进度</th>
-                    <th class="ant-table-cell">进度描述</th>
                     <th class="ant-table-cell">操作</th>
                 </tr>
             </thead>
             <tbody class="ant-table-tbody">
                 {% for block in category_blocks %}
                 <tr class="subject-category-header-row">
-                    <td class="ant-table-cell" colspan="7"><span class="subject-category-title">{{ block.title }}</span></td>
+                    <td class="ant-table-cell" colspan="6"><span class="subject-category-title">{{ block.title }}</span></td>
                 </tr>
                 {% for subject in block.subjects %}
                 <tr class="ant-table-row ant-table-row-level-0">
@@ -96,15 +95,9 @@
                          <a href="{% url 'courses:subject_detail' subject.id %}">{{ subject.name }}</a>
                     </td>
                     <td class="ant-table-cell">{{ subject.Chapters_count }}</td>
+                    <td class="ant-table-cell">{{ subject.unfinished_tasks_count }}</td>
                     <td class="ant-table-cell">{{ subject.estimated_hours }}</td>
                     <td class="ant-table-cell">{{ subject.actual_study_hours }}</td>
-                    <td class="ant-table-cell">
-                        <div class="progress-container">
-                            <div class="progress-bar" style="width:{{ subject.progress }}%"></div>
-                            <span style="color: chocolate;">{{ subject.progress }}%</span>
-                        </div>
-                    </td>
-                    <td class="ant-table-cell">{{ subject.description }}</td>
                     <td class="ant-table-cell">
                         <button class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href=`{% url 'courses:subject_detail' subject.id %}`">
                             <i class="anticon anticon-edit"></i> 查看
@@ -116,7 +109,7 @@
                 </tr>
                 {% endfor %}
                 {% empty %}
-                <tr><td class="ant-table-cell" colspan="7">暂无项目，请先新建或前往后台配置项目分类。</td></tr>
+                <tr><td class="ant-table-cell" colspan="6">暂无项目，请先新建或前往后台配置项目分类。</td></tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -6,6 +6,12 @@
 
 {% block content %}
 {% load static %}
+{% if fixed_subject_id %}
+<script>
+window.__FIXED_PLAN_REVIEW_SUBJECT = {{ fixed_subject_id }};
+window.__FIXED_PLAN_REVIEW_CHAPTER = {% if fixed_chapter_id %}{{ fixed_chapter_id }}{% else %}null{% endif %};
+</script>
+{% endif %}
 <script src="{% static 'vendor/js/react.production.min.js' %}"></script>
 <script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
 <script src="{% static 'vendor/js/antd.min.js' %}"></script>
@@ -26,13 +32,18 @@
                         </div>
                     </div>
 
-                    <!-- 科目/章节选择器 -->
+                    <!-- 科目/章节选择器（安排与回顾内嵌时固定为当前项目/任务） -->
+                    {% if not fixed_subject_id %}
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <label class="ant-form-item-label" style="margin-bottom: 0;">项目/子任务</label>
                         <div id="subject-chapter-cascader" style="display:inline-block;"></div>
                         <input type="hidden" name="subject" id="subjectValue">
                         <input type="hidden" name="chapter" id="chapterValue">
                     </div>
+                    {% else %}
+                    <input type="hidden" name="subject" id="subjectValue" value="{{ fixed_subject_id }}">
+                    <input type="hidden" name="chapter" id="chapterValue" value="{% if fixed_chapter_id %}{{ fixed_chapter_id }}{% endif %}">
+                    {% endif %}
 
                     <!-- 任务类型选择器 -->
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -248,11 +259,16 @@ function loadStudyRecords(params = {}) {
     container.innerHTML = '<div class="loading-spinner">加载中...</div>';
     
     // 获取表单数据
+    const subEl = document.getElementById('subjectValue');
+    const chapEl = document.getElementById('chapterValue');
+    const fixedSub = typeof window.__FIXED_PLAN_REVIEW_SUBJECT !== 'undefined' ? String(window.__FIXED_PLAN_REVIEW_SUBJECT) : '';
+    const fixedCh = (typeof window.__FIXED_PLAN_REVIEW_CHAPTER !== 'undefined' && window.__FIXED_PLAN_REVIEW_CHAPTER != null)
+        ? String(window.__FIXED_PLAN_REVIEW_CHAPTER) : '';
     const formData = {
         created_date_start: document.getElementById('createdDateStart').value,
         created_date_end: document.getElementById('createdDateEnd').value,
-        subject: document.getElementById('subjectValue').value,
-        chapter: document.getElementById('chapterValue').value,
+        subject: (subEl && subEl.value) ? subEl.value : fixedSub,
+        chapter: (chapEl && chapEl.value) ? chapEl.value : fixedCh,
         page_type: document.getElementById('pageTypeValue').value,
         content_search: (document.getElementById('contentSearchInput') && document.getElementById('contentSearchInput').value) || '',
         ...params
@@ -345,8 +361,17 @@ function forceRerender() {
 // 重置查询表单
 function resetSearch() {
     document.querySelector('.study-records-header form').reset();
-    document.getElementById('subjectValue').value = '';
-    document.getElementById('chapterValue').value = '';
+    if (window.__FIXED_PLAN_REVIEW_SUBJECT) {
+        const sv = document.getElementById('subjectValue');
+        const cv = document.getElementById('chapterValue');
+        if (sv) sv.value = String(window.__FIXED_PLAN_REVIEW_SUBJECT);
+        if (cv && window.__FIXED_PLAN_REVIEW_CHAPTER != null) {
+            cv.value = String(window.__FIXED_PLAN_REVIEW_CHAPTER);
+        } else if (cv) cv.value = '';
+    } else {
+        document.getElementById('subjectValue').value = '';
+        document.getElementById('chapterValue').value = '';
+    }
     document.getElementById('pageTypeValue').value = '';
     const cs = document.getElementById('contentSearchInput');
     if (cs) cs.value = '';
@@ -742,7 +767,30 @@ function initPageTypeSelector() {
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('study-records-table')) {
-        initCascader();
+        if (!window.__FIXED_PLAN_REVIEW_SUBJECT) {
+            initCascader();
+        } else {
+            fetch('{% url "courses:subject_chapter_options" %}', { headers: { Accept: 'application/json' } })
+                .then((r) => r.json())
+                .then((options) => {
+                    const sid = String(window.__FIXED_PLAN_REVIEW_SUBJECT);
+                    manualRecordSubjectTree = (Array.isArray(options) ? options : []).filter(
+                        (s) => String(s.value) === sid
+                    );
+                    fillManualRecordSubjectSelect();
+                    const mrSub = document.getElementById('mr-subject-id');
+                    if (mrSub) {
+                        mrSub.value = sid;
+                        onManualRecordSubjectChange();
+                        const cid = window.__FIXED_PLAN_REVIEW_CHAPTER;
+                        if (cid != null) {
+                            const mrCh = document.getElementById('mr-chapter-id');
+                            if (mrCh) mrCh.value = String(cid);
+                        }
+                    }
+                })
+                .catch(() => { manualRecordSubjectTree = []; });
+        }
         initPageTypeSelector();
         loadStudyRecords();
     }

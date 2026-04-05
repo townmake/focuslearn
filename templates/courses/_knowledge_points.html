@@ -14,15 +14,30 @@
 <!-- 根容器，避免污染主页面 body -->
 <div class="embedded-container">
     <div class="page-header">
-        <button class="view-btn" id="basic-view-btn">基础信息</button>
-        <button class="view-btn" id="exercise-view-btn">查看回顾</button>
-        <button class="view-btn" id="back-view-btn">返回项目</button>
+        <div class="page-header__progress">
+            <div class="progress-status-segments" id="progress-status-segments" role="tablist" aria-labelledby="progress-status-label">
+                {% for s in chapter_progress_statuses %}
+                <button type="button" role="tab" class="progress-status-seg{% if chapter.progress_status == s %} is-active{% endif %}"
+                    data-index="{{ forloop.counter0 }}" data-status="{{ s }}" aria-selected="{% if chapter.progress_status == s %}true{% else %}false{% endif %}">{{ s }}</button>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="page-header__actions">
+            <button class="view-btn" id="exercise-view-btn" type="button">安排与回顾</button>
+            <button class="view-btn" id="back-view-btn" type="button">返回项目</button>
+        </div>
     </div>
     <!-- 上部分（左右分栏） -->
     <div class="top-section">
         <div class="left-column">
             <div class="detail-header" >
-                <h2>{{ chapter.title }}</h2>
+                <h2 id="chapter-title-heading" class="chapter-title-heading" contenteditable="false" title="双击编辑标题">{{ chapter.title }}</h2>
+                <div class="chapter-inline-save-fields" style="display:none;" aria-hidden="true">
+                    <textarea id="chapter-update-description">{{ chapter.description }}</textarea>
+                    <input type="hidden" id="chapter-update-estimated-hours" value="{{ chapter.estimated_hours }}">
+                    <input type="hidden" id="chapter-update-progress-status" value="{{ chapter.progress_status }}">
+                    <input type="hidden" id="chapter-update-order" value="{{ chapter.order }}">
+                </div>
                 <div class="action-buttons-tree" >
                     <button class="add-root-btn" id="add-root-btn">添加</button>
                 </div>
@@ -666,6 +681,90 @@ function ReplaceSymbol(editor) {
     editor.setContent(htmlText);
 }
 
+/** 判断剪贴板纯文本是否疑似 Markdown（减少误判） */
+function looksLikeMarkdownPaste(text) {
+    if (!text || text.trim().length < 5) return false;
+    const signals = [
+        /^#{1,6}\s+\S/m,
+        /^\s{0,3}[-*+]\s+\S/m,
+        /^\s*\d+\.\s+\S/m,
+        /^>\s+\S/m,
+        /```/,
+        /\[[^\]]+\]\([^)]*\)/,
+        /`[^`\n]+`/,
+        /\*\*[^*\n]+\*\*/,
+        /^[ \t]*\|[^|\r\n]+\|/m,
+        /^[ \t]*-{3,}\s*$/m,
+    ];
+    let hits = 0;
+    for (const re of signals) {
+        if (re.test(text)) hits++;
+    }
+    const lines = text.split(/\r?\n/).length;
+    if (hits >= 2) return true;
+    if (hits === 1 && lines >= 2) return true;
+    if (hits === 1 && /^#{1,6}\s/m.test(text)) return true;
+    if (hits === 1 && /```/.test(text)) return true;
+    return false;
+}
+
+/** 纯文本转简单 HTML 段落（不解析 Markdown） */
+function plainTextToSimpleHtml(plain) {
+    const esc = plain
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    const parts = esc.split(/\r?\n{2,}/);
+    const body = parts.map((p) => '<p>' + p.replace(/\r?\n/g, '<br>') + '</p>').join('');
+    return body || '<p></p>';
+}
+
+/**
+ * 在捕获阶段拦截粘贴：若 text/plain 疑似 Markdown，弹窗确认后 insertMarkdown；
+ * 与 AiEditor 默认逻辑配合（有 html 时原逻辑会忽略 md 纯文本）。
+ */
+function attachKnowledgeMarkdownPasteGuard(aiEditor) {
+    const root = document.querySelector('#Aiditor-knowledge-content');
+    if (!root) return;
+
+    const bind = (pm) => {
+        if (!pm || pm.dataset.mdPasteGuardBound === '1') return;
+        pm.dataset.mdPasteGuardBound = '1';
+        pm.addEventListener(
+            'paste',
+            (e) => {
+                const inner = aiEditor.innerEditor;
+                if (!inner || !inner.isEditable) return;
+                const cd = e.clipboardData;
+                if (!cd || (cd.files && cd.files.length > 0)) return;
+
+                const plain = cd.getData('text/plain') || '';
+                if (!plain.trim() || !looksLikeMarkdownPaste(plain)) return;
+
+                e.preventDefault();
+                e.stopImmediatePropagation();
+
+                antd.Modal.confirm({
+                    title: '检测到 Markdown 内容',
+                    content: '剪贴板中的文本疑似 Markdown 格式。是否先转换为富文本再插入编辑器？',
+                    okText: '转换并插入',
+                    cancelText: '不转换（纯文本）',
+                    onOk: () => {
+                        aiEditor.insertMarkdown(plain);
+                    },
+                    onCancel: () => {
+                        aiEditor.insert(plainTextToSimpleHtml(plain));
+                    },
+                });
+            },
+            true
+        );
+    };
+
+    bind(root.querySelector('.ProseMirror'));
+    const mo = new MutationObserver(() => bind(root.querySelector('.ProseMirror')));
+    mo.observe(root, { childList: true, subtree: true });
+}
 
 // 知识点内容编辑器
 window.AiEditor_knowledge = new AiEditor({
@@ -684,6 +783,7 @@ window.AiEditor_knowledge = new AiEditor({
     theme: 'default',
     onCreated: (editor) => {
         editor.setEditable(false); // 初始为只读状态
+        attachKnowledgeMarkdownPasteGuard(editor);
     },
     onChange: (editor) => {
         // 安全更新隐藏的textarea值
@@ -1647,27 +1747,13 @@ document.getElementById('add-child-btn').addEventListener('click', function() {
     }
 });
 
-// 添加查看习题按钮事件处理
 document.getElementById('exercise-view-btn').addEventListener('click', function() {
     const chapterId = '{{chapter.id}}';
     if (chapterId) {
-        // const knowledgePointId = document.getElementById('kp-id').value || '0'; // 获取当前知识点ID，默认为0
-        // // 构造知识点关联的习题列表页面的URL
-        const exerciseUrl = `/courses/chapter/exercise/${chapterId}/`;
-
-        window.location.href = exerciseUrl;
-        
-        // // 打开新窗口，加载习题列表页面
-        // const newWindow = window.open(exerciseUrl, '_blank');
-        
-        // if (!newWindow || newWindow.closed) {
-        //     antd.message.error('无法打开习题列表页面，请检查弹出窗口是否被阻止');
-        //     return;
-        // }
+        window.location.href = `/courses/chapter/${chapterId}/plan-review/`;
     } else {
         antd.message.error('无法获取章节信息');
     }
-
 });
 
 // 添加返回科目按钮事件处理
@@ -1690,26 +1776,6 @@ document.getElementById('back-view-btn').addEventListener('click', function() {
     }
 });
 
-// 添加查看基础信息按钮事件处理
-document.getElementById('basic-view-btn').addEventListener('click', function() {
-    const chapterId = '{{chapter.id}}';
-    if (chapterId) {
-        //  章节详情页的URL
-        const exerciseUrl = `/courses/chapter/basic/${chapterId}/`;
-        
-        // 打开新窗口，加载习题列表页面
-        const newWindow = window.open(exerciseUrl, '_blank');
-        
-        if (!newWindow || newWindow.closed) {
-            antd.message.error('无法打开习题列表页面，请检查弹出窗口是否被阻止');
-            return;
-        }
-    } else {
-        antd.message.error('无法获取章节信息');
-    }
-
-});
-
 // 添加根节点按钮事件处理
 document.getElementById('add-root-btn').addEventListener('click', function() {
     const chapterId = '{{chapter.id}}';
@@ -1719,6 +1785,188 @@ document.getElementById('add-root-btn').addEventListener('click', function() {
         antd.message.error('无法获取章节信息');
     }
 });
+
+// 章节标题：双击进入编辑；失焦或鼠标移出标题区域时提交保存
+(function () {
+    var h2 = document.getElementById('chapter-title-heading');
+    if (!h2) return;
+    var updateUrl = '{% url "courses:chapter_update" chapter.id %}';
+    var csrf = '{{ csrf_token }}';
+    var saving = false;
+
+    function getFormFields() {
+        var descEl = document.getElementById('chapter-update-description');
+        var eh = document.getElementById('chapter-update-estimated-hours');
+        var ps = document.getElementById('chapter-update-progress-status');
+        var ord = document.getElementById('chapter-update-order');
+        var activeSeg = document.querySelector('.progress-status-seg.is-active');
+        var progressStatus = activeSeg
+            ? activeSeg.getAttribute('data-status')
+            : (ps ? ps.value : '进行中');
+        return {
+            description: descEl ? descEl.value : '',
+            estimated_hours: eh ? eh.value : '1',
+            progress_status: progressStatus || '进行中',
+            order: ord ? ord.value : '0'
+        };
+    }
+
+    function finishChapterTitleSave() {
+        if (h2.getAttribute('contenteditable') !== 'true' || saving) return;
+        var newTitle = (h2.textContent || '')
+            .replace(/\u00a0/g, ' ')
+            .replace(/\r?\n/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        var orig = (h2.getAttribute('data-original-title') || '').trim();
+        h2.setAttribute('contenteditable', 'false');
+        if (!newTitle) {
+            h2.textContent = orig;
+            if (typeof antd !== 'undefined' && antd.message) {
+                antd.message.warning('标题不能为空');
+            }
+            return;
+        }
+        if (newTitle === orig) return;
+
+        saving = true;
+        var fd = new FormData();
+        fd.append('csrfmiddlewaretoken', csrf);
+        fd.append('title', newTitle);
+        var f = getFormFields();
+        fd.append('description', f.description);
+        fd.append('estimated_hours', f.estimated_hours);
+        fd.append('progress_status', f.progress_status);
+        fd.append('order', f.order);
+
+        fetch(updateUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrf },
+            body: fd,
+            credentials: 'same-origin'
+        })
+            .then(function (r) {
+                return r.json().then(function (body) {
+                    if (!r.ok) throw new Error((body.errors && JSON.stringify(body.errors)) || body.message || '保存失败');
+                    return body;
+                });
+            })
+            .then(function () {
+                h2.setAttribute('data-original-title', newTitle);
+                h2.textContent = newTitle;
+                var b = document.body;
+                if (b) b.setAttribute('data-chapter-name', newTitle);
+                var t = document.querySelector('title');
+                if (t) {
+                    t.textContent = '章节知识点-' + newTitle;
+                }
+                if (typeof antd !== 'undefined' && antd.message) {
+                    antd.message.success('标题已保存');
+                }
+            })
+            .catch(function (e) {
+                h2.textContent = orig;
+                if (typeof antd !== 'undefined' && antd.message) {
+                    antd.message.error(e.message || '保存失败');
+                }
+            })
+            .finally(function () {
+                saving = false;
+            });
+    }
+
+    h2.addEventListener('dblclick', function (e) {
+        e.preventDefault();
+        if (h2.getAttribute('contenteditable') === 'true') return;
+        var cur = (h2.textContent || '')
+            .replace(/\u00a0/g, ' ')
+            .replace(/\r?\n/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        h2.setAttribute('data-original-title', cur);
+        h2.setAttribute('contenteditable', 'true');
+        h2.focus();
+        var sel = window.getSelection();
+        var range = document.createRange();
+        range.selectNodeContents(h2);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    });
+
+    h2.addEventListener('blur', function () {
+        finishChapterTitleSave();
+    });
+    h2.addEventListener('mouseleave', function () {
+        finishChapterTitleSave();
+    });
+})();
+
+// 章节进度状态：按钮切换，与服务器同步
+(function () {
+    var STATUSES = [
+        {% for s in chapter_progress_statuses %}
+        '{{ s|escapejs }}'{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    var POST_URL = '{% url "courses:chapter_progress_status" chapter.id %}';
+    var CSRF = '{{ csrf_token }}';
+
+    function setActiveIndex(i) {
+        if (i < 0 || i >= STATUSES.length) return;
+        document.querySelectorAll('.progress-status-seg').forEach(function (btn, idx) {
+            var on = idx === i;
+            btn.classList.toggle('is-active', on);
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+    }
+
+    function submitStatus(status) {
+        var fd = new FormData();
+        fd.append('progress_status', status);
+        return fetch(POST_URL, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF },
+            body: fd,
+            credentials: 'same-origin'
+        }).then(function (r) {
+            return r.json().then(function (body) {
+                if (!r.ok) throw new Error(body.message || '更新失败');
+                return body;
+            });
+        });
+    }
+
+    function applyIndex(i, syncServer) {
+        var status = STATUSES[i];
+        if (!status) return;
+        setActiveIndex(i);
+        if (syncServer) {
+            return submitStatus(status)
+                .then(function () {
+                    if (typeof antd !== 'undefined' && antd.message) {
+                        antd.message.success('已更新为「' + status + '」');
+                    }
+                })
+                .catch(function (e) {
+                    if (typeof antd !== 'undefined' && antd.message) {
+                        antd.message.error(e.message || '保存失败');
+                    }
+                });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var segRoot = document.getElementById('progress-status-segments');
+        if (!segRoot) return;
+
+        segRoot.querySelectorAll('.progress-status-seg').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var i = parseInt(btn.getAttribute('data-index'), 10);
+                applyIndex(i, true);
+            });
+        });
+    });
+})();
 
 // 初始化
 document.addEventListener('DOMContentLoaded', initKnowledgePoints);

@@ -2,6 +2,7 @@
 项目（科目）周维度统计：周计划（周历 Task）与周学习记录（StudyRecord），按章节/任务名分组。
 """
 import re
+import types
 from collections import defaultdict
 from datetime import datetime, time, timedelta
 from decimal import Decimal
@@ -12,6 +13,10 @@ from django.utils import timezone as dj_tz
 from .models import Chapter, StudyRecord, Subject
 
 _UNASSIGNED_KEY = "__未归属子任务__"
+
+# 首页快照中「未关联科目/章节的计划任务」行的占位 id（非数据库 Subject）
+ORPHAN_WEEKLY_PLAN_SUBJECT_ID = 0
+_ORPHAN_WEEKLY_PLAN_LABEL = "未关联科目的计划任务"
 
 
 def _norm_title(s):
@@ -201,33 +206,43 @@ def persist_subject_weekly_stats(user, subject):
     return stats
 
 
-def build_home_weekly_rows(user):
-    """
-    只读聚合当前用户本周各项目计划/投入；两者皆为 0 的项目不进入列表。
-    按本周计划时长降序。
+def _orphan_weekly_plan_namespace(display_name=None):
+    """用于首页列表展示：无真实 Subject 时的占位对象（id=0，不可点进项目详情）。"""
+    name = (display_name or _ORPHAN_WEEKLY_PLAN_LABEL).strip() or _ORPHAN_WEEKLY_PLAN_LABEL
+    return types.SimpleNamespace(id=ORPHAN_WEEKLY_PLAN_SUBJECT_ID, pk=ORPHAN_WEEKLY_PLAN_SUBJECT_ID, name=name)
 
-    进度条标尺：在「本列表所有项目的计划小时、实际小时」中取全局最大值作为 100%，
-    每条计划条、实际条均除以该值，计划与实际共用同一刻度以便对比。
+
+def orphan_weekly_planned_hours(user, week_start, week_end, ws_d, we_d, tz):
     """
-    subjects = Subject.objects.all().order_by("id")
-    rows = []
-    for subject in subjects:
-        stats = aggregate_subject_weekly_stats(user, subject)
-        p, a = stats["planned_hours"], stats["actual_hours"]
-        if p <= 0 and a <= 0:
-            continue
-        color = (subject.color or "#4a6bdf").strip()
-        if not re.match(r"^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$", color):
-            color = "#4a6bdf"
-        rows.append(
-            {
-                "subject": subject,
-                "planned_hours": p,
-                "actual_hours": a,
-                "color": color,
-            }
-        )
-    rows.sort(key=lambda r: -r["planned_hours"])
+    周历中「科目、章节均为空」的任务，不会进入 aggregate_subject_weekly_stats 的任一条目，
+    在日历里仍可能显示；此处单独汇总本周与窗口重叠的计划小时。
+    """
+    from weekly_planner.models import Task
+
+    total = Decimal("0")
+    qs = Task.objects.filter(user=user).filter(
+        start_date__lte=we_d,
+        end_date__gte=ws_d,
+        subject__isnull=True,
+        chapter__isnull=True,
+    )
+    for task in qs:
+        t0, t1 = _task_aware_interval(task, tz)
+        secs = overlap_seconds(t0, t1, week_start, week_end)
+        if secs > 0:
+            total += Decimal(secs) / Decimal(3600)
+    return float(total)
+
+
+def _normalize_subject_bar_color(subject, fallback_hex="#4a6bdf"):
+    color = (subject.color or fallback_hex).strip()
+    if not re.match(r"^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$", color):
+        color = fallback_hex
+    return color
+
+
+def _apply_weekly_bar_percentages(rows):
+    """进度条标尺：列表内计划/实际小时全局最大值为 100%。会就地写入 plan_bar_pct、actual_bar_pct。"""
     peak = 0.0
     for r in rows:
         peak = max(peak, r["planned_hours"], r["actual_hours"])
@@ -236,6 +251,111 @@ def build_home_weekly_rows(user):
         r["plan_bar_pct"] = min(100.0, 100.0 * r["planned_hours"] / scale)
         r["actual_bar_pct"] = min(100.0, 100.0 * r["actual_hours"] / scale)
     return rows
+
+
+def build_home_weekly_rows(user):
+    """
+    只读聚合当前用户本周各项目计划/投入；两者皆为 0 的项目不进入列表。
+    按本周计划时长降序。
+
+    进度条标尺：在「本列表所有项目的计划小时、实际小时」中取全局最大值作为 100%，
+    每条计划条、实际条均除以该值，计划与实际共用同一刻度以便对比。
+
+    注意：会查询周历与学习记录，开销较大；首页展示应优先使用快照（见 snapshot / restore）。
+    """
+    subjects = Subject.objects.all().order_by("id")
+    rows = []
+    for subject in subjects:
+        stats = aggregate_subject_weekly_stats(user, subject)
+        p, a = stats["planned_hours"], stats["actual_hours"]
+        if p <= 0 and a <= 0:
+            continue
+        rows.append(
+            {
+                "subject": subject,
+                "planned_hours": p,
+                "actual_hours": a,
+                "color": _normalize_subject_bar_color(subject),
+            }
+        )
+    rows.sort(key=lambda r: -r["planned_hours"])
+
+    tz = dj_tz.get_current_timezone()
+    week_start, week_end = get_local_week_range()
+    ws_d, we_d = week_start.date(), week_end.date()
+    orphan_p = orphan_weekly_planned_hours(user, week_start, week_end, ws_d, we_d, tz)
+    if orphan_p > 0:
+        rows.append(
+            {
+                "subject": _orphan_weekly_plan_namespace(),
+                "planned_hours": orphan_p,
+                "actual_hours": 0.0,
+                "color": "#888888",
+            }
+        )
+
+    return _apply_weekly_bar_percentages(rows)
+
+
+def snapshot_home_weekly_rows(rows):
+    """将 build_home_weekly_rows 的结果序列化，写入用户快照字段。"""
+    out = []
+    for r in rows:
+        sid = r["subject"].pk
+        out.append(
+            {
+                "subject_id": sid,
+                "subject_name": r["subject"].name,
+                "color": r["color"],
+                "planned_hours": float(r["planned_hours"]),
+                "actual_hours": float(r["actual_hours"]),
+            }
+        )
+    return out
+
+
+def restore_home_weekly_rows_from_snapshot(snapshot):
+    """
+    从用户保存的快照恢复首页列表（仅查 Subject，不再聚合 Task/StudyRecord）。
+    snapshot 为 None 或空列表时返回 []。
+    """
+    if not snapshot:
+        return []
+    ids = [
+        x["subject_id"]
+        for x in snapshot
+        if x.get("subject_id") is not None and x["subject_id"] != ORPHAN_WEEKLY_PLAN_SUBJECT_ID
+    ]
+    subjects_by_id = {s.id: s for s in Subject.objects.filter(pk__in=ids)}
+    rows = []
+    for x in snapshot:
+        sid = x.get("subject_id")
+        if sid == ORPHAN_WEEKLY_PLAN_SUBJECT_ID:
+            rows.append(
+                {
+                    "subject": _orphan_weekly_plan_namespace(x.get("subject_name")),
+                    "planned_hours": float(x["planned_hours"]),
+                    "actual_hours": float(x.get("actual_hours") or 0),
+                    "color": (x.get("color") or "#888888").strip(),
+                }
+            )
+            continue
+        subj = subjects_by_id.get(sid)
+        if not subj:
+            continue
+        raw_color = (x.get("color") or subj.color or "#4a6bdf").strip()
+        if not re.match(r"^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$", raw_color):
+            raw_color = _normalize_subject_bar_color(subj)
+        rows.append(
+            {
+                "subject": subj,
+                "planned_hours": float(x["planned_hours"]),
+                "actual_hours": float(x["actual_hours"]),
+                "color": raw_color,
+            }
+        )
+    rows.sort(key=lambda r: -r["planned_hours"])
+    return _apply_weekly_bar_percentages(rows)
 
 
 def sum_actual_hours_for_subject_in_range(subject, week_start, week_end, user=None):

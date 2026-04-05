@@ -1,0 +1,476 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}安排与回顾 · {{ subject.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<link rel="stylesheet" href="{% static 'aieditor-main/dist/style.css' %}">
+<style>
+.plan-review-page {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 12px 16px 24px;
+    /* 整页至少接近一屏，便于「项目计划」日历区域拉高 */
+    min-height: calc(100vh - 22px);
+    box-sizing: border-box;
+}
+.plan-review-page h1 { font-size: 1.35rem; margin: 0 0 12px; font-weight: 600; }
+.plan-review-head-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 8px 20px;
+    border-bottom: 1px solid #e8e8e8;
+    margin-bottom: 12px;
+}
+.plan-review-head-row .sub {
+    color: #666;
+    font-size: 13px;
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: min(100%, 220px);
+    padding-bottom: 8px;
+    line-height: 1.5;
+}
+.plan-review-head-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.plan-review-head-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+.plan-review-ai-regen {
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    user-select: none;
+}
+.subject-weekly-ai-panel {
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+}
+.subject-weekly-ai-panel__title {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+}
+.subject-weekly-ai-panel__status {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: #ad6800;
+}
+.subject-weekly-ai-panel__content {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #333;
+    white-space: pre-wrap;
+}
+.plan-review-tabs {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    margin: 0;
+    border-bottom: none;
+}
+.plan-review-tabs button {
+    padding: 8px 18px; border: none; background: transparent; cursor: pointer;
+    font-size: 14px; color: #666; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.plan-review-tabs button:hover { color: #1890ff; }
+.plan-review-tabs button.is-active { color: #1890ff; font-weight: 600; border-bottom-color: #1890ff; }
+.plan-review-panel { display: none; }
+.plan-review-panel.is-active { display: block; }
+/* 记录汇总：固定视口高度，内部滚动 */
+.plan-review-iframe-wrap:not(.plan-review-iframe-wrap--calendar) {
+    width: 100%;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    min-height: max(calc(100vh - 175px), 720px);
+}
+.plan-review-iframe-wrap:not(.plan-review-iframe-wrap--calendar) iframe {
+    width: 100%;
+    height: max(calc(100vh - 175px), 720px);
+    border: none;
+    display: block;
+}
+/* 项目计划：iframe 高度随日历文档增高，仅最外层页面滚动 */
+.plan-review-iframe-wrap--calendar {
+    width: 100%;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    overflow: visible;
+    background: #fff;
+    min-height: 320px;
+}
+.plan-review-iframe-wrap--calendar iframe {
+    width: 100%;
+    min-height: 520px;
+    height: 720px;
+    border: none;
+    display: block;
+}
+.summary-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+.summary-toolbar input[type="text"] { flex: 1; min-width: 200px; max-width: 360px; padding: 6px 10px; border: 1px solid #d9d9d9; border-radius: 4px; }
+.summary-table-wrap { overflow-x: auto; }
+/* 总结表：日期列收窄；标题:概述 ≈ 1:2；操作列仅容纳三个链接；表头与单元格左对齐 */
+.summary-table {
+    table-layout: fixed;
+    width: 100%;
+}
+.summary-table th,
+.summary-table td {
+    text-align: left;
+    vertical-align: top;
+    padding: 10px 12px;
+    word-wrap: break-word;
+}
+.summary-table thead th {
+    text-align: left;
+}
+.summary-col-date {
+    width: 158px;
+    max-width: 158px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.summary-col-title {
+    width: 28%;
+}
+.summary-col-overview {
+    width: 56%;
+}
+.summary-col-actions {
+    width: 118px;
+    max-width: 118px;
+    white-space: nowrap;
+}
+.summary-col-actions .ant-btn-link {
+    padding-left: 0;
+    padding-right: 4px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="plan-review-page">
+    <div class="plan-review-head-row">
+        <p class="sub">
+            项目：<strong>{{ subject.name }}</strong>
+            {% if chapter %} · 子任务：<strong>{{ chapter.title }}</strong>{% endif %}
+            · <a href="{% url 'courses:subject_detail' subject.id %}">返回项目详情</a>
+        </p>
+        <div class="plan-review-head-right">
+            <div class="plan-review-head-actions">
+                <label class="plan-review-ai-regen" title="本周已有 AI 总结时，勾选可强制重新生成">
+                    <input type="checkbox" id="subject-weekly-ai-regenerate"> 重新生成
+                </label>
+                <button type="button" class="ant-btn ant-btn-default" id="subject-weekly-ai-btn">周智能总结</button>
+            </div>
+            <div class="plan-review-tabs" role="tablist">
+                <button type="button" class="is-active" data-panel="plan" role="tab">项目计划</button>
+                <button type="button" data-panel="records" role="tab">记录汇总</button>
+                {% if show_summary_tab %}
+                <button type="button" data-panel="summary" role="tab">总结</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div id="subject-weekly-ai-panel" class="subject-weekly-ai-panel" hidden>
+        <h3 class="subject-weekly-ai-panel__title">本周 AI 周总结（本项目）</h3>
+        <p class="subject-weekly-ai-panel__status" id="subject-weekly-ai-status"></p>
+        <div id="subject-weekly-ai-content" class="subject-weekly-ai-panel__content">
+            <h4 id="subject-weekly-ai-title" class="subject-weekly-ai-title"></h4>
+            <p id="subject-weekly-ai-overview" class="subject-weekly-ai-overview"></p>
+            <div id="subject-weekly-ai-editor-mount" class="subject-weekly-ai-editor-mount"></div>
+        </div>
+    </div>
+
+    <div id="panel-plan" class="plan-review-panel is-active" role="tabpanel">
+        <div class="plan-review-iframe-wrap plan-review-iframe-wrap--calendar">
+            <iframe id="planCalendarIframe" title="项目日历" src="{{ calendar_iframe_src }}"></iframe>
+        </div>
+    </div>
+
+    <div id="panel-records" class="plan-review-panel" role="tabpanel">
+        <div class="plan-review-iframe-wrap">
+            <iframe title="记录汇总" src="{{ records_iframe_src }}"></iframe>
+        </div>
+    </div>
+
+    {% if show_summary_tab %}
+    <div id="panel-summary" class="plan-review-panel" role="tabpanel">
+        <div class="summary-toolbar">
+            <input type="text" id="summarySearchQ" placeholder="搜索：标题、概述、正文关键词或日期 YYYY-MM-DD">
+            <button type="button" class="ant-btn ant-btn-primary" id="summarySearchBtn">查询</button>
+            <a class="ant-btn ant-btn-primary" href="{% url 'courses:subject_plan_summary_create' subject_pk=subject.id %}">创建总结</a>
+        </div>
+        <div class="summary-table-wrap">
+            <table class="ant-table ant-table-bordered summary-table" style="font-size:14px;">
+                <colgroup>
+                    <col class="summary-col-date">
+                    <col class="summary-col-title">
+                    <col class="summary-col-overview">
+                    <col class="summary-col-actions">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="summary-col-date">创建日期</th>
+                        <th class="summary-col-title">标题</th>
+                        <th class="summary-col-overview">概述</th>
+                        <th class="summary-col-actions">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryTableBody">
+                    <tr><td colspan="4" style="padding:16px;color:#999;">加载中…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    var tabBtns = document.querySelectorAll('.plan-review-tabs [data-panel]');
+    var panels = {
+        plan: document.getElementById('panel-plan'),
+        records: document.getElementById('panel-records'),
+        summary: document.getElementById('panel-summary')
+    };
+    tabBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-panel');
+            tabBtns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+            Object.keys(panels).forEach(function (k) {
+                var p = panels[k];
+                if (!p) return;
+                p.classList.toggle('is-active', k === id);
+            });
+        });
+    });
+
+    var tbody = document.getElementById('summaryTableBody');
+    var listUrl = '{% url "courses:subject_plan_summaries_api" subject_pk=subject.id %}';
+    var summaryEditPrefix = '/courses/subject/{{ subject.id }}/plan-summaries/';
+
+    function esc(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    /** API 返回 ISO 时间 → 上海时区显示 YYYY-MM-DD HH:mm:ss */
+    function formatCreatedAtShanghai(isoStr) {
+        if (!isoStr) return '—';
+        var d = new Date(isoStr);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' }).replace('T', ' ');
+    }
+
+    function loadSummaries() {
+        if (!tbody) return;
+        var q = document.getElementById('summarySearchQ');
+        var qs = q && q.value ? ('?q=' + encodeURIComponent(q.value.trim())) : '';
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:16px;color:#999;">加载中…</td></tr>';
+        fetch(listUrl + qs, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var rows = (data && data.data) ? data.data : [];
+                if (!rows.length) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="padding:16px;color:#999;">暂无总结，点击「创建总结」添加。</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = rows.map(function (row) {
+                    var dt = formatCreatedAtShanghai(row.created_at);
+                    var ov = (row.overview || '').trim();
+                    if (ov.length > 120) ov = ov.slice(0, 120) + '…';
+                    var id = row.id;
+                    return '<tr>' +
+                        '<td class="summary-col-date">' + esc(dt) + '</td>' +
+                        '<td class="summary-col-title">' + esc(row.title || '') + '</td>' +
+                        '<td class="summary-col-overview">' + esc(ov) + '</td>' +
+                        '<td class="summary-col-actions">' +
+                        '<a class="ant-btn ant-btn-link ant-btn-sm" href="' + summaryEditPrefix + id + '/edit/">查看</a>' +
+                        '<a class="ant-btn ant-btn-link ant-btn-sm" href="' + summaryEditPrefix + id + '/edit/">编辑</a>' +
+                        '<button type="button" class="ant-btn ant-btn-link ant-btn-sm summary-del" data-id="' + id + '">删除</button>' +
+                        '</td></tr>';
+                }).join('');
+                tbody.querySelectorAll('.summary-del').forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        var sid = b.getAttribute('data-id');
+                        if (!sid || !confirm('确定删除该总结？')) return;
+                        fetch('/courses/api/plan-summaries/' + sid + '/', {
+                            method: 'DELETE',
+                            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+                        }).then(function (r) {
+                            if (!r.ok) throw new Error('删除失败');
+                            loadSummaries();
+                        }).catch(function () { alert('删除失败'); });
+                    });
+                });
+            })
+            .catch(function () {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding:16px;color:#f5222d;">加载失败</td></tr>';
+            });
+    }
+
+    var searchBtn = document.getElementById('summarySearchBtn');
+    if (searchBtn) searchBtn.addEventListener('click', loadSummaries);
+    if (tbody) loadSummaries();
+})();
+</script>
+<script>
+(function () {
+    var btn = document.getElementById('subject-weekly-ai-btn');
+    if (!btn) return;
+    var startUrl = '{% url "courses:subject_weekly_ai_summary_start" subject_pk=subject.id %}';
+    var statusUrlTpl = '{% url "weekly_ai_summary_status" pk=999999 %}'.replace('999999', '__ID__');
+    var tokEl = document.querySelector('#django-csrf-holder input[name=csrfmiddlewaretoken]');
+    var regen = document.getElementById('subject-weekly-ai-regenerate');
+    var panel = document.getElementById('subject-weekly-ai-panel');
+    var stEl = document.getElementById('subject-weekly-ai-status');
+    var titleEl = document.getElementById('subject-weekly-ai-title');
+    var overviewEl = document.getElementById('subject-weekly-ai-overview');
+
+    function showContent(data) {
+        if (!panel) return;
+        panel.hidden = false;
+        if (titleEl) titleEl.textContent = data.title || '';
+        if (overviewEl) overviewEl.textContent = data.overview || '';
+        if (typeof window.renderSubjectWeeklyAiMarkdown === 'function') {
+            window.renderSubjectWeeklyAiMarkdown(data.body || '');
+        }
+    }
+    function poll(id) {
+        var n = 0;
+        var t = setInterval(function () {
+            n += 1;
+            fetch(statusUrlTpl.replace('__ID__', String(id)), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (stEl) stEl.textContent = data.status === 'processing' ? 'DeepSeek 生成中，请稍候…' : '';
+                    if (data.status === 'completed') {
+                        clearInterval(t);
+                        btn.disabled = false;
+                        showContent(data);
+                        if (stEl) stEl.textContent = '';
+                    }
+                    if (data.status === 'failed') {
+                        clearInterval(t);
+                        btn.disabled = false;
+                        if (stEl) stEl.textContent = '失败：' + (data.error_message || '');
+                    }
+                    if (n >= 100) {
+                        clearInterval(t);
+                        btn.disabled = false;
+                        if (stEl) stEl.textContent = '等待超时，请稍后刷新页面。';
+                    }
+                })
+                .catch(function () {});
+        }, 3000);
+    }
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        if (panel) panel.hidden = false;
+        if (stEl) stEl.textContent = '正在提交…';
+        if (titleEl) titleEl.textContent = '';
+        if (overviewEl) overviewEl.textContent = '';
+        if (typeof window.renderSubjectWeeklyAiMarkdown === 'function') {
+            window.renderSubjectWeeklyAiMarkdown('');
+        }
+        var fd = new FormData();
+        if (regen && regen.checked) fd.append('regenerate', '1');
+        fetch(startUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': tokEl ? tokEl.value : '', Accept: 'application/json' },
+            body: fd
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.message) alert(data.message);
+                if (!data.ok) throw new Error('bad');
+                if (data.id && (data.status === 'started' || data.status === 'processing')) {
+                    poll(data.id);
+                } else if (data.status === 'completed') {
+                    btn.disabled = false;
+                    return fetch(statusUrlTpl.replace('__ID__', String(data.id)), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                        .then(function (r) { return r.json(); })
+                        .then(showContent);
+                } else {
+                    btn.disabled = false;
+                }
+            })
+            .catch(function () {
+                alert('提交失败');
+                btn.disabled = false;
+                if (stEl) stEl.textContent = '';
+            });
+    });
+})();
+</script>
+<script type="module">
+import { AiEditor } from '/static/aieditor-main/dist/index.js';
+
+var subjectWeeklyAiEditor = null;
+
+window.renderSubjectWeeklyAiMarkdown = function (md) {
+    var s = (md == null ? '' : String(md)).trim();
+    if (subjectWeeklyAiEditor) {
+        subjectWeeklyAiEditor.setEditable(true);
+        if (s) subjectWeeklyAiEditor.setMarkdownContent(s);
+        else subjectWeeklyAiEditor.setContent('<p></p>');
+        subjectWeeklyAiEditor.setEditable(false);
+        return;
+    }
+    var mount = document.getElementById('subject-weekly-ai-editor-mount');
+    if (!mount) return;
+    var opts = typeof window.getAiEditorImageOption === 'function' ? window.getAiEditorImageOption() : {};
+    subjectWeeklyAiEditor = new AiEditor({
+        ...opts,
+        element: '#subject-weekly-ai-editor-mount',
+        toolbarKeys: [],
+        placeholder: '',
+        theme: 'default',
+        onCreated: function (editor) {
+            editor.setEditable(true);
+            if (s) editor.setMarkdownContent(s);
+            else editor.setContent('<p></p>');
+            editor.setEditable(false);
+        }
+    });
+};
+</script>
+<script>
+(function () {
+    var lastIframePx = 0;
+    window.addEventListener('message', function (e) {
+        if (e.origin !== window.location.origin) return;
+        if (!e.data || e.data.type !== 'plan-review-calendar-resize') return;
+        var iframe = document.getElementById('planCalendarIframe');
+        if (!iframe) return;
+        var h = parseInt(e.data.height, 10);
+        if (!h || h < 400) return;
+        var next = h + 24;
+        if (Math.abs(next - lastIframePx) < 12) return;
+        lastIframePx = next;
+        iframe.style.height = next + 'px';
+    });
+})();
+</script>
+{% endblock %}

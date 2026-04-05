@@ -184,10 +184,10 @@
     <!-- 下部：章节列表（表格结构与项目列表 subject_list 一致） -->
     <div class="chapter-list-section">
         <div class="chapter-list-toolbar">
-            <h3 class="chapter-list-toolbar-title">子任务列表</h3>
+            <h3 class="chapter-list-toolbar-title">任务列表</h3>
             <div class="header-actions">
                 <button type="button" class="ant-btn ant-btn-primary ant-btn-sm" onclick="viewSubjectMethods('{{ subject.id|escapejs }}')">
-                    <i class="anticon anticon-plus"></i> 事项review
+                    <i class="anticon anticon-plus"></i> 安排与回顾
                 </button>
                 <button type="button" class="ant-btn ant-btn-primary ant-btn-sm" onclick="showAddChapterModal()">
                     <i class="anticon anticon-plus"></i> 添加任务
@@ -202,12 +202,12 @@
                         <th class="ant-table-cell">子任务数量</th>
                         <th class="ant-table-cell">计划投入时长</th>
                         <th class="ant-table-cell">已投入时长</th>
-                        <th class="ant-table-cell">进度描述</th>
+                        <th class="ant-table-cell">进度状态</th>
                         <th class="ant-table-cell">操作</th>
                     </tr>
                 </thead>
-                <tbody class="ant-table-tbody">
-                    {% for chapter in chapters %}
+                <tbody id="subject-chapters-active-body" class="ant-table-tbody">
+                    {% for chapter in chapters_incomplete %}
                     <tr class="ant-table-row ant-table-row-level-0">
                         <td class="ant-table-cell">
                             <a href="{% url 'courses:chapter_detail' pk=chapter.id %}">{{ chapter.title }}</a>
@@ -215,7 +215,7 @@
                         <td class="ant-table-cell">{{ chapter.knowledge_points_count }}</td>
                         <td class="ant-table-cell">{{ chapter.estimated_hours|default:0 }}</td>
                         <td class="ant-table-cell">{{ chapter.actual_hours|default:0 }}</td>
-                        <td class="ant-table-cell">{{ chapter.process_description|default:'未开始' }}</td>
+                        <td class="ant-table-cell">{{ chapter.progress_status|default:'进行中' }}</td>
                         <td class="ant-table-cell">
                             <button type="button" class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href='{% url 'courses:chapter_detail' pk=chapter.id %}'">
                                 <i class="anticon anticon-edit"></i> 查看
@@ -223,16 +223,45 @@
                             <button type="button" class="ant-btn ant-btn-text ant-btn-sm chapter-delete-btn" onclick="confirmDeleteChapter({{ chapter.id }})">
                                 <i class="anticon anticon-delete"></i> 删除
                             </button>
-                            <button type="button" class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href='{% url 'courses:chapter_exercise' pk=chapter.id %}'">
-                                <i class="anticon anticon-file"></i> 回顾
+                            <button type="button" class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href='{% url 'courses:chapter_plan_review' pk=chapter.id %}'">
+                                <i class="anticon anticon-file"></i> 安排与回顾
                             </button>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td class="ant-table-cell" colspan="6">暂无子任务，请点击「添加任务」新建。</td></tr>
+                    <tr><td class="ant-table-cell" colspan="6">暂无未完成任务。{% if not chapters_completed %}请点击「添加任务」新建。{% endif %}</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tbody id="subject-chapters-completed-body" class="ant-table-tbody subject-chapters-completed-body" hidden>
+                    {% for chapter in chapters_completed %}
+                    <tr class="ant-table-row ant-table-row-level-0 subject-chapter-row-completed">
+                        <td class="ant-table-cell">
+                            <a href="{% url 'courses:chapter_detail' pk=chapter.id %}">{{ chapter.title }}</a>
+                        </td>
+                        <td class="ant-table-cell">{{ chapter.knowledge_points_count }}</td>
+                        <td class="ant-table-cell">{{ chapter.estimated_hours|default:0 }}</td>
+                        <td class="ant-table-cell">{{ chapter.actual_hours|default:0 }}</td>
+                        <td class="ant-table-cell">{{ chapter.progress_status|default:'完成' }}</td>
+                        <td class="ant-table-cell">
+                            <button type="button" class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href='{% url 'courses:chapter_detail' pk=chapter.id %}'">
+                                <i class="anticon anticon-edit"></i> 查看
+                            </button>
+                            <button type="button" class="ant-btn ant-btn-text ant-btn-sm chapter-delete-btn" onclick="confirmDeleteChapter({{ chapter.id }})">
+                                <i class="anticon anticon-delete"></i> 删除
+                            </button>
+                            <button type="button" class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href='{% url 'courses:chapter_plan_review' pk=chapter.id %}'">
+                                <i class="anticon anticon-file"></i> 安排与回顾
+                            </button>
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% if chapters_completed %}
+            <div class="subject-completed-chapters-footer">
+                <button type="button" id="toggle-completed-chapters-btn" class="subject-completed-toggle" aria-expanded="false">查看已完成任务</button>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -267,6 +296,26 @@
     display: flex;
     gap: 8px; /* 按钮间距 */
     margin-left: auto; /* 靠右对齐 */
+}
+
+.subject-completed-chapters-footer {
+    padding: 12px 0 4px;
+    text-align: center;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 0;
+}
+.subject-completed-toggle {
+    background: none;
+    border: none;
+    color: #1890ff;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 8px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.subject-completed-toggle:hover {
+    color: #40a9ff;
 }
 </style>
 
@@ -318,6 +367,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // 将函数暴露到全局
     window.confirmDeleteChapter = confirmDeleteChapter;
     window.deleteChapter = deleteChapter;
+
+    var toggleCompletedBtn = document.getElementById('toggle-completed-chapters-btn');
+    var completedBody = document.getElementById('subject-chapters-completed-body');
+    if (toggleCompletedBtn && completedBody) {
+        toggleCompletedBtn.addEventListener('click', function () {
+            var expanded = !completedBody.hasAttribute('hidden');
+            if (expanded) {
+                completedBody.setAttribute('hidden', '');
+                toggleCompletedBtn.textContent = '查看已完成任务';
+                toggleCompletedBtn.setAttribute('aria-expanded', 'false');
+            } else {
+                completedBody.removeAttribute('hidden');
+                toggleCompletedBtn.textContent = '收起已完成任务';
+                toggleCompletedBtn.setAttribute('aria-expanded', 'true');
+            }
+        });
+    }
 });
 </script>
 <script>
@@ -386,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 显示题型方法页面
     function viewSubjectMethods(subjectId) {
-        window.location.href = `/courses/subject/${subjectId}/methods/`;
+        window.location.href = `/courses/subject/${subjectId}/plan-review/`;
     }
 
     // 提交编辑表单

@@ -42,6 +42,19 @@ def calendar_study_records(request):
         .order_by("start_time")
     )
 
+    subject_raw = request.query_params.get("subject")
+    chapter_raw = request.query_params.get("chapter")
+    if subject_raw not in (None, ""):
+        try:
+            qs = qs.filter(chapter__subject_id=int(subject_raw))
+        except (TypeError, ValueError):
+            pass
+    if chapter_raw not in (None, ""):
+        try:
+            qs = qs.filter(chapter_id=int(chapter_raw))
+        except (TypeError, ValueError):
+            pass
+
     def _fc_iso(dt):
         """转为当前时区墙钟时间 ISO，去掉微秒，便于前端稳定解析。"""
         if dt is None:

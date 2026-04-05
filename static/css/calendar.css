@@ -112,16 +112,239 @@ a {
     background-color: rgba(255,255,255,0.1) !important;
 }
 
-/* 日历容器样式：最大宽度 1440px，大屏居中；窄屏铺满 main 内宽 */
+/* 周历页：左侧待安排 25% + 右侧日历 75%（整页左右结构） */
+.calendar-page-layout {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+    margin: 12px 0;
+    gap: 0;
+    min-height: calc(100vh - 140px);
+    box-sizing: border-box;
+}
+
+/* 安排与回顾内嵌（embed=1）：整表自然增高，不在左侧栏/日历格内单独滚动 */
+.calendar-page-layout.calendar-embed-expand {
+    min-height: auto;
+    align-items: flex-start;
+}
+
+.calendar-page-layout.calendar-embed-expand .unscheduled-tasks-panel {
+    overflow-y: visible;
+    overflow-x: hidden;
+    /* 勿与右侧日历同高拉伸，否则易与 iframe 增高形成循环 */
+    align-self: flex-start;
+}
+
+.calendar-page-layout.calendar-embed-expand .calendar-main-wrap {
+    min-height: auto;
+}
+
+.calendar-page-layout.calendar-embed-expand .calendar-container {
+    flex: none;
+    overflow: visible;
+}
+
+/* FullCalendar 内嵌：取消时间轴内部滚动（勿强行 height:auto  harness，易触发高度振荡） */
+.calendar-page-layout.calendar-embed-expand .fc .fc-scroller {
+    overflow: visible !important;
+}
+
+.unscheduled-tasks-panel {
+    flex: 0 0 25%;
+    width: 25%;
+    max-width: 25%;
+    min-width: 0;
+    background: #f4f6f9;
+    border: 1px solid #e0e4ea;
+    border-radius: 8px 0 0 8px;
+    padding: 12px 10px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.unscheduled-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.unscheduled-panel-icon {
+    display: flex;
+    color: #1176da;
+    flex-shrink: 0;
+}
+
+.unscheduled-panel-head h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    color: #1a1a1a;
+}
+
+.unscheduled-add-btn {
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 0.2rem 0.5rem;
+}
+
+textarea.batch-unscheduled-titles {
+    min-height: 180px;
+    resize: vertical;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.unscheduled-tasks-panel .panel-hint {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 12px;
+    line-height: 1.45;
+}
+
+.unscheduled-tasks-list {
+    flex: 1;
+    min-height: 120px;
+}
+
+.unscheduled-subject-group {
+    margin-bottom: 14px;
+}
+
+.unscheduled-subject-group:last-child {
+    margin-bottom: 0;
+}
+
+.unscheduled-subject-heading {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    padding: 7px 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+}
+
+a.unscheduled-subject-heading--link {
+    display: block;
+    text-decoration: none;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+a.unscheduled-subject-heading--link:hover {
+    filter: brightness(0.96);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+
+a.unscheduled-subject-heading--link:focus-visible {
+    outline: 2px solid #1176da;
+    outline-offset: 2px;
+}
+
+.unscheduled-subject-tasks .unscheduled-task-item:last-child {
+    margin-bottom: 0;
+}
+
+.unscheduled-task-item {
+    background: #fff;
+    border: 1px solid #e0e4ea;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    cursor: grab;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.unscheduled-task-item:active {
+    cursor: grabbing;
+}
+
+.unscheduled-task-item:hover {
+    border-color: #1176da;
+    box-shadow: 0 1px 4px rgba(17, 118, 218, 0.15);
+}
+
+.unscheduled-task-item .ut-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #222;
+    margin-bottom: 4px;
+    line-height: 1.35;
+}
+
+.unscheduled-task-item .ut-meta {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.3;
+}
+
+.unscheduled-tasks-empty {
+    font-size: 13px;
+    color: #888;
+    text-align: center;
+    padding: 20px 8px;
+    cursor: pointer;
+}
+
+.calendar-main-wrap {
+    flex: 0 0 75%;
+    width: 75%;
+    max-width: 75%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 日历容器样式：置于右侧主区域，铺满剩余宽度 */
 .calendar-container {
     width: 100%;
-    max-width: 1440px;
-    margin: 20px auto;
-    padding: 20px;
+    max-width: none;
+    margin: 0;
+    flex: 1;
+    padding: 16px;
     box-sizing: border-box;
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 0 8px 8px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    border: 1px solid #e0e4ea;
+    border-left: none;
+}
+
+/* 仅极窄屏改为上下结构，避免平板/常见窗口误成纵向 */
+@media (max-width: 576px) {
+    .calendar-page-layout {
+        flex-direction: column;
+        min-height: auto;
+    }
+    .unscheduled-tasks-panel {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: none;
+        border-radius: 8px 8px 0 0;
+        max-height: 220px;
+    }
+    .calendar-page-layout.calendar-embed-expand .unscheduled-tasks-panel {
+        max-height: none;
+        overflow-y: visible;
+    }
+    .calendar-main-wrap {
+        flex: 1 1 auto;
+        width: 100%;
+        max-width: none;
+    }
+    .calendar-container {
+        border-radius: 0 0 8px 8px;
+        border-left: 1px solid #e0e4ea;
+        border-top: none;
+    }
 }
 
 /* 日历视图基础样式 */
@@ -242,6 +465,17 @@ a {
 /* 模态框样式 */
 .modal-footer {
     justify-content: space-between;
+}
+
+/*
+ * FullCalendar 弹出层（如 .fc-popover）使用 z-index:9999；页面内还有 z-index:2000 的 globalModalContainer。
+ * Bootstrap 5 默认 .modal 仅 1055，会被盖住，表现为「点了添加但弹窗看不见」。
+ */
+body.modal-open .modal {
+    z-index: 12000 !important;
+}
+body.modal-open .modal-backdrop {
+    z-index: 11990 !important;
 }
 
 /* 重复选项样式 */

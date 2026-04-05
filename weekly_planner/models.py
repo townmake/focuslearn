@@ -51,6 +51,11 @@ class Task(models.Model):
     title = models.CharField(max_length=200, default="未命名任务")
     description = models.TextField(null=True, blank=True)
     is_completed = models.BooleanField(default=False)
+    is_unscheduled = models.BooleanField(
+        default=False,
+        verbose_name="待安排",
+        help_text="为 True 时不显示在周历上，仅在「待安排」列表中，确定时间后排入日历",
+    )
     
     # 时间相关
     # 拆分日期和时间
@@ -131,13 +136,75 @@ class UserImportantDate(models.Model):
     name = models.CharField(max_length=100, blank=True, default="")
     description = models.TextField(blank=True, default="")
     due_at = models.DateTimeField(null=True, blank=True, verbose_name="到期时间")
+    planner_task = models.OneToOneField(
+        "weekly_planner.Task",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="important_date_reminder",
+        verbose_name="关联周历任务",
+    )
 
     def __str__(self):
         return self.user.username
+
+
+class ImportantDatesHomeSnapshot(models.Model):
+    """首页「重要日期提醒」只读缓存（单行 JSON），避免每次打开首页关联查询 UserImportantDate。"""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="important_dates_home_snapshot",
+    )
+    items = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "首页重要日期快照"
+        verbose_name_plural = "首页重要日期快照"
     
+class QuickAccessLibraryIcon(models.Model):
+    """管理后台维护的速记可选图标（正方形 32 或 64 像素）。"""
+
+    name = models.CharField("名称", max_length=80, blank=True, default="")
+    image = models.ImageField("图标", upload_to="quick_access_library_icons/")
+    sort_order = models.PositiveIntegerField("排序", default=0, help_text="越小越靠前")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("sort_order", "id")
+        verbose_name = "速记图标库"
+        verbose_name_plural = "速记图标库"
+
+    def __str__(self):
+        return self.name or f"图标 #{self.pk}"
+
+
 class QuickAccess(models.Model):
     title = models.CharField('标题', max_length=100)
-    icon = models.ImageField('图标', upload_to='quick_access_icons/', help_text='上传图标图片')
+    subtitle = models.CharField(
+        '副标题',
+        max_length=200,
+        blank=True,
+        default='',
+        help_text='列表卡片上显示在标题下方的简短说明，可选',
+    )
+    icon = models.ImageField(
+        '图标（已弃用）',
+        upload_to='quick_access_icons/',
+        blank=True,
+        null=True,
+        help_text='历史数据；新建请从图标库选择',
+    )
+    library_icon = models.ForeignKey(
+        QuickAccessLibraryIcon,
+        verbose_name="图标库图标",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quick_access_items",
+    )
     link = models.URLField('跳转链接')
     description = models.TextField(blank=True, verbose_name="描述")
     position = models.IntegerField('位置序号', default=0, help_text='数字越小排序越靠前')
@@ -154,6 +221,16 @@ class QuickAccess(models.Model):
 
     def get_absolute_url(self):
         return reverse('quick_access_detail', kwargs={'pk': self.pk})
+
+    def get_icon_image_url(self):
+        """列表/详情展示用：优先图标库，其次历史本地上传。"""
+        if self.library_icon_id:
+            lib = getattr(self, "library_icon", None)
+            if lib and lib.image:
+                return lib.image.url
+        if self.icon:
+            return self.icon.url
+        return None
 
 class Words(models.Model):
     word = models.CharField(max_length=30)
@@ -196,3 +273,143 @@ class DailyQuotableQuote(models.Model):
 
     def __str__(self):
         return f"{self.date} {self.get_slot_display()} — {self.author}"
+
+
+class LocalFamousQuote(models.Model):
+    """首页欢迎区随机展示的名人名言，由管理员在后台维护。"""
+
+    content = models.TextField("正文")
+    author = models.CharField(
+        "作者",
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="留空时首页显示为「佚名」。批量录入可设默认作者，或单行用「正文|作者」。",
+    )
+    is_active = models.BooleanField("参与首页随机", default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "本地名人名言"
+        verbose_name_plural = "本地名人名言"
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        text = (self.content or "").strip().replace("\n", " ")
+        return (text[:50] + "…") if len(text) > 50 else text or "(空)"
+
+
+class DeepSeekProviderSettings(models.Model):
+    """单例配置：管理后台仅保留一条，供全站调用 DeepSeek。"""
+
+    api_key = models.CharField(
+        "API Key",
+        max_length=512,
+        blank=True,
+        help_text="DeepSeek 控制台创建的 API Key",
+    )
+    api_base = models.URLField(
+        "API 基础地址",
+        max_length=200,
+        default="https://api.deepseek.com",
+        help_text="一般无需修改",
+    )
+    default_model = models.CharField(
+        "默认模型",
+        max_length=100,
+        default="deepseek-chat",
+    )
+    request_timeout = models.PositiveIntegerField(
+        "请求超时（秒）",
+        default=120,
+        help_text="周总结等长文本可适当增大",
+    )
+    is_enabled = models.BooleanField("启用 DeepSeek 调用", default=True)
+
+    class Meta:
+        verbose_name = "DeepSeek API 配置"
+        verbose_name_plural = "DeepSeek API 配置"
+
+    def __str__(self):
+        return "DeepSeek API 配置"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+class WeeklyAiSummary(models.Model):
+    """周智能总结（首页全项目 / 单项目），由 DeepSeek 根据周计划与学习记录生成。"""
+
+    SCOPE_HOME = "home"
+    SCOPE_SUBJECT_PREFIX = "subject:"
+
+    STATUS_PENDING = "pending"
+    STATUS_PROCESSING = "processing"
+    STATUS_COMPLETED = "completed"
+    STATUS_FAILED = "failed"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "待处理"),
+        (STATUS_PROCESSING, "生成中"),
+        (STATUS_COMPLETED, "已完成"),
+        (STATUS_FAILED, "失败"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="weekly_ai_summaries",
+        verbose_name="用户",
+    )
+    scope_key = models.CharField(
+        "范围键",
+        max_length=80,
+        db_index=True,
+        help_text="home=全项目；subject:<项目id>=单项目",
+    )
+    week_start_date = models.DateField("周起始（周一）", db_index=True)
+    week_end_date = models.DateField("周结束（周日）")
+    title = models.CharField("标题", max_length=300, blank=True, default="")
+    overview = models.CharField(
+        "概述",
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="不超过约 50 字的短概述",
+    )
+    body = models.TextField("详细", blank=True, default="", help_text="AI 生成的周总结正文")
+    status = models.CharField(
+        "状态",
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+    )
+    error_message = models.TextField("错误信息", blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "周智能总结"
+        verbose_name_plural = "周智能总结"
+        ordering = ("-week_start_date", "-created_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "scope_key", "week_start_date"],
+                name="uniq_weekly_ai_summary_user_scope_week",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.title or self.scope_key} ({self.week_start_date})"
+
+    @staticmethod
+    def scope_key_for_subject(subject_id: int) -> str:
+        return f"{WeeklyAiSummary.SCOPE_SUBJECT_PREFIX}{int(subject_id)}"

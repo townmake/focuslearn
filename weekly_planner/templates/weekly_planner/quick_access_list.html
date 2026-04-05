@@ -1,130 +1,271 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}速记列表{% endblock %}
 
-{% block content %}
+{% block title %}速记{% endblock %}
+
+{% block extra_css %}
 <style>
-    .container {
-        max-width: 1400px; /* 限制容器最大宽度 */
-        margin: auto; /* 居中容器 */
-        padding: 20px; /* 容器内边距 */
+    /* —— 列表页顶栏：主标题 + 副文案 —— */
+    .qa-list-shell {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 0 20px 40px;
+        box-sizing: border-box;
+    }
+    .qa-list-hero {
+        margin: 8px 0 28px;
+        padding: 24px 28px 22px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #f0f7ff 0%, #f8fafc 45%, #eef2ff 100%);
+        border: 1px solid rgba(99, 102, 241, 0.12);
+        box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+    }
+    .qa-list-hero__eyebrow {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #6366f1;
+        margin-bottom: 8px;
+    }
+    .qa-list-hero__title {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #0f172a;
+        line-height: 1.25;
+    }
+    .qa-list-hero__subtitle {
+        margin: 10px 0 0;
+        max-width: 36rem;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        color: #475569;
+    }
+    .qa-list-toolbar {
         display: flex;
-        justify-content: space-between; /* 两端对齐子元素 */
-    }
-    .quick-access-item {
-        cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .quick-access-item:hover {
-        transform: scale(1.05); /* 放大效果 */
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); /* 阴影效果 */
-    }
-    .quick-access-item img {
-        max-height: 32px; /* 限制图标最大高度 */
-    }
-    .quick-access-item h6 {
-        font-size: 0.9rem; /* 调整标题字体大小 */
-        margin-top: 0.5rem; /* 调整标题与图标的间距 */
-    }
-    .quick-access-item .card-body {
-        padding: 0.5rem; /* 调整卡片内容的内边距 */
-    }
-    .quick-access-item .card {
-        border: 1px solid #ddd; /* 添加边框 */
-        border-radius: 8px; /* 圆角效果 */
-    }
-    .quick-access-item .card:hover {
-        border-color: #007bff; /* 鼠标悬停时边框颜色变化 */
-    }
-    .pagination {
-        justify-content: center; /* 居中分页 */
-    }
-    .pagination .page-item.active .page-link {
-        background-color: #007bff; /* 活动页的背景颜色 */
-        border-color: #007bff; /* 活动页的边框颜色 */
-    }
-    .pagination .page-link {
-        color: #007bff; /* 分页链接颜色 */
-    }
-    .pagination .page-link:hover {
-        background-color: #e9ecef; /* 鼠标悬停时的背景颜色 */
-        color: #007bff; /* 鼠标悬停时的文字颜色 */  
-    }
-    .titlebar {
-        display: flex;
-        justify-content: space-between;
+        flex-wrap: wrap;
         align-items: center;
-        margin-bottom: 1rem; /* 标题栏底部间距 */
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
     }
-    .button-create {
-        background-color: #28a745; /* 新增按钮颜色 */
-        color: white; /* 按钮文字颜色 */
-        /*按钮文字大小和内边距可以根据需要调整*/
-        font-size: 0.8rem; /* 按钮文字大小 */
-        padding: 0.5rem 0.5rem; /* 按钮内边距 */
-        border-radius: 4px; /* 按钮圆角 */
-        text-decoration: none; /* 去掉链接下划线 */
+    .qa-list-toolbar__hint {
+        font-size: 13px;
+        color: #64748b;
     }
-    .button-create:hover {
-        background-color: #218838; /* 鼠标悬停时按钮颜色 */
-        color: white; /* 鼠标悬停时文字颜色 */
+    .qa-list-btn-new {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 18px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        color: #fff;
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        box-shadow: 0 2px 12px rgba(37, 99, 235, 0.35);
+        border: none;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .qa-list-btn-new:hover {
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 18px rgba(37, 99, 235, 0.45);
+    }
+
+    /* —— 卡片网格 —— */
+    .qa-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+        gap: 18px;
+    }
+    .qa-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        min-height: 168px;
+        padding: 18px 16px 16px;
+        border-radius: 14px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        cursor: pointer;
+        text-align: center;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .qa-card:hover {
+        border-color: #c7d2fe;
+        box-shadow: 0 8px 28px rgba(79, 70, 229, 0.12);
+        transform: translateY(-2px);
+    }
+    .qa-card__icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 12px;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid #e2e8f0;
+    }
+    .qa-card__icon-wrap img {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+        display: block;
+    }
+    .qa-card__text {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 0;
+        width: 100%;
+    }
+    .qa-card__title {
+        margin: 0;
+        width: 100%;
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1.35;
+        color: #0f172a;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+    }
+    .qa-card__subtitle {
+        margin: 6px 0 0;
+        width: 100%;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #64748b;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+        min-height: calc(1.45em * 2);
+    }
+    .qa-card__subtitle--empty {
+        color: #cbd5e1;
+        font-weight: 400;
+    }
+    .qa-card__accent {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px;
+        height: 3px;
+        border-radius: 0 0 4px 4px;
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    .qa-card:hover .qa-card__accent {
+        opacity: 1;
+    }
+
+    .qa-pagination {
+        margin-top: 28px;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .qa-pagination a {
+        padding: 6px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #334155;
+        text-decoration: none;
+        background: #fff;
+    }
+    .qa-pagination a:hover {
+        border-color: #c7d2fe;
+        color: #4f46e5;
+    }
+    .qa-pagination a.is-active {
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        color: #fff;
+        border-color: transparent;
     }
 </style>
+{% endblock %}
 
+{% block content %}
+<div class="qa-list-shell">
+    <header class="qa-list-hero" aria-labelledby="qa-list-main-title">
+        <span class="qa-list-hero__eyebrow">Quick notes</span>
+        <h1 id="qa-list-main-title" class="qa-list-hero__title">速记</h1>
+        <p class="qa-list-hero__subtitle">记录想法和灵感，便于随时查看和编辑。</p>
+    </header>
 
-<div style="max-width: 1400px; margin: 0 auto; padding: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin: 0;">便捷记录</h2>
+    <div class="qa-list-toolbar">
+        <span class="qa-list-toolbar__hint">点击卡片或图标：有外链则跳转，否则进入详情</span>
         {% if user.is_authenticated %}
-        <a href="{% url 'weekly_planner:quick_access_create' %}" 
-           style="background: #1890ff; color: white; padding: 6px 16px; border-radius: 4px; text-decoration: none;">
-           新增记录
-        </a>
+        <a href="{% url 'weekly_planner:quick_access_create' %}" class="qa-list-btn-new">＋ 新增记录</a>
         {% endif %}
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px;">
+    <div class="qa-grid">
         {% for item in quick_access_items %}
-        <div 
-            style="background: white; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.3s;">
-            <div style="padding: 16px; text-align: center;">
-                    {% if item.icon %}
-                    <img src="{{ item.icon.url }}" alt="{{ item.title }}" 
-                         style="max-height: 92px; margin-bottom: 8px;"
-                         onclick="handleItemClick(event, '{{ item.link }}', '{% url 'weekly_planner:quick_access_detail' item.id %}')"
-                         onerror="this.src='{% static 'images/create_default.png' %}'">
-                    {% else %}
-                    <img src="{% static 'images/create_default.png' %}" alt="{{ item.title }}"
-                         style="max-height: 92px; margin-bottom: 8px;"
-                         onclick="handleItemClick(event, '{{ item.link }}', '{% url 'weekly_planner:quick_access_detail' item.id %}')">
-                    {% endif %}
-                <div style="font-size: 14px; color: rgba(0,0,0,0.85);"
-                    onclick="window.location.href='{% url 'weekly_planner:quick_access_detail' item.id %}'">
-                    {{ item.title }}
-                </div>
+        <article
+            class="qa-card"
+            role="link"
+            tabindex="0"
+            data-detail-url="{% url 'weekly_planner:quick_access_detail' item.id %}"
+            data-link-url="{{ item.link|default:'' }}"
+            onclick="qaCardActivate(event, this)"
+            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); qaCardActivate(event, this);}"
+        >
+            <span class="qa-card__accent" aria-hidden="true"></span>
+            <div class="qa-card__icon-wrap">
+                {% if item.get_icon_image_url %}
+                <img src="{{ item.get_icon_image_url }}" alt=""
+                     onclick="event.stopPropagation(); handleItemClick(event, '{{ item.link }}', '{% url 'weekly_planner:quick_access_detail' item.id %}')"
+                     onerror="this.src='{% static 'images/create_default.png' %}'">
+                {% else %}
+                <img src="{% static 'images/create_default.png' %}" alt=""
+                     onclick="event.stopPropagation(); handleItemClick(event, '{{ item.link }}', '{% url 'weekly_planner:quick_access_detail' item.id %}')">
+                {% endif %}
             </div>
-        </div>
+            <div class="qa-card__text">
+                <h2 class="qa-card__title">{{ item.title }}</h2>
+                {% if item.subtitle %}
+                <p class="qa-card__subtitle">{{ item.subtitle }}</p>
+                {% else %}
+                <p class="qa-card__subtitle qa-card__subtitle--empty" aria-hidden="true">未设置副标题</p>
+                {% endif %}
+            </div>
+        </article>
+        {% empty %}
+        <p style="grid-column: 1/-1; text-align:center; color:#94a3b8; padding:40px;">暂无记录，登录后点击「新增记录」即可添加。</p>
         {% endfor %}
     </div>
 
     {% if is_paginated %}
-    <div style="margin-top: 24px; display: flex; justify-content: center;">
-        <div style="display: flex; gap: 8px;">
-            {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}" style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px;">上一页</a>
-            {% endif %}
-            
-            {% for num in page_obj.paginator.page_range %}
-            <a href="?page={{ num }}" style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px; {% if page_obj.number == num %}background: #1890ff; color: white; border-color: #1890ff;{% endif %}">
-                {{ num }}
-            </a>
-            {% endfor %}
-            
-            {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}" style="padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px;">下一页</a>
-            {% endif %}
-        </div>
-    </div>
+    <nav class="qa-pagination" aria-label="分页">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}">上一页</a>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+        <a href="?page={{ num }}" class="{% if page_obj.number == num %}is-active{% endif %}">{{ num }}</a>
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}">下一页</a>
+        {% endif %}
+    </nav>
     {% endif %}
 </div>
 
@@ -133,7 +274,7 @@ function handleItemClick(event, linkUrl, detailUrl) {
     event.preventDefault();
     if (linkUrl && linkUrl.trim() !== '' && linkUrl !== '#') {
         try {
-            new URL(linkUrl); // 验证URL格式
+            new URL(linkUrl);
             window.location.href = linkUrl;
         } catch (e) {
             window.location.href = detailUrl;
@@ -142,11 +283,10 @@ function handleItemClick(event, linkUrl, detailUrl) {
         window.location.href = detailUrl;
     }
 }
-
-function handleDoubleClick(event, url) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    window.location.href = url;
+function qaCardActivate(event, el) {
+    var detailUrl = el.getAttribute('data-detail-url');
+    var linkUrl = el.getAttribute('data-link-url') || '';
+    handleItemClick(event, linkUrl, detailUrl);
 }
 </script>
 {% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if summary %}编辑总结{% else %}创建总结{% endif %} · {{ subject.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'aieditor-main/dist/style.css' %}">
+<style>
+.summary-edit-page { max-width: 960px; margin: 0 auto; padding: 16px 20px 40px; }
+.summary-edit-page h1 { font-size: 1.25rem; margin: 0 0 16px; }
+.summary-edit-page .row { margin-bottom: 14px; }
+.summary-edit-page label { display: block; font-weight: 500; margin-bottom: 6px; }
+.summary-edit-page input[type="text"], .summary-edit-page textarea#summaryOverview {
+    width: 100%; max-width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d9d9d9; border-radius: 4px;
+}
+#aeditor-summary-body { min-height: 320px; border: 1px solid #e8e8e8; border-radius: 6px; }
+.summary-edit-actions { margin-top: 20px; display: flex; gap: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="summary-edit-page">
+    <h1>{% if summary %}编辑总结{% else %}创建总结{% endif %}</h1>
+    <p style="color:#666;font-size:13px;margin-bottom:16px;">
+        项目：{{ subject.name }} ·
+        <a href="{% url 'courses:subject_plan_review' subject.id %}">返回安排与回顾</a>
+    </p>
+
+    <div class="row">
+        <label for="summaryTitle">标题</label>
+        <input type="text" id="summaryTitle" maxlength="200" placeholder="总结标题" value="{{ summary.title|default:''|escape }}">
+    </div>
+    <div class="row">
+        <label for="summaryOverview">概述</label>
+        <textarea id="summaryOverview" rows="3" placeholder="简短概述（列表页展示）">{{ summary.overview|default:''|escape }}</textarea>
+    </div>
+    <div class="row">
+        <label>正文</label>
+        <div id="aeditor-summary-body"></div>
+    </div>
+
+    <div class="summary-edit-actions">
+        <button type="button" class="ant-btn ant-btn-primary" id="summarySaveBtn">保存</button>
+        <a class="ant-btn" href="{% url 'courses:subject_plan_review' subject.id %}">取消</a>
+    </div>
+</div>
+
+<script src="{% static 'vendor/js/react.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/antd.min.js' %}"></script>
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+
+<script type="module">
+import { AiEditor } from '/static/aieditor-main/dist/index.js';
+
+const subjectPk = {{ subject.id }};
+const summaryId = {% if summary %}{{ summary.id }}{% else %}null{% endif %};
+const initialHtml = {{ summary_body_json|safe }};
+
+const editor = new AiEditor({
+    ...(typeof window.getAiEditorImageOption === 'function' ? window.getAiEditorImageOption() : {}),
+    element: '#aeditor-summary-body',
+    placeholder: '在此撰写总结正文…',
+    theme: 'default',
+    onCreated: (ed) => {
+        if (initialHtml) ed.setContent(initialHtml);
+    },
+});
+
+document.getElementById('summarySaveBtn').addEventListener('click', async () => {
+    const title = document.getElementById('summaryTitle').value.trim();
+    const overview = document.getElementById('summaryOverview').value.trim();
+    const body = editor.getHtml();
+    if (!title) {
+        alert('请填写标题');
+        return;
+    }
+    const csrfEl = document.querySelector('#django-csrf-holder input[name=csrfmiddlewaretoken]');
+    const csrf = csrfEl ? csrfEl.value : '';
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf,
+    };
+    try {
+        if (summaryId == null) {
+            const res = await fetch('/courses/api/subject/' + subjectPk + '/plan-summaries/', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ title, overview, body }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.detail || '保存失败');
+            window.location.href = '/courses/subject/' + subjectPk + '/plan-review/';
+        } else {
+            const res = await fetch('/courses/api/plan-summaries/' + summaryId + '/', {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({ title, overview, body }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.detail || '保存失败');
+            window.location.href = '/courses/subject/' + subjectPk + '/plan-review/';
+        }
+    } catch (e) {
+        alert(e.message || '保存失败');
+    }
+});
+</script>
+{% endblock %}

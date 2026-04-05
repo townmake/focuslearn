@@ -6,7 +6,12 @@
 <div class="ant-page-container">
     <div class="ant-page-header">
         <div class="ant-page-header-heading">
-            <span class="ant-page-header-heading-title">{{ object.title }}</span>
+            <div class="qa-detail-head-text">
+                <span class="ant-page-header-heading-title">{{ object.title }}</span>
+                {% if object.subtitle %}
+                <p class="qa-detail-page-subtitle">{{ object.subtitle }}</p>
+                {% endif %}
+            </div>
             <div class="ant-page-header-heading-extra">
                 <a href="{% url 'weekly_planner:quick_access_edit' object.id %}" class="ant-btn ant-btn-warning">编辑</a>
                 <button class="ant-btn ant-btn-danger" onclick="confirmDelete(event, {{ object.id }})">删除</button>
@@ -31,25 +36,27 @@
                     </div>
                 </div>
                 <div class="ant-descriptions-item">
+                    <div class="ant-descriptions-item-label">副标题</div>
+                    <div class="ant-descriptions-item-content">{% if object.subtitle %}{{ object.subtitle }}{% else %}<span style="color:#bfbfbf;">未填写</span>{% endif %}</div>
+                </div>
+                <div class="ant-descriptions-item">
                     <div class="ant-descriptions-item-label">序号</div>
                     <div class="ant-descriptions-item-content">
                         {{ object.position }}
                     </div>
                 </div>
                 <div class="ant-descriptions-item">
-                    {% if object.icon == "images/create_default.png" %}
-                          <!-- 当图片为默认图片时，不展示任何内容 -->
-                    {% else %}
-                        {% if object.icon %} 
-                            <!-- 有内容时才展示，无内容也不展示 -->
-                            <div class="ant-descriptions-item-content">
-                                <img src="{{ object.icon.url }}" alt="{{ object.title }}" 
-                                    style="max-height: 96px; margin-bottom: 8px;"
-                                    onerror="this.src='{% static 'images/create_default.png'%}'">
-                            </div>
+                    <div class="ant-descriptions-item-label">图标</div>
+                    <div class="ant-descriptions-item-content">
+                        {% if object.get_icon_image_url %}
+                        <img src="{{ object.get_icon_image_url }}" alt="{{ object.title }}"
+                            width="48" height="48" style="width:48px;height:48px;object-fit:contain;"
+                            onerror="this.src='{% static 'images/create_default.png' %}'">
+                        {% else %}
+                        <img src="{% static 'images/create_default.png' %}" alt="{{ object.title }}"
+                            width="48" height="48" style="width:48px;height:48px;object-fit:contain;">
                         {% endif %}
-                    {% endif %}
-                   
+                    </div>
                 </div>
                 <div class="ant-descriptions-item">
                     {% if object.link %}
@@ -105,11 +112,26 @@ window.editorContent = new AiEditor({
 .ant-page-header-heading {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    gap: 16px;
+}
+.qa-detail-head-text {
+    flex: 1;
+    min-width: 0;
 }
 .ant-page-header-heading-title {
-    font-size: 20px;
-    color: rgba(0, 0, 0, 0.85);
+    display: block;
+    font-size: 22px;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.88);
+    line-height: 1.3;
+}
+.qa-detail-page-subtitle {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.55;
+    font-weight: 400;
 }
 .ant-page-header-heading-extra {
     display: flex;

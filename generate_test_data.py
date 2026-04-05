@@ -7,7 +7,7 @@ from faker import Faker
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'learning_system.settings')
 django.setup()
 
-from courses.models import Subject, Chapter, KnowledgePoint, Document, Video, Exercise
+from courses.models import Subject, Chapter, KnowledgePoint, Document, Video
 from django.contrib.auth.models import User
 
 fake = Faker()

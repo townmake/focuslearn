@@ -13,7 +13,6 @@ from .serializers import (
     KnowledgePointSerializer_PUT,
     VideoSerializer,
     DocumentSerializer_get,
-    ExerciseSerializer,
     KnowledgePointAnnotationSerializer
 )
 from django.http import JsonResponse
@@ -154,12 +153,10 @@ def knowledge_point_resources(request, pk):
     
     videos = knowledge_point.videos.all().values('id', 'title', 'duration')
     documents = knowledge_point.documents.all().values('id', 'title', 'file')
-    exercises = knowledge_point.exercises.all().values('id', 'question_type', 'content')
-    
+
     return Response({
         'videos': list(videos),
         'documents': list(documents),
-        'exercises': list(exercises)
     }, status=status.HTTP_200_OK)
 
 
@@ -208,12 +205,10 @@ class KnowledgePointResourcesAPI(APIView):
         
         videos = knowledge_point.videos.all()
         documents = knowledge_point.documents.all()
-        exercises = knowledge_point.exercises.all()
-        
+
         data = {
             'videos': VideoSerializer(videos, many=True).data,
             'documents': DocumentSerializer_get(documents, many=True).data,
-            'exercises': ExerciseSerializer(exercises, many=True).data
         }
         
         return Response(data)

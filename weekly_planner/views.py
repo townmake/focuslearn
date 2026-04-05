@@ -4,7 +4,6 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from .models import Task
-from courses.models import ReviewSet
 import json
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
@@ -27,10 +26,32 @@ def planner_view(request):
 @login_required
 def calendar_view(request):
     """
-    日历视图
+    日历视图。
+    可选 GET：plan_subject / plan_chapter（或 subject / chapter）限定项目与子任务；
+    embed=1 时隐藏主导航（用于安排与回顾页内嵌 iframe）。
     """
+    plan_subject = request.GET.get('plan_subject') or request.GET.get('subject')
+    plan_chapter = request.GET.get('plan_chapter') or request.GET.get('chapter')
+    plan_review_subject_id = None
+    plan_review_chapter_id = None
+    if plan_subject not in (None, ''):
+        try:
+            plan_review_subject_id = int(plan_subject)
+        except (TypeError, ValueError):
+            pass
+    if plan_chapter not in (None, ''):
+        try:
+            plan_review_chapter_id = int(plan_chapter)
+        except (TypeError, ValueError):
+            pass
+    embed = request.GET.get('embed') == '1'
     context = {
         'title': '日历视图',
+        'plan_review_subject_id': plan_review_subject_id,
+        'plan_review_chapter_id': plan_review_chapter_id,
+        'hide_navbar': embed,
+        # 内嵌安排与回顾：日历自然铺高，由父页面滚动，不在 iframe 内出竖条
+        'calendar_embed_expand': embed,
     }
     return render(request, 'weekly_planner/calendar.html', context)
 
@@ -65,24 +86,9 @@ def home_tasks_view(request):
     completed_tasks = tasks.filter(is_completed=True)
     uncompleted_tasks = tasks.filter(is_completed=False)
     
-    # 获取今日复习任务
-    review_sets = ReviewSet.objects.filter(
-        created_at__date=today
-    ).select_related('chapter__subject')
-    
-    # 按科目分组
-    subjects_reviews = {}
-    for review in review_sets:
-        subject = review.chapter.subject if review.chapter else None
-        if subject not in subjects_reviews:
-            subjects_reviews[subject] = []
-        subjects_reviews[subject].append(review)
-    
     context = {
         'completed_tasks': completed_tasks,
         'uncompleted_tasks': uncompleted_tasks,
-        'subjects_reviews': subjects_reviews,
-        'daily_review_sets': subjects_reviews  # 保持兼容
     }
     return render(request, 'home.html', context)
 
@@ -123,6 +129,9 @@ class QuickAccessListView(ListView):
     model = QuickAccess
     template_name = 'weekly_planner/quick_access_list.html'
     context_object_name = 'quick_access_items'
+
+    def get_queryset(self):
+        return QuickAccess.objects.select_related("library_icon").all()
     paginate_by = 36  # 6行×6列=36项每页
 
     def get_queryset(self):
@@ -131,6 +140,9 @@ class QuickAccessListView(ListView):
 class QuickAccessDetailView(DetailView):
     model = QuickAccess
     template_name = 'weekly_planner/quick_access_detail.html'
+
+    def get_queryset(self):
+        return QuickAccess.objects.select_related("library_icon")
     context_object_name = 'object'
 
 class QuickAccessCreateView(SuccessMessageMixin, CreateView):

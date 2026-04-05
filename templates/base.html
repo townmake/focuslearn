@@ -109,6 +109,7 @@
         };
     })();
     </script>
+    {% if not hide_navbar %}
     <nav class="navbar">
         <a href="{% url 'home' %}" class="navbar-brand">时间管理系统</a>
         <ul class="navbar-nav">
@@ -125,8 +126,9 @@
             {% endif %}
         </ul>
     </nav>
+    {% endif %}
 
-    <main>
+    <main{% if hide_navbar %} class="main--embed" style="padding: 0.5rem 1rem;"{% endif %}>
         {% block content %}
         {% endblock %}
     </main>

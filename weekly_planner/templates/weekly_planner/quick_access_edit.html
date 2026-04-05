@@ -3,218 +3,126 @@
 
 {% block title %}编辑便捷记录{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<link rel="stylesheet" href="{% static 'aieditor-main/dist/style.css' %}">
+<style>
+.qa-edit-wrap { max-width: min(100vw - 40px, 1600px); width: 100%; margin: 0 auto; padding: 20px; box-sizing: border-box; }
+.qa-edit-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 16px; color: rgba(0,0,0,0.85); }
+.qa-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); padding: 20px; }
+.qa-form-item { margin-bottom: 16px; display: flex; flex-direction: row; align-items: flex-start; }
+.qa-form-label { flex: 0 0 100px; width: 100px; font-weight: 500; padding-top: 8px; color: rgba(0,0,0,0.85); }
+.qa-form-control { flex: 1; min-width: 0; }
+#editor-ex-content { width: 100%; min-height: 345px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+.qa-icon-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.qa-icon-option { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 8px; border: 1px solid #e8e8e8; border-radius: 8px; min-width: 72px; }
+.qa-icon-option:has(input:checked) { border-color: #1890ff; background: #e6f7ff; }
+.qa-icon-thumb { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+.qa-icon-thumb img { width: 32px; height: 32px; object-fit: contain; display: block; }
+.qa-icon-label { font-size: 12px; color: #666; text-align: center; max-width: 88px; overflow: hidden; text-overflow: ellipsis; }
+.qa-field-error { color: #ff4d4f; font-size: 13px; margin-top: 6px; }
+.qa-form-actions { text-align: right; margin-top: 20px; }
+.qa-form-control input, .qa-form-control textarea, .qa-form-control select { width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+.ant-btn { padding: 8px 16px; font-size: 14px; border-radius: 4px; margin-left: 8px; border: none; cursor: pointer; }
+.ant-btn-primary { background: #1890ff; color: #fff; }
+.ant-btn-default { background: #f0f0f0; color: rgba(0,0,0,0.65); }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="ant-page-container">
+<div class="qa-edit-wrap">
+    <div class="qa-edit-title">编辑便捷记录</div>
+    <div class="qa-card">
+        <form method="post" class="ant-form">
+            {% csrf_token %}
+            <div class="qa-form-item">
+                <label class="qa-form-label">详情描述</label>
+                <div class="qa-form-control">
+                    <div id="editor-ex-content"></div>
+                </div>
+            </div>
+            <input type="hidden" id="description" name="description" value="{{ form.description.value|default_if_none:'' }}">
 
-    <div class="ant-page-header-heading">
-        <span class="ant-page-header-heading-title">编辑便捷记录</span>
-    </div>
-    <div class="ant-card">
-        <div class="ant-card-body">
-            <form method="post" enctype="multipart/form-data" class="ant-form">
-                {% csrf_token %}
-                <div class="ant-form-item quick-access-edit-editor-item">
-                    <label class="ant-form-label">详情描述</label>
-                    <div id="editor-ex-content" class="quick-access-editor-mount quick-access-editor-mount--edit"></div>
-                </div>
-                <input type="hidden" id="description" name="description" value="{{ form.description.value|default_if_none:'' }}"> 
+            <div class="qa-form-item">
+                <label class="qa-form-label" for="id_title">标题</label>
+                <div class="qa-form-control">{{ form.title }}</div>
+            </div>
 
-                <div class="ant-form-item">
-                    <label class="ant-form-label">标题</label>
-                    <div class="ant-form-item-control">
-                        {{ form.title }}
-                    </div>
+            <div class="qa-form-item">
+                <label class="qa-form-label" for="id_subtitle">副标题</label>
+                <div class="qa-form-control">
+                    {{ form.subtitle }}
+                    <div style="font-size:12px;color:#999;margin-top:4px;">列表卡片标题下方展示，可选。</div>
                 </div>
-                
-                <div class="ant-form-item">
-                    <label class="ant-form-label">位置序号</label>
-                    <div class="ant-form-item-control">
-                        {{ form.position }}
-                        <div class="ant-form-text">数字越小排序越前</div>
-                    </div>
+            </div>
+
+            <div class="qa-form-item">
+                <label class="qa-form-label" for="id_position">位置序号</label>
+                <div class="qa-form-control">
+                    {{ form.position }}
+                    <div style="font-size:12px;color:#999;margin-top:4px;">数字越小排序越前</div>
                 </div>
-                
-                <div class="ant-form-item">
-                    <label class="ant-form-label">图标</label>
-                    <div class="ant-form-item-control">
-                        {{ form.icon }}
-                        <div class="ant-image-preview">
-                            <div id="newIconPreview" class="ant-image-new" style="display:none; text-align:left;margin-bottom: 8px;margin-top: 8px;">
-                                <span>新图标预览：</span>
-                                <img id="previewImage" src="#" alt="新图标预览" style="max-width: 96px;">
-                            </div>
-                        </div>
-                        <div class="ant-form-text">上传新图标将替换当前图标 (建议尺寸: 100x100像素)</div>
-                    </div>
-                </div>
-                
-                <div class="ant-form-item">
-                    <label class="ant-form-label">跳转链接</label>
-                    <div class="ant-form-item-control">
-                        {{ form.link }}
-                    </div>
-                </div>
-                
-                <div class="ant-form-actions" style="text-align: right; margin-top: 6px;" >
-                    <button type="submit" class="ant-btn ant-btn-primary">保存</button>
-                    <button onclick="history.back();" class="ant-btn ant-btn-default">返回</button>
-                </div>
-            </form>
-        </div>
+            </div>
+
+            <div class="qa-form-item">
+                <label class="qa-form-label">图标</label>
+                <div class="qa-form-control">{% include "weekly_planner/_quick_access_icon_field.html" %}</div>
+            </div>
+
+            <div class="qa-form-item">
+                <label class="qa-form-label" for="id_link">跳转链接</label>
+                <div class="qa-form-control">{{ form.link }}</div>
+            </div>
+
+            <div class="qa-form-actions">
+                <button type="submit" class="ant-btn ant-btn-primary">保存</button>
+                <button type="button" onclick="history.back();" class="ant-btn ant-btn-default">返回</button>
+            </div>
+        </form>
     </div>
 </div>
-<link rel="stylesheet" href="/static/aieditor-main/dist/style.css">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/js/react.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/antd.min.js' %}"></script>
 <script src="{% static 'js/dropzone.min.js' %}"></script>
+<script src="{% static 'js/quick-access-aieditor-helpers.js' %}"></script>
 <script type="module">
 import { AiEditor } from '/static/aieditor-main/dist/index.js';
 
-window.editorContent = new AiEditor({
-    ...window.getAiEditorImageOption(),
-    element: '#editor-ex-content',
-    placeholder: '开始输入题目内容...',
-    theme: 'default',
-    onCreated: (editor) => {
-        editor.setEditable(true);
-        // 如果有初始内容，设置编辑器内容
-        const initialContent = document.getElementById('description').value;
-        console.log('Initial content:', initialContent);
-        if (initialContent) {
-            editor.setContent(initialContent);
-        } else {
-            editor.setContent('<p>请输入内容...</p>');
-        }   
-    },
-    onChange: (editor) => {
-        document.getElementById('description').value = editor.getHtml();
-    }
-});
+var initial = document.getElementById('description').value;
+var base = Object.assign(
+    {},
+    typeof window.getAiEditorImageOption === 'function' ? window.getAiEditorImageOption() : {},
+    window.buildQuickAccessAiEditorOptions({
+        element: '#editor-ex-content',
+        toolbarKeys: [],
+        placeholder: '开始输入内容…',
+        theme: 'default',
+        onCreated: function (editor) {
+            editor.setEditable(true);
+            if (initial && initial.trim()) {
+                editor.setContent(initial);
+            } else {
+                editor.setContent('<p></p>');
+            }
+            window.attachQuickAccessMarkdownPasteGuard(editor, '#editor-ex-content');
+        },
+        onChange: function (editor) {
+            var el = document.getElementById('description');
+            if (el) el.value = editor.getHtml();
+        },
+    })
+);
+
+window.editorContent = new AiEditor(base);
 </script>
-<style>
-.ant-page-container {
-    max-width: min(100vw - 40px, 1600px);
-    width: 100%;
-    margin: 0 auto;
-    padding: 20px;
-    box-sizing: border-box;
-}
-.ant-page-header {
-    margin-bottom: 24px;
-}
-.ant-page-header-heading {
-    display: flex;
-    justify-content: space-between;     
-    align-items: center;
-}
-.ant-page-header-heading-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: rgba(0, 0, 0, 0.85);
-}
-.ant-card {     
-    border-radius: 8px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-.ant-card-body {
-    padding: 20px;
-}
-.ant-form-item {
-    margin-bottom: 16px;
-    display: flex;
-    flex-direction: row;
-}
-.quick-access-edit-editor-item {
-    align-items: flex-start;
-}
-.quick-access-edit-editor-item .ant-form-label {
-    margin-top: 12px;
-}
-.quick-access-editor-mount--edit {
-    flex: 1;
-    min-width: 0;
-    max-width: 100%;
-    width: 100%;
-    min-height: 345px;
-    height: fit-content;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-sizing: border-box;
-}
-.ant-form-label {
-    margin-top: 16px;
-    flex: 0 0 100px;
-    width: 100px;
-    font-weight: 500;
-    color: rgba(0, 0, 0, 0.85);
-}
-.ant-form-item-control {
-    flex: 1;
-    min-width: 0;
-    margin-top: 8px;
-}
-.ant-form-item-control input,
-.ant-form-item-control textarea,
-.ant-form-item-control select {
-    width: 100%;
-    padding: 8px;   
-    border: 1px solid #d9d9d9;
-    border-radius: 4px;
-    font-size: 14px;
-}
-.ant-form-item-control input:focus,
-.ant-form-item-control textarea:focus,
-.ant-form-item-control select:focus {
-    border-color: #40a9ff;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-}
-.ant-form-text {
-    font-size: 12px;
-    color: rgba(0, 0, 0, 0.45);
-    margin-top: 4px;
-}
-.ant-form-actions {
-    text-align: right;
-    margin-top: 20px;
-}
-.ant-btn {
-    padding: 8px 16px;
-    font-size: 14px;    
-    border-radius: 4px; 
-    margin-left: 8px;
-}
-.ant-btn-primary {
-    background-color: #1890ff;      
-    color: white;
-    border: none;
-}
-.ant-btn-primary:hover {
-    background-color: #40a9ff;
-}
-.ant-btn-default {
-    background-color: #f0f0f0;
-    color: rgba(0, 0, 0, 0.65);
-    border: none;
-}
-</style>
-{% endblock %}
-{% block extra_js %}
 <script>
-document.getElementById('id_icon').addEventListener('change', function(e) {
-    const preview = document.getElementById('newIconPreview');
-    const previewImage = document.getElementById('previewImage');
-    const currentIcon = document.getElementById('currentIcon');
-    const file = e.target.files[0];
-    
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            preview.style.display = 'block';
-            if(currentIcon) currentIcon.style.display = 'none';
-            previewImage.src = e.target.result;
-        }
-        reader.readAsDataURL(file);
-    } else {
-        preview.style.display = 'none';
-        if(currentIcon) currentIcon.style.display = 'block';
+document.querySelector('form.ant-form').addEventListener('submit', function () {
+    if (window.editorContent && typeof window.editorContent.getHtml === 'function') {
+        document.getElementById('description').value = window.editorContent.getHtml();
     }
 });
 </script>

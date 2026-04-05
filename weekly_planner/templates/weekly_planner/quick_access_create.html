@@ -3,224 +3,118 @@
 
 {% block title %}创建便捷记录{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
+<link rel="stylesheet" href="{% static 'aieditor-main/dist/style.css' %}">
+<style>
+.qa-page-wrap { max-width: 1400px; margin: 0 auto; padding: 5px; background: #f6f7f7; }
+.qa-form-card { background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.qa-form-item { margin-bottom: 24px; display: flex; flex-direction: row; align-items: flex-start; }
+.qa-form-item--editor { align-items: flex-start; }
+.qa-form-label { margin-right: 16px; width: 100px; flex-shrink: 0; padding-top: 8px; color: rgba(0,0,0,0.85); }
+.qa-form-control { flex: 1; min-width: 0; }
+#editor-ex-content { width: 100%; max-width: 1200px; min-height: 345px; border: 1px solid #ddd; border-radius: 4px; }
+.qa-icon-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.qa-icon-option { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 8px; border: 1px solid #e8e8e8; border-radius: 8px; min-width: 72px; }
+.qa-icon-option:has(input:checked) { border-color: #1890ff; background: #e6f7ff; }
+.qa-icon-option input { margin: 0; }
+.qa-icon-thumb { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+.qa-icon-thumb img { width: 32px; height: 32px; object-fit: contain; display: block; }
+.qa-icon-label { font-size: 12px; color: #666; text-align: center; max-width: 88px; overflow: hidden; text-overflow: ellipsis; }
+.qa-field-error { color: #ff4d4f; font-size: 13px; margin-top: 6px; }
+.qa-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.ant-btn { padding: 6px 16px; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 14px; border: none; }
+.ant-btn-default { border: 1px solid #d9d9d9; color: rgba(0,0,0,0.65); background: #fff; }
+.ant-btn-primary { background: #1890ff; color: #fff; }
+.qa-form-control input, .qa-form-control textarea, .qa-form-control select { width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+</style>
+{% endblock %}
+
 {% block content %}
-
-<div class="ant-page-container">
-    <form method="post" enctype="multipart/form-data" class="ant-form">
+<div class="qa-page-wrap">
+    <form method="post" class="ant-form qa-form-card">
         {% csrf_token %}
-        <div class="ant-form-item">
-            <label class="ant-form-label">详情描述</label>
-            <div id="editor-ex-content" style="width:100%; max-width:1200px;height:fit-content; min-height: 345px;border:1px solid #ddd; border-radius:4px;"frameborder="0">
+        <div class="qa-form-item qa-form-item--editor">
+            <label class="qa-form-label">详情描述</label>
+            <div class="qa-form-control">
+                <div id="editor-ex-content"></div>
             </div>
         </div>
-        <input type="hidden" id="description" name="description"> 
-        
-        <div class="ant-form-item">
-            <label class="ant-form-label">标题</label>
-            {{ form.title }}
+        <input type="hidden" id="description" name="description" value="">
+
+        <div class="qa-form-item">
+            <label class="qa-form-label" for="id_title">标题</label>
+            <div class="qa-form-control">{{ form.title }}</div>
         </div>
-        
-        <div class="ant-form-item" style="max-width: 100%;">
-            <label class="ant-form-label">位置序号</label>
-            <div class="content-and-tips" style="width: 100%;">
+
+        <div class="qa-form-item">
+            <label class="qa-form-label" for="id_subtitle">副标题</label>
+            <div class="qa-form-control">
+                {{ form.subtitle }}
+                <div class="ant-form-text" style="margin-top:4px;color:#999;font-size:13px;">显示在列表卡片中标题下方，建议不超过两行。</div>
+            </div>
+        </div>
+
+        <div class="qa-form-item">
+            <label class="qa-form-label" for="id_position">位置序号</label>
+            <div class="qa-form-control">
                 {{ form.position }}
-                <div class="ant-form-text">数字越小排序越前</div>
-            </div>
-        </div>
-        
-        <div class="ant-form-item">
-            <label class="ant-form-label">图标</label>
-            <div class="content-and-tips" style="width: 100%;">
-                {{ form.icon }}
-                <div class="ant-image-preview">
-                    <div class="ant-image-default">
-                        <!-- <span>默认图标：</span> -->
-                        <img id="defaultIcon" src="/static/images/create_default.png" alt="默认图标" style="width: 64px; display: none;">
-                    </div>
-                    <div id="newIconPreview" class="ant-image-new" style="display:none;">
-                        <span >新图标预览：</span>
-                        <img id="previewImage" src="#" alt="新图标预览">
-                    </div>
-                </div>
-                <div class="ant-form-text">上传新图标将替换默认图标 (建议尺寸: 100x100像素)</div>
+                <div class="ant-form-text" style="margin-top:4px;color:#999;font-size:13px;">数字越小排序越前</div>
             </div>
         </div>
 
-        
-        <div class="ant-form-item">
-            <label class="ant-form-label">跳转链接</label>
-            {{ form.link }}
+        <div class="qa-form-item">
+            <label class="qa-form-label">图标</label>
+            <div class="qa-form-control">{% include "weekly_planner/_quick_access_icon_field.html" %}</div>
         </div>
-        
 
-        <div class="ant-form-actions">
+        <div class="qa-form-item">
+            <label class="qa-form-label" for="id_link">跳转链接</label>
+            <div class="qa-form-control">{{ form.link }}</div>
+        </div>
+
+        <div class="qa-form-actions">
             <a href="{% url 'weekly_planner:quick_access_list' %}" class="ant-btn ant-btn-default">取消</a>
             <button type="submit" class="ant-btn ant-btn-primary">保存</button>
         </div>
     </form>
 </div>
-<link rel="stylesheet" href="/static/aieditor-main/dist/style.css">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/js/react.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
+<script src="{% static 'vendor/js/antd.min.js' %}"></script>
 <script src="{% static 'js/dropzone.min.js' %}"></script>
+<script src="{% static 'js/quick-access-aieditor-helpers.js' %}"></script>
 <script type="module">
 import { AiEditor } from '/static/aieditor-main/dist/index.js';
 
-window.editorContent = new AiEditor({
-    ...window.getAiEditorImageOption(),
-    element: '#editor-ex-content',
-    placeholder: '开始输入题目内容...',
-    theme: 'default',
-    onCreated: (editor) => {
-        editor.setEditable(true);
-    },
-    onChange: (editor) => {
-        document.getElementById('description').value = editor.getHtml();
-    }
-});
+var base = Object.assign(
+    {},
+    typeof window.getAiEditorImageOption === 'function' ? window.getAiEditorImageOption() : {},
+    window.buildQuickAccessAiEditorOptions({
+        element: '#editor-ex-content',
+        toolbarKeys: [],
+        placeholder: '开始输入内容…',
+        theme: 'default',
+        onCreated: function (editor) {
+            editor.setEditable(true);
+            window.attachQuickAccessMarkdownPasteGuard(editor, '#editor-ex-content');
+        },
+        onChange: function (editor) {
+            var el = document.getElementById('description');
+            if (el) el.value = editor.getHtml();
+        },
+    })
+);
+
+window.editorContent = new AiEditor(base);
 </script>
-
-<style>
-.ant-page-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 5px;
-    background: #f6f7f7;
-}
-
-.ant-page-title {
-    margin-bottom: 24px;
-    color: rgba(0,0,0,0.85);
-    font-size: 20px;
-    font-weight: 500;
-}
-
-.ant-form {
-    background: #fff;
-    padding: 24px;
-    border-radius: 8px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-
-.ant-form-item {
-    margin-bottom: 24px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-}
-
-.ant-form-label {
-    margin-right: 16px; /* 添加右外边距 */
-    width: 100px; /* 设置标签宽度 */
-    display: inline-block; /* 可选：确保标签是行内块级元素 */
-    color: rgba(0,0,0,0.85);
-}
-.content-and-tips{
-    flex: 1; /* 让内容区域占据剩余空间 */
-    position: relative; /* 为了定位提示文本 */
-}
-.ant-form-text {
-    margin-top: 2px;
-    color: rgba(0,0,0,0.45);
-    font-size: 14px;
-}
-
-.ant-image-preview {
-    margin-top: 16px;
-}
-
-.ant-image-current, .ant-image-new {
-    margin-bottom: 16px;
-    text-align: left;
-}
-
-.ant-image-current span, .ant-image-new span {
-    display: block;
-    margin-bottom: 8px;
-    color: rgba(0,0,0,0.45);
-}
-
-.ant-image-current img, .ant-image-new img {
-    max-height: 100px;
-    border-radius: 4px;
-    border: 1px solid #d9d9d9;
-    display: block;
-}
-
-.ant-form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 6px;
-    margin-top: 8px;
-}
-
-.ant-btn {
-    padding: 6px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    text-decoration: none;
-    font-size: 14px;
-}
-
-.ant-btn-default {
-    border: 1px solid #d9d9d9;
-    color: rgba(0,0,0,0.65);
-    background: #fff;
-}
-
-.ant-btn-primary {
-    background: #1890ff;
-    color: white;
-    border: none;
-}
-
-/* Form field styling */
-input, textarea, select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #d9d9d9;
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-input:focus, textarea:focus, select:focus {
-    border-color: #1890ff;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-}
-</style>
-{% endblock %}
-
-{% block scripts %}
 <script>
-document.getElementById('id_icon').addEventListener('change', function(e) {
-    const preview = document.getElementById('newIconPreview');
-    const previewImage = document.getElementById('previewImage');
-    const defaultIcon = document.getElementById('defaultIcon');
-    const file = e.target.files[0];
-    
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            preview.style.display = 'block';
-            defaultIcon.style.display = 'none';
-            previewImage.src = e.target.result;
-        }
-        reader.readAsDataURL(file);
-    } else {
-        preview.style.display = 'none';
-        defaultIcon.style.display = 'block';
-    }
-});
-
-// 表单提交前处理
-document.querySelector('form').addEventListener('submit', function(e) {
-    const fileInput = document.getElementById('id_icon');
-    if (!fileInput.files.length) {
-        // 当没有选择文件时，添加隐藏字段传递默认图标路径
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'use_default_icon';
-        hiddenInput.value = 'true';
-        this.appendChild(hiddenInput);
+document.querySelector('form.ant-form').addEventListener('submit', function () {
+    if (window.editorContent && typeof window.editorContent.getHtml === 'function') {
+        document.getElementById('description').value = window.editorContent.getHtml();
     }
 });
 </script>

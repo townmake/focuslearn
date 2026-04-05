@@ -186,9 +186,21 @@ class Chapter(models.Model):
         default=0, 
         verbose_name="学习进度(%)"
     )
-    process_description = models.CharField(_('进度描述'), max_length=255, null=True, blank=True)
 
-    models.CharField(_('标题'), max_length=255)
+    class ProgressStatus(models.TextChoices):
+        IN_PROGRESS = "进行中", "进行中"
+        FOCUS = "攻坚", "攻坚"
+        WRAP_UP = "收尾", "收尾"
+        ON_HOLD = "挂起", "挂起"
+        DONE = "完成", "完成"
+
+    progress_status = models.CharField(
+        _("进度状态"),
+        max_length=20,
+        choices=ProgressStatus.choices,
+        default=ProgressStatus.IN_PROGRESS,
+    )
+
     #统计字段
     knowledge_points_count = models.PositiveIntegerField(default=0)
     documents_count = models.PositiveIntegerField(default=0)
@@ -268,13 +280,6 @@ class KnowledgePoint(MPTTModel):
         blank=True,
         verbose_name=_('关联视频')
     )
-    exercises = models.ManyToManyField(
-        'Exercise',
-        related_name='related_knowledge_points',
-        blank=True,
-        verbose_name=_('关联习题')
-    )
-
     class Meta:
         verbose_name = _('知识点')
         verbose_name_plural = _('知识点')
@@ -445,107 +450,10 @@ class VideoComment(models.Model):
 
 
         
-class Exercise(models.Model):
-    """习题模型"""
-    QUESTION_TYPE_CHOICES = [
-        ('single_choice', '单选题'),
-        ('multiple_choice', '多选题'),
-        ('true_false', '判断题'),
-        ('fill_blank', '填空题'),
-        ('short_answer', '简答题'),
-        ('calculation', '计算题'),
-        ('reading_answer', '阅读理解'),
-        ('translation', '翻译题'),
-        ('cloze_test', '完形填空题'),
-        ('essay', '作文题'),
-        ('other', '其他'),
-    ]
-    
-    chapter = models.ForeignKey(
-        Chapter,
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-        related_name='exercises',
-        verbose_name=_('所属章节')
-    )
-    question_type = models.CharField(
-        _('题型'),
-        max_length=20,
-        choices=QUESTION_TYPE_CHOICES,
-        default='single_choice'
-    )
-    title = models.CharField(_('题目标题'), max_length=255, blank=True, null=True)
-    content = TextField(_('题目内容'))
-    options = models.JSONField(
-        _('选项'),
-        blank=True,
-        null=True,
-        help_text=_('JSON格式存储的选项，如{"A":"选项1","B":"选项2"}')
-    )
-    answer = models.TextField(_('答案'))
-    analysis = TextField(_('解析'), blank=True)
-    difficulty = models.PositiveSmallIntegerField(
-        _('难度'),
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        default=3
-    )
-    memory_level = models.PositiveSmallIntegerField(
-        _('记忆度'),
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        default=3
-    )
-    mastery_level = models.PositiveSmallIntegerField(
-        _('掌握度'),
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        default=3
-    )
-    # 答错次数
-    wrong_count = models.PositiveIntegerField(_('错误次数'), default=0,null=True, blank=True)
-    # 关联的知识点-后面再考虑如何关联起来
-    created_at = models.DateTimeField(_('创建时间'), auto_now_add=True)
-    updated_at = models.DateTimeField(_('更新时间'), auto_now=True)
-    last_studied_at = models.DateTimeField(_('最后学习时间'), null=True, blank=True)
-    #答题时间
-    answer_time = models.PositiveIntegerField(_('答题时间(秒)'), default=0, null=True, blank=True)
-    correct_count = models.PositiveIntegerField(_('正确次数'), default=0, null=True, blank=True)
-    id = models.AutoField(primary_key=True)
-    parent_id = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        default=0,
-        verbose_name=_('父习题ID')
-    )
-    order = models.PositiveIntegerField(_('题目顺序'), default=0, null=True, blank=True)
-    next_review_date = models.DateField(
-        _('下次复习日期'),
-        null=True,
-        blank=True,
-        help_text=_('根据间隔重复算法计算的下次复习日期')
-    )
-    # 关联的知识点
-    knowledge_points = models.ManyToManyField(
-        'KnowledgePoint',
-        related_name='related_exercises',
-        blank=True,
-        through='ExerciseKnowledgePoint',
-        through_fields=('exercise', 'knowledge_point'),
-        verbose_name=_('关联知识点')
-    )
-    
-    class Meta:
-        verbose_name = _('习题')
-        verbose_name_plural = _('习题')
-        ordering = ['chapter', 'id']
-    
-    def __str__(self):
-        return f"{self.get_question_type_display()}: {self.content[:50]}"
-
 class MethodSummary(models.Model):
     name = models.CharField(max_length=255, verbose_name="方法名称")
     description = TextField(_('方法描述'), blank=True)
     note= models.TextField(verbose_name="备注", blank=True)
-    exercises = models.ManyToManyField(Exercise, verbose_name="关联习题")
     knowledgePoint = models.ManyToManyField(KnowledgePoint, verbose_name="关联知识点")
     chapter = models.ForeignKey(
         Chapter,
@@ -582,112 +490,6 @@ class MethodSummary(models.Model):
     def __str__(self):
         return self.name
 
-    @property
-    def exercise_count(self):
-        return self.exercises.count()
-
-
-class ExerciseKnowledgePoint(models.Model):
-    """习题与知识点关联中间模型"""
-    exercise = models.ForeignKey(
-        'Exercise',
-        on_delete=models.CASCADE,
-        verbose_name='习题'
-    )
-    knowledge_point = models.ForeignKey(
-        'KnowledgePoint',
-        on_delete=models.CASCADE,
-        verbose_name='知识点'
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='关联时间'
-    )
-    order = models.PositiveIntegerField(
-        default=0,
-        verbose_name='排序序号'
-    )
-
-    class Meta:
-        verbose_name = '习题知识点关联'
-        verbose_name_plural = '习题知识点关联'
-        ordering = ['exercise', 'order']
-        unique_together = ('exercise', 'knowledge_point')
-
-    def __str__(self):
-        return f"{self.exercise.id} - {self.knowledge_point.title}"
-
-
-class ExerciseAnswer(models.Model):
-    """答题记录模型"""
-    exercise = models.ForeignKey(
-        'Exercise',
-        on_delete=models.CASCADE,
-        related_name='answers',
-        verbose_name='习题'
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        verbose_name='用户'
-    )
-    exercise_set_completion = models.ForeignKey(
-        'ExerciseSetCompletion',
-        on_delete=models.CASCADE,
-        related_name='answers',
-        null=True,
-        blank=True,
-        verbose_name='关联练习集完成记录'
-    )
-    review_set_completion = models.ForeignKey(
-        'ReviewSetCompletion',
-        on_delete=models.CASCADE,
-        related_name='review_answers',
-        null=True,
-        blank=True,
-        verbose_name='关联复习集完成记录'
-    )
-    answer = models.TextField(verbose_name='用户答案')
-    time_spent = models.PositiveIntegerField(
-        default=0,
-        blank=True,
-        null=True,
-        verbose_name='答题时长(秒)',
-        help_text='用户答题所用的时间'
-    )
-    is_correct = models.BooleanField(verbose_name='是否正确')
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='答题时间'
-    )
-    difficulty = models.PositiveSmallIntegerField(
-        default=3,
-        verbose_name='难度',
-        null=True,
-        blank=True
-    )
-    mastery_level = models.PositiveSmallIntegerField(
-        default=3,
-        verbose_name='掌握度',
-        null=True,
-        blank=True
-    )
-    memory_level = models.PositiveSmallIntegerField(
-        default=3,
-        verbose_name='记忆度',
-        null=True,
-        blank=True
-    )
-
-    class Meta:
-        verbose_name = '答题记录'
-        verbose_name_plural = '答题记录'
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"{self.user.username} - {self.exercise.id} - {'正确' if self.is_correct else '错误'}"
-
-
 class Comment(models.Model):
     chapter = models.ForeignKey(
         Chapter, 
@@ -718,7 +520,6 @@ class Comment(models.Model):
         choices=[
             ('videos', '视频评论'),
             ('documents', '文档评论'),
-            ('exercises', '习题评论'),
             ('knowledge_points', '知识点评论'),
             ('chapter', '章节评论'),
             ('smart-review', '复习任务评论'),
@@ -768,195 +569,6 @@ class Comment(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.content[:20]}"
-
-
-
-class ExerciseSet(models.Model):
-    """练习集模型"""
-    name = models.CharField(max_length=100, verbose_name="练习集名称")
-    chapter = models.ForeignKey(
-        Chapter,
-        on_delete=models.CASCADE,
-        related_name='exercise_sets',
-        verbose_name="所属章节"
-    )
-    suggested_time = models.PositiveIntegerField(
-        verbose_name="建议完成时间(分钟)",
-        help_text="建议完成练习集的时间(分钟)"
-    )
-    exercises = models.ManyToManyField(
-        Exercise,
-        related_name='exercise_sets',
-        verbose_name="包含习题"
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="创建时间"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name="更新时间"
-    )
-    completion_count = models.PositiveIntegerField(
-        default=0,
-        verbose_name="完成次数"
-    )
-    last_completed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name="最近完成时间"
-    )
-
-    class Meta:
-        verbose_name = "练习集"
-        verbose_name_plural = "练习集"
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.name} ({self.chapter.title})"
-
-    def get_absolute_url(self):
-        return reverse('courses:exercise_set_detail', kwargs={'pk': self.pk})
-
-class ExerciseSetCompletion(models.Model):
-    """练习集完成记录"""
-    exercise_set = models.ForeignKey(
-        ExerciseSet,
-        on_delete=models.CASCADE,
-        related_name='completions',
-        verbose_name="练习集"
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        verbose_name="用户"
-    )
-    completed_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="完成时间"
-    )
-    time_spent = models.PositiveIntegerField(
-        verbose_name="实际用时(秒)"
-    )
-    score = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        verbose_name="得分"
-    )
-    correct_count = models.PositiveIntegerField(
-        verbose_name="正确题数"
-    )
-    total_count = models.PositiveIntegerField(
-        verbose_name="总题数"
-    )
-
-    class Meta:
-        verbose_name = "练习集完成记录"
-        verbose_name_plural = "练习集完成记录"
-        ordering = ['-completed_at']
-
-    def __str__(self):
-        return f"{self.user.username} - {self.exercise_set.name}"
-    
-class ReviewSet(models.Model):
-    """复习集模型"""
-    name = models.CharField(max_length=100, verbose_name="复习集名称")
-    chapter = models.ForeignKey(
-        Chapter,
-        on_delete=models.CASCADE,
-        related_name='review_sets',
-        verbose_name="所属章节",
-        null=True,
-        blank=True
-    )
-    subject_id = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        verbose_name="关联的科目Id"
-    )
-    
-    exercises = models.ManyToManyField(
-        Exercise,
-        related_name='review_sets',
-        verbose_name="包含习题",
-        blank=True
-    )
-
-    @property
-    def subject(self):
-        """通过章节获取关联科目"""
-        if self.chapter:
-            return self.chapter.subject
-        return None
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="创建时间"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name="更新时间"
-    )
-    completion_count = models.PositiveIntegerField(
-        default=0,
-        verbose_name="完成次数"
-    )
-    last_completed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name="最近完成时间"
-    )
-
-    class Meta:
-        verbose_name = "复习集"
-        verbose_name_plural = "复习集"
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.name} ({self.chapter.title})"
-
-    def get_absolute_url(self):
-        return reverse('courses:review_set_detail', kwargs={'pk': self.pk})
-
-class ReviewSetCompletion(models.Model):
-    """复习集完成记录"""
-    review_set = models.ForeignKey(
-        ReviewSet,
-        on_delete=models.CASCADE,
-        related_name='review_completions',
-        verbose_name="复习集"
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        verbose_name="用户"
-    )
-    completed_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="完成时间"
-    )
-    time_spent = models.PositiveIntegerField(
-        verbose_name="实际用时(秒)"
-    )
-    score = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        verbose_name="得分"
-    )
-    correct_count = models.PositiveIntegerField(
-        verbose_name="正确题数"
-    )
-    total_count = models.PositiveIntegerField(
-        verbose_name="总题数"
-    )
-
-    class Meta:
-        verbose_name = "复习集完成记录"
-        verbose_name_plural = "复习集完成记录"
-        ordering = ['-completed_at']
-
-    def __str__(self):
-        return f"{self.user.username} - {self.review_set.name}"
-
 
 class StudyRecord(models.Model):
     user = models.ForeignKey(
@@ -1018,8 +630,36 @@ class StudyRecord(models.Model):
         minutes = (self.duration % 3600) // 60
         seconds = self.duration % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-    
 
+
+class SubjectPlanSummary(models.Model):
+    """项目安排与回顾：总结（富文本正文 + 标题/概述）。"""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="subject_plan_summaries",
+        verbose_name="用户",
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name="plan_summaries",
+        verbose_name="项目",
+    )
+    title = models.CharField(max_length=200, verbose_name="标题")
+    overview = models.TextField(blank=True, verbose_name="概述")
+    body = models.TextField(blank=True, verbose_name="正文", help_text="AiEditor 等保存的 HTML")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "项目总结"
+        verbose_name_plural = "项目总结"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.subject_id})"
 
 
 # 添加在所有模型定义之后

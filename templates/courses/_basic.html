@@ -34,8 +34,8 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="ant-descriptions-item-label">进度描述</td>
-                    <td class="ant-descriptions-item-content">{{ chapter.process_description}}</td>
+                    <td class="ant-descriptions-item-label">进度状态</td>
+                    <td class="ant-descriptions-item-content">{{ chapter.progress_status }}</td>
                 </tr>
             </tbody>
         </table>
@@ -92,8 +92,14 @@
                                value="{{ chapter.estimated_hours }}" min="0" required>
                     </div>
                     <div class="ant-form-item-chapter">
-                        <label class="label-chapter">进度描述</label>
-                        <textarea name="process_description" class="ant-input-chapter" rows="3">{{ chapter.process_description }}</textarea>
+                        <label class="label-chapter">进度状态</label>
+                        <select name="progress_status" class="ant-input-chapter" id="id_progress_status">
+                            <option value="进行中" {% if chapter.progress_status == '进行中' %}selected{% endif %}>进行中</option>
+                            <option value="攻坚" {% if chapter.progress_status == '攻坚' %}selected{% endif %}>攻坚</option>
+                            <option value="收尾" {% if chapter.progress_status == '收尾' %}selected{% endif %}>收尾</option>
+                            <option value="挂起" {% if chapter.progress_status == '挂起' %}selected{% endif %}>挂起</option>
+                            <option value="完成" {% if chapter.progress_status == '完成' %}selected{% endif %}>完成</option>
+                        </select>
                     </div>
                     <div class="ant-form-item-chapter">
                         <label class="label-chapter">排序序号</label>

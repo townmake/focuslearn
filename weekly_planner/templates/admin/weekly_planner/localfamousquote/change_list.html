@@ -1,0 +1,108 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+.localfq-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 100000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+.localfq-modal-overlay.is-open { display: flex; }
+.localfq-modal-dialog {
+  background: #fff;
+  border-radius: 4px;
+  max-width: 720px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  padding: 20px 24px;
+}
+.localfq-modal-dialog h2 { margin-top: 0; font-size: 1.1rem; }
+.localfq-modal-dialog textarea {
+  width: 100%;
+  min-height: 360px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.35;
+  box-sizing: border-box;
+}
+.localfq-changelist-hint {
+  background: #e7f4ff;
+  border-left: 4px solid #417690;
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.localfq-changelist-hint code { font-size: 12px; }
+.localfq-modal-help { color: #666; font-size: 12px; margin: 8px 0 12px; line-height: 1.45; }
+.localfq-modal-actions { margin-top: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+</style>
+{% endblock %}
+
+{% block object-tools-items %}
+{{ block.super }}
+{% if has_add_permission %}
+<li>
+  <button type="button" class="button" id="localfq-bulk-open">多行批量录入</button>
+</li>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{{ block.super }}
+{% if has_add_permission %}
+<div id="localfq-modal" class="localfq-modal-overlay" aria-hidden="true">
+  <div class="localfq-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="localfq-modal-title">
+    <h2 id="localfq-modal-title">批量录入名人名言</h2>
+    <p class="localfq-modal-help">每行一条，支持一次粘贴大量行（如 200 条）。仅正文即可；单独指定作者时用 <code>正文|作者</code>。「默认作者」对不含竖线的行生效；作者留空则首页显示「佚名」。</p>
+    <form method="post" action="{{ bulk_add_url }}">
+      {% csrf_token %}
+      <label for="id_default_author" style="display:block;margin-bottom:6px;font-weight:600;">默认作者（可选）</label>
+      <input type="text" name="default_author" id="id_default_author" style="width:100%;max-width:400px;margin-bottom:12px;" maxlength="200" placeholder="例如：鲁迅">
+      <label for="id_bulk_lines" style="display:block;margin-bottom:6px;font-weight:600;">名言列表（一行一条）</label>
+      <textarea name="bulk_lines" id="id_bulk_lines" rows="22" cols="80" required placeholder="每行一条；可从记事本一次粘贴数百行"></textarea>
+      <div class="localfq-modal-actions">
+        <input type="submit" class="default" value="保存到库">
+        <button type="button" class="button" id="localfq-bulk-cancel">取消</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function() {
+  var overlay = document.getElementById('localfq-modal');
+  if (!overlay) return;
+  var openBtn = document.getElementById('localfq-bulk-open');
+  var cancel = document.getElementById('localfq-bulk-cancel');
+  var dialog = overlay.querySelector('.localfq-modal-dialog');
+  function openM() {
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+    var ta = document.getElementById('id_bulk_lines');
+    if (ta) ta.focus();
+  }
+  function closeM() {
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+  if (openBtn) openBtn.addEventListener('click', function(e) { e.preventDefault(); openM(); });
+  if (cancel) cancel.addEventListener('click', function() { closeM(); });
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) closeM(); });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && overlay.classList.contains('is-open')) closeM();
+  });
+  if (dialog) dialog.addEventListener('click', function(e) { e.stopPropagation(); });
+})();
+</script>
+{% endif %}
+{% endblock %}

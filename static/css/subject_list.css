@@ -96,6 +96,42 @@
     min-width: 800px; /* 确保表格最小宽度 */
 }
 
+/* 项目列表表：名称列加宽；任务数/未完/计划/已投 四列等宽 */
+.subject-table .ant-table {
+    table-layout: fixed;
+}
+
+.subject-table .ant-table-thead > tr > th:nth-child(1) {
+    width: 34%;
+    min-width: 260px;
+}
+
+/* 四列统计等宽（各占剩余中间带的 1/4，与表头一致） */
+.subject-table .ant-table-thead > tr > th:nth-child(2),
+.subject-table .ant-table-thead > tr > th:nth-child(3),
+.subject-table .ant-table-thead > tr > th:nth-child(4),
+.subject-table .ant-table-thead > tr > th:nth-child(5) {
+    width: 11%;
+}
+
+.subject-table .ant-table-thead > tr > th:nth-child(6) {
+    width: 22%;
+}
+
+.subject-table .ant-table-tbody > tr.ant-table-row > td:nth-child(1) {
+    min-width: 260px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.subject-table .ant-table-tbody > tr.ant-table-row > td:nth-child(2),
+.subject-table .ant-table-tbody > tr.ant-table-row > td:nth-child(3),
+.subject-table .ant-table-tbody > tr.ant-table-row > td:nth-child(4),
+.subject-table .ant-table-tbody > tr.ant-table-row > td:nth-child(5) {
+    width: 11%;
+    text-align: center;
+}
+
 .ant-table-thead > tr > th {
     background-color: #fafafa;
     font-weight: 500;

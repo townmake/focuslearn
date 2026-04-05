@@ -7,6 +7,18 @@
 <link href="{% static 'vendor/css/fullcalendar.min.css' %}" rel="stylesheet" />
 <link href="{% static 'vendor/css/bootstrap.min.css' %}" rel="stylesheet">
 <link href="{% static 'css/calendar.css' %}" rel="stylesheet">
+{% if calendar_embed_expand %}
+<style>
+/* 内嵌：打断 html/body 随 iframe 无限撑高，避免与 FullCalendar 形成正反馈 */
+html { height: auto !important; }
+body { min-height: auto !important; height: auto !important; }
+main.main--embed {
+    overflow: visible !important;
+    max-height: none !important;
+    min-height: 0 !important;
+}
+</style>
+{% endif %}
 <!-- <link rel="stylesheet" href="{% static 'vendor/css/antd.min.css' %}">
 <script src="{% static 'vendor/js/react.production.min.js' %}"></script>
 <script src="{% static 'vendor/js/react-dom.production.min.js' %}"></script>
@@ -15,8 +27,25 @@
 {% endblock %}
 
 {% block content %}
-<div class="calendar-container">
-    <div id="calendar"></div>
+<div class="calendar-page-layout{% if calendar_embed_expand %} calendar-embed-expand{% endif %}">
+    <aside class="unscheduled-tasks-panel" aria-label="待安排任务">
+        <div class="unscheduled-panel-head">
+            <span class="unscheduled-panel-icon" aria-hidden="true" title="待安排">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>
+                </svg>
+            </span>
+            <h2>待安排</h2>
+            <button type="button" class="btn btn-sm btn-outline-primary unscheduled-add-btn ms-auto" id="openBatchUnscheduledBtn" title="按行输入标题批量加入待安排">添加</button>
+        </div>
+        <p class="panel-hint">可从日历拖入此栏；拖回日历格子即可排时间</p>
+        <div id="unscheduledTasksList" class="unscheduled-tasks-list"></div>
+    </aside>
+    <div class="calendar-main-wrap">
+        <div class="calendar-container">
+            <div id="calendar"></div>
+        </div>
+    </div>
 </div>
 
 <!-- 任务详情模态框 -->
@@ -35,27 +64,6 @@
                                                 <span id="taskChapterID" style="display: none;"></span></div>
                     <div><strong>时间：</strong> <span id="taskTime"></span></div>
                     <div id="descriptionRow" style="display: none;"><strong>描述：</strong> <span id="taskDescription"></span></div>
-                    
-                    <div class="focus-energy-container">
-                        <div class="col-6 pe-2">
-                            <div class="progress-label">
-                                <span>专注力</span>
-                                <span id="focusValue"></span>
-                            </div>
-                            <div class="progress">
-                                <div id="focusProgress" class="progress-bar bg-primary" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                            </div>
-                        </div>
-                        <div class="col-6 ps-2">
-                            <div class="progress-label">
-                                <span>体力</span>
-                                <span id="energyValue"></span>
-                            </div>
-                            <div class="progress">
-                                <div id="energyProgress" class="progress-bar bg-success" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -63,7 +71,7 @@
                     <button type="button" id="deleteTaskBtn" class="btn btn-danger">删除</button>
                 </div>
                 <div>
-                    <button type="button" id="toggleCompleteBtn" class="btn btn-success">标记完成</button>
+                    <button type="button" id="toggleCompleteBtn" class="btn btn-success">完成</button>
                     <button type="button" id="editTaskBtn" class="btn btn-primary">编辑</button>
                     <button type="button" class="btn btn-primary" 
                             onclick="window.location.href='/courses/chapter/' + document.getElementById('taskChapterID').textContent + '/detail/'">查看</button>
@@ -98,6 +106,85 @@
     </div>
 </div>
 
+<!-- 计划执行记录：确认实际做了什么（写入学习记录；可选标记计划完成） -->
+<div class="modal fade" id="planRecordModal" tabindex="-1" aria-labelledby="planRecordModalLabel">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="planRecordModalLabel">计划执行记录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">请确认该时段<strong>实际执行</strong>的项目、任务、时间与内容。点「修改」会保存学习记录（计划仍视为未完成），并自动在「待安排」中新增一条与原计划标题、说明相同的副本，便于改期再排；点「完成」会保存记录并将本计划标为已完成。</p>
+                <form id="planRecordForm">
+                    <input type="hidden" id="planRecordPlannerTaskId" value="">
+                    <input type="hidden" id="planRecordSourceTaskTitle" value="">
+                    <input type="hidden" id="planRecordSourceTaskDescription" value="">
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="planRecordSubjectCategory" class="form-label mb-0">分类</label>
+                        </div>
+                        <div class="col-9">
+                            <select class="form-select" id="planRecordSubjectCategory" required>
+                                <option value="">选择分类</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="planRecordSubject" class="form-label mb-0">项目</label>
+                        </div>
+                        <div class="col-9">
+                            <select class="form-select" id="planRecordSubject" required disabled>
+                                <option value="">请先选择分类</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="planRecordChapter" class="form-label mb-0">任务</label>
+                        </div>
+                        <div class="col-9">
+                            <select class="form-select" id="planRecordChapter" required>
+                                <option value="">请先选择项目</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="planRecordStartTime" class="form-label mb-0">开始时间</label>
+                        </div>
+                        <div class="col-9">
+                            <input type="time" class="form-control" id="planRecordStartTime" min="06:00" max="23:59" required>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <label for="planRecordEndTime" class="form-label mb-0">结束时间</label>
+                        </div>
+                        <div class="col-9">
+                            <input type="time" class="form-control" id="planRecordEndTime" min="06:00" max="23:59" required>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-start">
+                        <div class="col-3">
+                            <label for="planRecordDescription" class="form-label mb-0">任务内容</label>
+                        </div>
+                        <div class="col-9">
+                            <textarea class="form-control" id="planRecordDescription" rows="3" placeholder="实际做了什么、与原计划差异等"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer flex-wrap gap-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-outline-primary" id="planRecordAdjustBtn">修改</button>
+                <button type="button" class="btn btn-success" id="planRecordCompleteBtn">完成</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 创建/编辑任务模态框 -->
 <div class="modal fade" id="taskFormModal" tabindex="-1" aria-labelledby="taskFormModalLabel">
     <div class="modal-dialog">
@@ -119,11 +206,21 @@
                     </div>
                     <div class="mb-3 row align-items-center">
                         <div class="col-3">
+                            <label for="subjectCategory" class="form-label mb-0">分类</label>
+                        </div>
+                        <div class="col-9">
+                            <select class="form-select" id="subjectCategory" required>
+                                <option value="">选择分类</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
                             <label for="subject" class="form-label mb-0">项目</label>
                         </div>
                         <div class="col-9">
-                            <select class="form-select" id="subject" required>
-                                <option value="">选择项目</option>
+                            <select class="form-select" id="subject" required disabled>
+                                <option value="">请先选择分类</option>
                             </select>
                         </div>
                     </div>
@@ -163,18 +260,24 @@
                     </div>
                     <div class="mb-3 row align-items-center">
                         <div class="col-3">
-                            <label for="focusLevel" class="form-label mb-0">专注力 (<span id="focusLevelValue">50</span>)</label>
+                            <label class="form-label mb-0">待安排</label>
                         </div>
                         <div class="col-9">
-                            <input type="range" class="form-range" id="focusLevel" min="0" max="100" value="50">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="taskUnscheduled">
+                                <label class="form-check-label" for="taskUnscheduled">暂不排入周历</label>
+                            </div>
                         </div>
                     </div>
                     <div class="mb-3 row align-items-center">
                         <div class="col-3">
-                            <label for="energyLevel" class="form-label mb-0">体力 (<span id="energyLevelValue">50</span>)</label>
+                            <label class="form-label mb-0">同步提醒</label>
                         </div>
                         <div class="col-9">
-                            <input type="range" class="form-range" id="energyLevel" min="0" max="100" value="50">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="syncImportantReminder">
+                                <label class="form-check-label" for="syncImportantReminder">同步到首页「重要日期提醒」</label>
+                            </div>
                         </div>
                     </div>
                     <div class="mb-3 row align-items-center">
@@ -202,8 +305,11 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <div class="modal-footer task-form-modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="btn-group" role="group" aria-label="取消或删除">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger d-none" id="taskFormDeleteBtn">删除</button>
+                </div>
                 <button type="button" id="saveTaskBtn" class="btn btn-primary">保存</button>
             </div>
         </div>
@@ -247,7 +353,47 @@
     </div>
 </div>
 
-
+<!-- 按行标题批量加入待安排 -->
+<div class="modal fade" id="batchUnscheduledModal" tabindex="-1" aria-labelledby="batchUnscheduledModalLabel">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="batchUnscheduledModalLabel">添加待安排</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">先选择项目分类、项目与子任务；下方每一行填写一条待排计划的标题，将批量加入「待安排」。</p>
+                <div id="batchSubjectCategoryWrap" class="mb-2">
+                    <label class="form-label" for="batchSubjectCategory">项目分类</label>
+                    <select id="batchSubjectCategory" class="form-select">
+                        <option value="">选择分类</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="batchSubject">项目</label>
+                    <select id="batchSubject" class="form-select">
+                        <option value="">选择项目</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="batchChapter">子任务</label>
+                    <select id="batchChapter" class="form-select">
+                        <option value="">请先选择项目</option>
+                    </select>
+                </div>
+                <div class="mb-1">
+                    <label class="form-label" for="batchUnscheduledTitles">待排计划标题（每行一条）</label>
+                    <textarea id="batchUnscheduledTitles" class="form-control batch-unscheduled-titles" rows="8" placeholder="每行一条标题，例如：&#10;复习第三章&#10;完成习题集"></textarea>
+                </div>
+                <p class="text-muted small mb-0">空行会被忽略；需已选择项目与子任务且至少一行有效标题才可提交。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="batchUnscheduledSubmit" disabled>加入待安排</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -256,6 +402,19 @@
 <script src="{% static 'vendor/js/bootstrap.bundle.min.js' %}"></script>
 
 <script>
+window.__PLAN_REVIEW_SCOPE = {
+    subjectId: {% if plan_review_subject_id is not None %}{{ plan_review_subject_id }}{% else %}null{% endif %},
+    chapterId: {% if plan_review_chapter_id is not None %}{{ plan_review_chapter_id }}{% else %}null{% endif %}
+};
+function planReviewQuerySuffix() {
+    var cfg = window.__PLAN_REVIEW_SCOPE;
+    if (!cfg || cfg.subjectId == null) return '';
+    var q = '&subject=' + encodeURIComponent(cfg.subjectId);
+    if (cfg.chapterId != null && cfg.chapterId !== '') {
+        q += '&chapter=' + encodeURIComponent(cfg.chapterId);
+    }
+    return q;
+}
 // 获取Cookie函数
 function getCookie(name) {
     let cookieValue = null;
@@ -333,30 +492,513 @@ function recordCalendarTitle(r) {
 }
 
     document.addEventListener('DOMContentLoaded', function() {
+    /* 将模态框挂到 body，避免在 <main> / flex 布局内受 overflow、transform 等影响导致 fixed 遮罩无法铺满视口 */
+    ['taskDetailsModal', 'studyRecordDetailsModal', 'planRecordModal', 'taskFormModal', 'updateScopeModal', 'batchUnscheduledModal'].forEach(function (mid) {
+        var node = document.getElementById(mid);
+        if (node && node.parentNode !== document.body) {
+            document.body.appendChild(node);
+        }
+    });
+
     // 初始化模态框
     const taskDetailsModal = new bootstrap.Modal(document.getElementById('taskDetailsModal'));
     const taskFormModal = new bootstrap.Modal(document.getElementById('taskFormModal'));
     const studyRecordDetailsModal = new bootstrap.Modal(document.getElementById('studyRecordDetailsModal'));
+    const planRecordModal = new bootstrap.Modal(document.getElementById('planRecordModal'));
+    const batchUnscheduledModal = new bootstrap.Modal(document.getElementById('batchUnscheduledModal'));
     
     // 获取CSRF Token
     const csrftoken = getCookie('csrftoken');
     
-    // 加载科目列表
-    loadSubjects();
-    
-    // 监听科目变化，更新章节列表
-    document.getElementById('subject').addEventListener('change', function() {
+    var categorySubjectsTree = [];
+
+    function categoryOptionValue(c) {
+        return (c && (c.id === null || c.id === undefined)) ? '__uncat__' : String(c.id);
+    }
+
+    function loadSubjectCategoryOptions() {
+        return fetch('/planner/api/subject-category-options/', {
+            headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                categorySubjectsTree = data.categories || [];
+                var catSel = document.getElementById('subjectCategory');
+                catSel.innerHTML = '<option value=\"\">选择分类</option>';
+                categorySubjectsTree.forEach(function (c) {
+                    var opt = document.createElement('option');
+                    opt.value = categoryOptionValue(c);
+                    opt.textContent = c.name || '';
+                    catSel.appendChild(opt);
+                });
+                syncPlanRecordCategorySelectFromTree();
+                syncBatchCategorySelectFromTree();
+            })
+            .catch(function (e) { console.error('加载分类失败', e); });
+    }
+
+    function syncBatchCategorySelectFromTree() {
+        var catSel = document.getElementById('batchSubjectCategory');
+        if (!catSel) return;
+        catSel.innerHTML = '<option value="">选择分类</option>';
+        categorySubjectsTree.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = categoryOptionValue(c);
+            opt.textContent = c.name || '';
+            catSel.appendChild(opt);
+        });
+    }
+
+    function syncPlanRecordCategorySelectFromTree() {
+        var prCat = document.getElementById('planRecordSubjectCategory');
+        if (!prCat) return;
+        prCat.innerHTML = '<option value="">选择分类</option>';
+        categorySubjectsTree.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = categoryOptionValue(c);
+            opt.textContent = c.name || '';
+            prCat.appendChild(opt);
+        });
+    }
+
+    function fillSubjectSelectForCategory(catVal) {
+        var subjSel = document.getElementById('subject');
+        subjSel.innerHTML = '<option value=\"\">选择项目</option>';
+        document.getElementById('chapter').innerHTML = '<option value=\"\">请先选择项目</option>';
+        subjSel.disabled = true;
+        if (!catVal) return;
+        var cat = categorySubjectsTree.find(function (c) {
+            return categoryOptionValue(c) === catVal;
+        });
+        if (!cat || !cat.subjects) return;
+        cat.subjects.forEach(function (s) {
+            var o = document.createElement('option');
+            o.value = String(s.id);
+            o.textContent = s.name;
+            subjSel.appendChild(o);
+        });
+        subjSel.disabled = false;
+    }
+
+    loadSubjectCategoryOptions();
+
+    document.getElementById('subjectCategory').addEventListener('change', function () {
+        fillSubjectSelectForCategory(this.value);
+    });
+
+    document.getElementById('subject').addEventListener('change', function () {
         loadChapters(this.value);
     });
-    
-    // 监听专注力和体力滑块变化
-    document.getElementById('focusLevel').addEventListener('input', function() {
-        document.getElementById('focusLevelValue').textContent = this.value;
+
+    function fillPlanRecordSubjectSelectForCategory(catVal) {
+        var subjSel = document.getElementById('planRecordSubject');
+        subjSel.innerHTML = '<option value="">选择项目</option>';
+        document.getElementById('planRecordChapter').innerHTML = '<option value="">请先选择项目</option>';
+        subjSel.disabled = true;
+        if (!catVal) return;
+        var cat = categorySubjectsTree.find(function (c) {
+            return categoryOptionValue(c) === catVal;
+        });
+        if (!cat || !cat.subjects) return;
+        cat.subjects.forEach(function (s) {
+            var o = document.createElement('option');
+            o.value = String(s.id);
+            o.textContent = s.name;
+            subjSel.appendChild(o);
+        });
+        subjSel.disabled = false;
+    }
+
+    function loadPlanRecordChapters(subjectId, preselectChapterId, done) {
+        var sel = document.getElementById('planRecordChapter');
+        if (!subjectId) {
+            sel.innerHTML = '<option value="">请先选择项目</option>';
+            if (typeof done === 'function') done();
+            return;
+        }
+        fetch('/courses/api/chapters/?subject_id=' + encodeURIComponent(subjectId), {
+            headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
+        })
+            .then(function (r) {
+                if (!r.ok) throw new Error('加载任务列表失败');
+                return r.json();
+            })
+            .then(function (data) {
+                var list = Array.isArray(data) ? data : (data.results || []);
+                sel.innerHTML = '<option value="">选择任务</option>';
+                list.forEach(function (ch) {
+                    var opt = document.createElement('option');
+                    opt.value = String(ch.id);
+                    opt.textContent = ch.title;
+                    sel.appendChild(opt);
+                });
+                if (preselectChapterId) {
+                    sel.value = String(preselectChapterId);
+                }
+            })
+            .catch(function (e) {
+                console.error(e);
+                alert('加载任务列表失败');
+            })
+            .finally(function () {
+                if (typeof done === 'function') done();
+            });
+    }
+
+    document.getElementById('planRecordSubjectCategory').addEventListener('change', function () {
+        fillPlanRecordSubjectSelectForCategory(this.value);
     });
-    
-    document.getElementById('energyLevel').addEventListener('input', function() {
-        document.getElementById('energyLevelValue').textContent = this.value;
+    document.getElementById('planRecordSubject').addEventListener('change', function () {
+        loadPlanRecordChapters(this.value, null, null);
     });
+
+    function fillBatchSubjectSelectForCategory(catVal) {
+        var subjSel = document.getElementById('batchSubject');
+        var chapSel = document.getElementById('batchChapter');
+        var ta = document.getElementById('batchUnscheduledTitles');
+        subjSel.innerHTML = '<option value="">选择项目</option>';
+        chapSel.innerHTML = '<option value="">请先选择项目</option>';
+        if (ta) ta.value = '';
+        subjSel.disabled = true;
+        if (!catVal) {
+            updateBatchSubmitEnabled();
+            return;
+        }
+        var cat = categorySubjectsTree.find(function (c) {
+            return categoryOptionValue(c) === catVal;
+        });
+        if (!cat || !cat.subjects) return;
+        cat.subjects.forEach(function (s) {
+            var o = document.createElement('option');
+            o.value = String(s.id);
+            o.textContent = s.name;
+            subjSel.appendChild(o);
+        });
+        subjSel.disabled = false;
+        updateBatchSubmitEnabled();
+    }
+
+    function loadBatchChapters(subjectId, preselectChapterId, done) {
+        var sel = document.getElementById('batchChapter');
+        if (!subjectId) {
+            sel.innerHTML = '<option value="">请先选择项目</option>';
+            updateBatchSubmitEnabled();
+            if (typeof done === 'function') done();
+            return;
+        }
+        fetch('/courses/api/chapters/?subject_id=' + encodeURIComponent(subjectId), {
+            headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
+        })
+            .then(function (r) {
+                if (!r.ok) throw new Error('加载子任务失败');
+                return r.json();
+            })
+            .then(function (data) {
+                var list = Array.isArray(data) ? data : (data.results || []);
+                sel.innerHTML = '<option value="">选择子任务</option>';
+                list.forEach(function (ch) {
+                    var opt = document.createElement('option');
+                    opt.value = String(ch.id);
+                    opt.textContent = ch.title;
+                    sel.appendChild(opt);
+                });
+                if (preselectChapterId) {
+                    sel.value = String(preselectChapterId);
+                }
+            })
+            .catch(function (e) {
+                console.error(e);
+                alert('加载子任务失败');
+            })
+            .finally(function () {
+                updateBatchSubmitEnabled();
+                if (typeof done === 'function') done();
+            });
+    }
+
+    function parseBatchUnscheduledTitles(raw) {
+        return String(raw || '')
+            .split(/\r?\n/)
+            .map(function (line) { return line.trim(); })
+            .filter(Boolean);
+    }
+
+    function updateBatchSubmitEnabled() {
+        var btn = document.getElementById('batchUnscheduledSubmit');
+        var sid = document.getElementById('batchSubject') && document.getElementById('batchSubject').value;
+        var cid = document.getElementById('batchChapter') && document.getElementById('batchChapter').value;
+        var ta = document.getElementById('batchUnscheduledTitles');
+        if (!btn || !ta) return;
+        if (!sid || !cid) {
+            btn.disabled = true;
+            return;
+        }
+        btn.disabled = parseBatchUnscheduledTitles(ta.value).length === 0;
+    }
+
+    document.getElementById('batchSubjectCategory').addEventListener('change', function () {
+        fillBatchSubjectSelectForCategory(this.value);
+    });
+    document.getElementById('batchSubject').addEventListener('change', function () {
+        loadBatchChapters(this.value, null, null);
+    });
+    document.getElementById('batchChapter').addEventListener('change', function () {
+        updateBatchSubmitEnabled();
+    });
+    document.getElementById('batchUnscheduledTitles').addEventListener('input', updateBatchSubmitEnabled);
+
+    function openBatchUnscheduledDialog() {
+        var cfg = window.__PLAN_REVIEW_SCOPE || {};
+        var catWrap = document.getElementById('batchSubjectCategoryWrap');
+        var subjSel = document.getElementById('batchSubject');
+        var chapSel = document.getElementById('batchChapter');
+        var ta = document.getElementById('batchUnscheduledTitles');
+        var submitBtn = document.getElementById('batchUnscheduledSubmit');
+        if (ta) ta.value = '';
+        if (submitBtn) submitBtn.disabled = true;
+
+        if (cfg.subjectId != null && cfg.subjectId !== '') {
+            if (catWrap) catWrap.style.display = 'none';
+            subjSel.innerHTML = '<option value="">加载中…</option>';
+            subjSel.disabled = true;
+            chapSel.innerHTML = '<option value="">加载中…</option>';
+            chapSel.disabled = true;
+            fetch('/planner/api/subjects/' + encodeURIComponent(cfg.subjectId) + '/', {
+                headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
+            })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('项目无效');
+                    return r.json();
+                })
+                .then(function (subj) {
+                    var name = (subj.name && String(subj.name).trim()) ? subj.name : ('项目 #' + cfg.subjectId);
+                    subjSel.innerHTML = '';
+                    var o = document.createElement('option');
+                    o.value = String(cfg.subjectId);
+                    o.textContent = name;
+                    subjSel.appendChild(o);
+                    subjSel.value = String(cfg.subjectId);
+                    subjSel.disabled = true;
+                    var preCh = (cfg.chapterId != null && cfg.chapterId !== '') ? cfg.chapterId : null;
+                    loadBatchChapters(cfg.subjectId, preCh, function () {
+                        chapSel.disabled = preCh != null;
+                        updateBatchSubmitEnabled();
+                    });
+                })
+                .catch(function () {
+                    alert('无法加载项目，请刷新页面后重试。');
+                    subjSel.innerHTML = '<option value="">选择项目</option>';
+                    chapSel.innerHTML = '<option value="">请先选择项目</option>';
+                    updateBatchSubmitEnabled();
+                });
+        } else {
+            if (catWrap) catWrap.style.display = '';
+            subjSel.disabled = false;
+            chapSel.disabled = false;
+            syncBatchCategorySelectFromTree();
+            document.getElementById('batchSubjectCategory').value = '';
+            subjSel.innerHTML = '<option value="">选择项目</option>';
+            chapSel.innerHTML = '<option value="">请先选择项目</option>';
+            updateBatchSubmitEnabled();
+        }
+        batchUnscheduledModal.show();
+    }
+
+    document.getElementById('openBatchUnscheduledBtn').addEventListener('click', function () {
+        openBatchUnscheduledDialog();
+    });
+
+    document.getElementById('batchUnscheduledSubmit').addEventListener('click', function () {
+        var sid = document.getElementById('batchSubject').value;
+        var cid = document.getElementById('batchChapter').value;
+        var titles = parseBatchUnscheduledTitles(document.getElementById('batchUnscheduledTitles').value);
+        if (!sid || !cid || !titles.length) return;
+        var btn = document.getElementById('batchUnscheduledSubmit');
+        btn.disabled = true;
+        var headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        };
+        var chain = Promise.resolve();
+        var fail = 0;
+        titles.forEach(function (title) {
+            chain = chain.then(function () {
+                var payload = {
+                    title: title.slice(0, 200),
+                    description: '',
+                    subject: parseInt(sid, 10),
+                    chapter: parseInt(cid, 10),
+                    is_unscheduled: true,
+                    is_completed: false
+                };
+                return fetch('/planner/api/tasks/', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                }).then(function (r) {
+                    if (!r.ok) fail += 1;
+                });
+            });
+        });
+        chain.then(function () {
+            if (fail) {
+                alert('部分条目未能创建（' + fail + ' 条），请检查网络或权限。');
+            }
+            batchUnscheduledModal.hide();
+            refreshUnscheduledTasksPanel();
+            if (typeof calendar !== 'undefined' && calendar && typeof calendar.refetchEvents === 'function') {
+                calendar.refetchEvents();
+            }
+        }).catch(function (e) {
+            console.error(e);
+            alert('提交失败');
+        }).finally(function () {
+            btn.disabled = false;
+            updateBatchSubmitEnabled();
+        });
+    });
+
+    function syncUnscheduledRepeatUi() {
+        var u = document.getElementById('taskUnscheduled');
+        var rep = document.getElementById('repeatType');
+        if (!u || !rep) return;
+        if (u.checked) {
+            rep.value = 'none';
+            rep.disabled = true;
+            var ro = document.getElementById('repeatOptions');
+            if (ro) ro.style.display = 'none';
+            var re = document.getElementById('repeatEnds');
+            if (re) re.value = '';
+        } else {
+            rep.disabled = false;
+        }
+    }
+
+    document.getElementById('taskUnscheduled').addEventListener('change', syncUnscheduledRepeatUi);
+
+    function refreshUnscheduledTasksPanel() {
+        var box = document.getElementById('unscheduledTasksList');
+        if (!box) return;
+        fetch('/planner/api/tasks/?unscheduled=1' + planReviewQuerySuffix(), {
+            headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
+        })
+            .then(function (r) {
+                if (!r.ok) throw new Error('加载待安排失败');
+                return r.json();
+            })
+            .then(function (rows) {
+                box.innerHTML = '';
+                if (!rows.length) {
+                    box.innerHTML = '<div class="unscheduled-tasks-empty">暂无待安排任务<br><span style="font-size:12px;color:#999;">创建时勾选「待安排」即可加入</span></div>';
+                    return;
+                }
+                var order = [];
+                var byKey = {};
+                rows.forEach(function (t) {
+                    var sid = t.subject != null && t.subject !== '' ? String(t.subject) : '_none';
+                    if (!byKey[sid]) {
+                        byKey[sid] = {
+                            subjectId: t.subject,
+                            subjectName: (t.subject_name && String(t.subject_name).trim()) ? t.subject_name : '未指定项目',
+                            color: (t.subject_color && String(t.subject_color).trim()) ? t.subject_color : '#6b7280',
+                            tasks: []
+                        };
+                        order.push(sid);
+                    }
+                    byKey[sid].tasks.push(t);
+                });
+                order.sort(function (a, b) {
+                    if (a === '_none') return 1;
+                    if (b === '_none') return -1;
+                    return byKey[a].subjectName.localeCompare(byKey[b].subjectName, 'zh-CN');
+                });
+                order.forEach(function (sid) {
+                    var g = byKey[sid];
+                    var wrap = document.createElement('div');
+                    wrap.className = 'unscheduled-subject-group';
+                    var head;
+                    var hasSubject = sid !== '_none' && g.subjectId != null && g.subjectId !== '';
+                    if (hasSubject) {
+                        head = document.createElement('a');
+                        head.className = 'unscheduled-subject-heading unscheduled-subject-heading--link';
+                        head.href = '/courses/subject/' + encodeURIComponent(String(g.subjectId)) + '/plan-review/';
+                        head.title = '进入「' + g.subjectName + '」的安排与回顾';
+                    } else {
+                        head = document.createElement('div');
+                        head.className = 'unscheduled-subject-heading';
+                    }
+                    head.textContent = g.subjectName;
+                    var bg = g.color;
+                    if (!bg || !bg.startsWith('#') || bg.length !== 7) {
+                        bg = '#6b7280';
+                    }
+                    head.style.backgroundColor = bg;
+                    head.style.color = getContrastYIQ(bg);
+                    wrap.appendChild(head);
+                    var listEl = document.createElement('div');
+                    listEl.className = 'unscheduled-subject-tasks';
+                    g.tasks.forEach(function (t) {
+                        var div = document.createElement('div');
+                        div.className = 'unscheduled-task-item';
+                        div.setAttribute('data-task-id', t.id);
+                        var title = document.createElement('div');
+                        title.className = 'ut-title';
+                        title.textContent = (t.title && t.title.trim()) ? t.title : '（无标题）';
+                        var meta = document.createElement('div');
+                        meta.className = 'ut-meta';
+                        meta.textContent = (t.chapter_name && String(t.chapter_name).trim())
+                            ? t.chapter_name
+                            : '未指定任务';
+                        div.appendChild(title);
+                        div.appendChild(meta);
+                        div.addEventListener('click', function () {
+                            openEditTaskById(String(t.id));
+                        });
+                        listEl.appendChild(div);
+                    });
+                    wrap.appendChild(listEl);
+                    box.appendChild(wrap);
+                });
+            })
+            .catch(function () {
+                box.innerHTML = '<div class="unscheduled-tasks-empty text-danger">加载失败</div>';
+            });
+    }
+
+    function openEditTaskById(taskId) {
+        fetch('/planner/api/tasks/' + encodeURIComponent(taskId) + '/', {
+            headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
+        })
+            .then(function (r) {
+                if (!r.ok) throw new Error('加载失败');
+                return r.json();
+            })
+            .then(function (task) {
+                var startD = task.start ? new Date(task.start) : new Date();
+                var endD = task.end ? new Date(task.end) : new Date(startD.getTime() + 3600000);
+                var fakeEvent = {
+                    id: task.id,
+                    start: startD,
+                    end: endD,
+                    extendedProps: {
+                        task_raw_title: task.title || '',
+                        description: task.description || '',
+                        subject_id: task.subject,
+                        chapter_id: task.chapter,
+                        subject_category_id: task.subject_category_id,
+                        repeat_type: task.repeat_type,
+                        repeat_ends: task.repeat_ends,
+                        has_important_reminder: task.has_important_reminder,
+                        is_unscheduled: task.is_unscheduled
+                    }
+                };
+                openEditTaskForm(fakeEvent);
+            })
+            .catch(function () {
+                alert('加载任务失败');
+            });
+    }
 
     // 监听重复类型变化
     document.getElementById('repeatType').addEventListener('change', function() {
@@ -387,31 +1029,120 @@ function recordCalendarTitle(r) {
         repeatType.value = 'none';
         repeatOptions.style.display = 'none';
         repeatEnds.value = ''; // 清空结束日期
+        document.getElementById('subjectCategory').value = '';
+        fillSubjectSelectForCategory('');
+        var syncEl = document.getElementById('syncImportantReminder');
+        if (syncEl) syncEl.checked = false;
+        var tu = document.getElementById('taskUnscheduled');
+        if (tu) tu.checked = false;
+        var rep = document.getElementById('repeatType');
+        if (rep) rep.disabled = false;
+        syncUnscheduledRepeatUi();
+        var delForm = document.getElementById('taskFormDeleteBtn');
+        if (delForm) delForm.classList.add('d-none');
     });
+
+    function setTaskFormDeleteVisible(show) {
+        var b = document.getElementById('taskFormDeleteBtn');
+        if (b) b.classList.toggle('d-none', !show);
+    }
+
+    /** 开始时间 "HH:MM" 加 1 小时，不超过 23:59（与表单 max 一致） */
+    function endTimeOneHourAfter(startHHMM) {
+        var parts = String(startHHMM).split(':');
+        var h = parseInt(parts[0], 10);
+        var m = parseInt(parts[1], 10) || 0;
+        if (isNaN(h)) h = 0;
+        var totalMin = h * 60 + m + 60;
+        var maxEnd = 23 * 60 + 59;
+        if (totalMin > maxEnd) totalMin = maxEnd;
+        return String(Math.floor(totalMin / 60)).padStart(2, '0') + ':' + String(totalMin % 60).padStart(2, '0');
+    }
+
+    /** 选区不足 1 小时时拉长到 1 小时；结束时间不超过当日 23:59 */
+    function ensureMinDurationOneHour(start, end) {
+        var dur = end.getTime() - start.getTime();
+        var oneH = 60 * 60 * 1000;
+        var e = end;
+        if (dur < oneH) {
+            e = new Date(start.getTime() + oneH);
+        }
+        var dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 0, 0);
+        if (e > dayEnd) {
+            e = dayEnd;
+        }
+        if (e.getTime() <= start.getTime()) {
+            e = dayEnd;
+        }
+        return { start: start, end: e };
+    }
+
+    /** 待安排拖入日历：若落在全天格或开始为 0:00（无具体时刻），则从当日 9:00 起默认 1 小时 */
+    function normalizeUnscheduledDropStartEnd(start, end, fcEvent) {
+        var s = start;
+        var e = end || new Date(s.getTime() + 3600000);
+        var allDay = fcEvent && fcEvent.allDay;
+        var midnight = s.getHours() === 0 && s.getMinutes() === 0 && s.getSeconds() === 0 && s.getMilliseconds() === 0;
+        if (allDay || midnight) {
+            s = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 9, 0, 0, 0);
+            e = new Date(s.getTime() + 3600000);
+        }
+        return { start: s, end: e };
+    }
     
     // 设置时间选择器的默认值和限制
     function initializeTimeSelectors() {
         const startTimeSelect = document.getElementById('startDateTime');
         const endTimeSelect = document.getElementById('endDateTime');
         
-        // 设置默认时间为当前时间（向上取整到最近的小时）
+        // 默认开始为当前整点（限制在 6–23 点），结束为开始 +1 小时
         const now = new Date();
         now.setMinutes(0);
+        now.setSeconds(0, 0);
         now.setHours(Math.max(6, Math.min(23, now.getHours())));
         
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:00`;
         
         startTimeSelect.value = timeStr;
-        endTimeSelect.value = timeStr;
+        endTimeSelect.value = endTimeOneHourAfter(timeStr);
     }
     
     // 初始化时间选择器
     initializeTimeSelectors();
+
+    function plannerYmdFromDate(d) {
+        if (!d || isNaN(d.getTime())) return null;
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function plannerHmFromDate(d) {
+        if (!d || isNaN(d.getTime())) return null;
+        return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+
+    function patchTaskUnscheduledFlag(taskId, isUnscheduled) {
+        return fetch('/planner/api/tasks/' + encodeURIComponent(taskId) + '/', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({ is_unscheduled: !!isUnscheduled, update_scope: 'this' })
+        }).then(function (r) {
+            if (!r.ok) {
+                return r.json().then(function (j) {
+                    throw new Error((j && (j.detail || j.error)) || JSON.stringify(j));
+                });
+            }
+            return r.json();
+        });
+    }
     
     // 初始化FullCalendar
     const calendarEl = document.getElementById('calendar');
     
     const calendar = new FullCalendar.Calendar(calendarEl, {
+        {% if calendar_embed_expand %}
+        /* 仅内容区按槽位自然增高；勿设 height:'auto'，否则会随父级（iframe）被反复拉高 */
+        contentHeight: 'auto',
+        {% endif %}
         initialView: 'timeGridDay', // 默认显示日视图
         headerToolbar: {
             left: 'prev,next today',
@@ -452,6 +1183,7 @@ function recordCalendarTitle(r) {
         dayMaxEvents: true,
         selectable: true,
         nowIndicator: true,
+        droppable: true,
         locale: 'zh-cn',
         eventTimeFormat: {
             hour: '2-digit',
@@ -473,7 +1205,7 @@ function recordCalendarTitle(r) {
                 'Accept': 'application/json'
             };
 
-            const tasksReq = fetch(`/planner/api/tasks/?start_date=${startDate}&end_date=${endDate}`, { headers })
+            const tasksReq = fetch(`/planner/api/tasks/?start_date=${startDate}&end_date=${endDate}` + planReviewQuerySuffix(), { headers })
                 .then(response => {
                     if (!response.ok) {
                         return response.text().then(text => {
@@ -484,7 +1216,7 @@ function recordCalendarTitle(r) {
                     return response.json();
                 });
 
-            const recordsReq = fetch(`/planner/api/calendar-study-records/?start_date=${startDate}&end_date=${endDate}`, { headers })
+            const recordsReq = fetch(`/planner/api/calendar-study-records/?start_date=${startDate}&end_date=${endDate}` + planReviewQuerySuffix(), { headers })
                 .then(response => {
                     if (!response.ok) {
                         console.warn('记录 API 不可用，仅显示计划');
@@ -528,8 +1260,11 @@ function recordCalendarTitle(r) {
                                 is_completed: task.is_completed,
                                 subject_id: task.subject,
                                 chapter_id: task.chapter,
+                                subject_category_id: task.subject_category_id,
+                                has_important_reminder: task.has_important_reminder,
                                 repeat_type: task.repeat_type,
                                 repeat_ends: task.repeat_ends,
+                                is_unscheduled: task.is_unscheduled,
                             }
                         };
                     });
@@ -572,6 +1307,88 @@ function recordCalendarTitle(r) {
                 });
         },
 
+        eventReceive: function (info) {
+            var xp = info.event.extendedProps || {};
+            if (!xp.fromUnscheduled || !xp.pendingTaskId) {
+                info.event.remove();
+                return;
+            }
+            var taskId = String(xp.pendingTaskId);
+            var s = info.event.start;
+            var e = info.event.end;
+            if (!e) {
+                e = new Date(s.getTime() + 3600000);
+            }
+            var normDrop = normalizeUnscheduledDropStartEnd(s, e, info.event);
+            s = normDrop.start;
+            e = normDrop.end;
+            var range = ensureMinDurationOneHour(s, e);
+            s = range.start;
+            e = range.end;
+            info.event.remove();
+            var sd = plannerYmdFromDate(s);
+            var ed = plannerYmdFromDate(e);
+            var st = plannerHmFromDate(s);
+            var et = plannerHmFromDate(e);
+            fetch('/planner/api/tasks/' + encodeURIComponent(taskId) + '/', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                body: JSON.stringify({
+                    is_unscheduled: false,
+                    start_date: sd,
+                    end_date: ed,
+                    start_time: st,
+                    end_time: et,
+                    update_scope: 'this'
+                })
+            }).then(function (r) {
+                if (!r.ok) {
+                    return r.json().then(function (j) {
+                        throw new Error((j && (j.detail || j.error)) || JSON.stringify(j));
+                    });
+                }
+                return r.json();
+            }).then(function () {
+                calendar.refetchEvents();
+                refreshUnscheduledTasksPanel();
+            }).catch(function (err) {
+                alert('排入日历失败: ' + err.message);
+                calendar.refetchEvents();
+                refreshUnscheduledTasksPanel();
+            });
+        },
+
+        eventDragStop: function (info) {
+            var ev = info.event;
+            if (!ev || (ev.extendedProps && ev.extendedProps.kind === 'study_record')) {
+                return;
+            }
+            if (ev.extendedProps && ev.extendedProps.is_completed) {
+                return;
+            }
+            var jid = String(ev.id || '');
+            if (jid.indexOf('sr-') === 0) {
+                return;
+            }
+            var panel = document.querySelector('.unscheduled-tasks-panel');
+            if (!panel || !info.jsEvent) {
+                return;
+            }
+            var rect = panel.getBoundingClientRect();
+            var x = info.jsEvent.clientX;
+            var y = info.jsEvent.clientY;
+            if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                return;
+            }
+            patchTaskUnscheduledFlag(jid, true).then(function () {
+                calendar.refetchEvents();
+                refreshUnscheduledTasksPanel();
+            }).catch(function (err) {
+                alert('移入待安排失败: ' + err.message);
+                calendar.refetchEvents();
+            });
+        },
+
         // 事件拖拽更新（记录块不可拖拽）
         eventDrop: function(info) {
             if (info.event.extendedProps.kind === 'study_record') {
@@ -604,20 +1421,28 @@ function recordCalendarTitle(r) {
         document.getElementById('taskId').value = '';
         document.getElementById('taskFormModalLabel').textContent = '创建任务';
         document.getElementById('repeatType').value = 'none';
+        document.getElementById('subjectCategory').value = '';
+        fillSubjectSelectForCategory('');
+        document.getElementById('syncImportantReminder').checked = false;
+        var tuSel = document.getElementById('taskUnscheduled');
+        if (tuSel) tuSel.checked = false;
+        var repEl = document.getElementById('repeatType');
+        if (repEl) repEl.disabled = false;
+        syncUnscheduledRepeatUi();
 
         
         // 存储选中的日期，用于后续提交
         window.selectedDate = info.start.toISOString().split('T')[0];
         
-        // 获取选中时间并格式化
-        const startTime = formatDateTimeForInput(info.start);
-        const endTime = formatDateTimeForInput(info.end);
+        var range = ensureMinDurationOneHour(info.start, info.end);
+        const startTime = formatDateTimeForInput(range.start);
+        const endTime = formatDateTimeForInput(range.end);
         
         if (startTime && endTime) {
             // 设置开始和结束时间
             document.getElementById('startDateTime').value = startTime;
             document.getElementById('endDateTime').value = endTime;
-            
+            setTaskFormDeleteVisible(false);
             // 显示模态框
             taskFormModal.show();
         } else {
@@ -676,33 +1501,28 @@ function recordCalendarTitle(r) {
                 descriptionRow.style.display = 'none';
             }
             
-            // 设置专注力和体力进度条
-            const focusLevel = event.extendedProps.focus_level;
-            const energyLevel = event.extendedProps.energy_level;
-            
-            document.getElementById('focusValue').textContent = focusLevel + '%';
-            document.getElementById('focusProgress').style.width = focusLevel + '%';
-            document.getElementById('focusProgress').setAttribute('aria-valuenow', focusLevel);
-            
-            document.getElementById('energyValue').textContent = energyLevel + '%';
-            document.getElementById('energyProgress').style.width = energyLevel + '%';
-            document.getElementById('energyProgress').setAttribute('aria-valuenow', energyLevel);
-            
             // 设置完成按钮状态
             const toggleCompleteBtn = document.getElementById('toggleCompleteBtn');
             if (event.extendedProps.is_completed) {
-                toggleCompleteBtn.textContent = '标记未完成';
+                toggleCompleteBtn.textContent = '未完成';
                 toggleCompleteBtn.classList.remove('btn-success');
                 toggleCompleteBtn.classList.add('btn-secondary');
             } else {
-                toggleCompleteBtn.textContent = '标记完成';
+                toggleCompleteBtn.textContent = '记录';
                 toggleCompleteBtn.classList.remove('btn-secondary');
                 toggleCompleteBtn.classList.add('btn-success');
             }
             
-            // 设置按钮事件
-            document.getElementById('toggleCompleteBtn').onclick = function() {
-                toggleTaskComplete(event.id);
+            // 设置按钮事件：未完成 → 仅切换状态；未记录 → 打开「计划执行记录」弹窗
+            document.getElementById('toggleCompleteBtn').onclick = function () {
+                if (event.extendedProps.is_completed) {
+                    toggleTaskComplete(event.id);
+                } else {
+                    taskDetailsModal.hide();
+                    setTimeout(function () {
+                        openPlanRecordModal(event);
+                    }, 200);
+                }
             };
             
             document.getElementById('editTaskBtn').onclick = function() {
@@ -713,93 +1533,8 @@ function recordCalendarTitle(r) {
             };
             
             document.getElementById('deleteTaskBtn').onclick = function() {
-                const repeat_type = event.extendedProps.repeat_type;
-                if (repeat_type == 'none') {
-                    if (confirm('确定要删除这个任务吗？')) {
-                        deleteTask(event.id, deleteScope = 'this');
-                    }
-                }else {
-                    // 创建一个全局的模态框容器（如果不存在）
-                    let globalModalContainer = document.getElementById('globalModalContainer');
-                    if (!globalModalContainer) {
-                        globalModalContainer = document.createElement('div');
-                        globalModalContainer.id = 'globalModalContainer';
-                        globalModalContainer.style.position = 'fixed';
-                        globalModalContainer.style.top = '0';
-                        globalModalContainer.style.left = '0';
-                        globalModalContainer.style.width = '100%';
-                        globalModalContainer.style.height = '100%';
-                        globalModalContainer.style.zIndex = '2000'; // 比其他模态框的 z-index 高
-                        globalModalContainer.style.display = 'flex';
-                        globalModalContainer.style.justifyContent = 'center';
-                        globalModalContainer.style.alignItems = 'center';
-                        document.body.appendChild(globalModalContainer);
-                    }
-
-                    // 清空之前的内容
-                    globalModalContainer.innerHTML = '';
-
-                    // 创建模态框内容
-                    const modal = document.createElement('div');
-                    modal.className = 'modal-dialog';
-                    modal.innerHTML = `
-                        <div class="modal-content" style="width: 500px; max-width: 90%; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                            <div class="modal-header" style="padding: 15px; border-bottom: 1px solid #e0e0e0;">
-                                <h5 class="modal-title">删除重复任务</h5>
-                            </div>
-                            <div class="modal-body" style="padding: 20px;">
-                                <p>这是一个重复任务。您想删除：</p>
-                                <div class="form-check" style="margin-bottom: 10px;">
-                                    <input class="form-check-input" type="radio" name="deleteScope" id="deleteThis" value="this" checked>
-                                    <label class="form-check-label" for="deleteThis">仅删除当前任务</label>
-                                </div>
-                                <div class="form-check" style="margin-bottom: 10px;">
-                                    <input class="form-check-input" type="radio" name="deleteScope" id="deleteFuture" value="future">
-                                    <label class="form-check-label" for="deleteFuture">删除当前及所有未来任务</label>
-                                </div>
-                                <div class="form-check" style="margin-bottom: 10px;">
-                                    <input class="form-check-input" type="radio" name="deleteScope" id="deleteAll" value="all">
-                                    <label class="form-check-label" for="deleteAll">删除整个任务系列</label>
-                                </div>
-                            </div>
-                            <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e0e0e0; display: flex; justify-content: space-between;">
-                                <button type="button" class="btn btn-secondary" id="cancelDelete" style="margin-right: 10px;">取消</button>
-                                <button type="button" class="btn btn-danger" id="confirmDelete">确认</button>
-                            </div>
-                        </div>
-                    `;
-
-                    // 添加背景遮罩效果
-                    globalModalContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-                    globalModalContainer.appendChild(modal);
-
-                    // 添加事件监听
-                    const cancelBtn = modal.querySelector('#cancelDelete');
-                    const confirmBtn = modal.querySelector('#confirmDelete');
-
-                    // 点击取消按钮
-                    cancelBtn.addEventListener('click', () => {
-                        globalModalContainer.style.display = 'none';
-                    });
-
-                    // 点击确认按钮
-                    confirmBtn.addEventListener('click', () => {
-                        const selectedScope = modal.querySelector('input[name="deleteScope"]:checked').value;
-                        globalModalContainer.style.display = 'none';
-                        deleteTask(event.id, deleteScope = selectedScope);
-                    });
-
-                    // 显示模态框
-                    globalModalContainer.style.display = 'flex';
-
-                    // 点击模态框外部关闭
-                    globalModalContainer.addEventListener('click', (e) => {
-                        if (e.target === globalModalContainer) {
-                            globalModalContainer.style.display = 'none';
-                        }
-                    });
-                 }
-                };
+                promptDeletePlannerTask(event.id, event.extendedProps.repeat_type);
+            };
                     
             
             // 显示模态框
@@ -807,7 +1542,167 @@ function recordCalendarTitle(r) {
         }
     });
             
+    {% if calendar_embed_expand %}
+    var notifyParentCalendarHeight = (function () {
+        var resizeT = null;
+        var lastPosted = 0;
+        return function () {
+            if (!window.parent || window.parent === window) return;
+            clearTimeout(resizeT);
+            resizeT = setTimeout(function () {
+                try {
+                    var root = document.querySelector('.calendar-page-layout');
+                    if (!root) return;
+                    /* 用布局根节点高度，避免 document.scrollHeight 与 iframe 增高形成正反馈 */
+                    var h = Math.ceil(root.getBoundingClientRect().height);
+                    h = Math.min(Math.max(h, 480), 12000);
+                    if (Math.abs(h - lastPosted) < 8) return;
+                    lastPosted = h;
+                    window.parent.postMessage(
+                        { type: 'plan-review-calendar-resize', height: h },
+                        window.location.origin
+                    );
+                } catch (err) {}
+            }, 120);
+        };
+    })();
+    {% endif %}
+
+    calendar.on('eventsSet', function () {
+        refreshUnscheduledTasksPanel();
+        {% if calendar_embed_expand %}
+        setTimeout(notifyParentCalendarHeight, 200);
+        {% endif %}
+    });
+
     calendar.render();
+
+    {% if calendar_embed_expand %}
+    calendar.on('datesSet', notifyParentCalendarHeight);
+    window.addEventListener('resize', notifyParentCalendarHeight);
+    setTimeout(notifyParentCalendarHeight, 500);
+    {% endif %}
+
+    refreshUnscheduledTasksPanel();
+
+    function openCreateTaskModalFromPanel() {
+        document.getElementById('taskForm').reset();
+        document.getElementById('taskId').value = '';
+        document.getElementById('taskFormModalLabel').textContent = '创建任务';
+        document.getElementById('repeatType').value = 'none';
+        document.getElementById('subjectCategory').value = '';
+        fillSubjectSelectForCategory('');
+        document.getElementById('syncImportantReminder').checked = false;
+        var tu = document.getElementById('taskUnscheduled');
+        if (tu) tu.checked = true;
+        var rep = document.getElementById('repeatType');
+        if (rep) rep.disabled = true;
+        syncUnscheduledRepeatUi();
+        var d = calendar.getDate();
+        window.selectedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        initializeTimeSelectors();
+        setTaskFormDeleteVisible(false);
+        taskFormModal.show();
+    }
+
+    (function initUnscheduledListInteractions() {
+        var unscheduledListEl = document.getElementById('unscheduledTasksList');
+        if (!unscheduledListEl) return;
+        unscheduledListEl.addEventListener('click', function (e) {
+            if (e.target.closest('.unscheduled-task-item')) return;
+            if (e.target.closest('.unscheduled-subject-heading')) return;
+            openCreateTaskModalFromPanel();
+        });
+        if (typeof FullCalendar !== 'undefined' && FullCalendar.Draggable) {
+            new FullCalendar.Draggable(unscheduledListEl, {
+                itemSelector: '.unscheduled-task-item',
+                eventData: function (eventEl) {
+                    var titleEl = eventEl.querySelector('.ut-title');
+                    return {
+                        title: titleEl ? titleEl.textContent.trim() : '任务',
+                        duration: '01:00',
+                        extendedProps: {
+                            pendingTaskId: eventEl.getAttribute('data-task-id'),
+                            fromUnscheduled: true
+                        }
+                    };
+                }
+            });
+        }
+    })();
+
+    (function handlePlannerDeepLink() {
+        const params = new URLSearchParams(window.location.search);
+        const dateStr = params.get('date');
+        const action = params.get('action');
+        const reminder = params.get('reminder');
+        const taskFocus = params.get('task');
+        const dateOk = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+
+        if (dateOk) {
+            calendar.gotoDate(dateStr);
+        } else if (taskFocus) {
+            calendar.gotoDate(new Date());
+        }
+
+        if (action === 'new') {
+            document.getElementById('taskForm').reset();
+            document.getElementById('taskId').value = '';
+            document.getElementById('taskFormModalLabel').textContent = '创建任务';
+            document.getElementById('repeatType').value = 'none';
+            document.getElementById('repeatOptions').style.display = 'none';
+            document.getElementById('repeatEnds').value = '';
+            var tuNew = document.getElementById('taskUnscheduled');
+            if (tuNew) tuNew.checked = false;
+            var repNew = document.getElementById('repeatType');
+            if (repNew) repNew.disabled = false;
+            syncUnscheduledRepeatUi();
+            document.getElementById('subjectCategory').value = '';
+            fillSubjectSelectForCategory('');
+            initializeTimeSelectors();
+            window.selectedDate = dateOk ? dateStr : new Date().toISOString().split('T')[0];
+            const syncEl = document.getElementById('syncImportantReminder');
+            if (syncEl) {
+                syncEl.checked = (reminder === '1' || reminder === 'true');
+            }
+            setTaskFormDeleteVisible(false);
+            taskFormModal.show();
+        }
+
+        let pendingTask = taskFocus;
+        let taskTries = 0;
+        if (pendingTask) {
+            const onEventsSet = function () {
+                if (!pendingTask) {
+                    return;
+                }
+                taskTries += 1;
+                const ev = calendar.getEventById(String(pendingTask));
+                if (ev) {
+                    calendar.off('eventsSet', onEventsSet);
+                    const el = ev.el;
+                    if (el && typeof el.scrollIntoView === 'function') {
+                        setTimeout(function () {
+                            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                        }, 100);
+                    }
+                    pendingTask = null;
+                } else if (taskTries > 12) {
+                    calendar.off('eventsSet', onEventsSet);
+                    pendingTask = null;
+                }
+            };
+            calendar.on('eventsSet', onEventsSet);
+        }
+
+        if (dateOk || action === 'new' || taskFocus) {
+            const u = new URL(window.location.href);
+            u.search = '';
+            if (typeof history.replaceState === 'function') {
+                history.replaceState({}, '', u.pathname + u.hash);
+            }
+        }
+    })();
 
     /* 控制台里勿用变量名 calendar：会与 <div id="calendar"> 的全局 DOM 冲突。
        调试 FullCalendar 实例请用：window.focuslearnPlannerCalendar */
@@ -870,36 +1765,17 @@ function recordCalendarTitle(r) {
         });
     }
 
-    // 加载科目列表
-    function loadSubjects() {
-        fetch('/planner/api/subjects/', {
-            headers: {
-                'X-CSRFToken': csrftoken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            const subjectSelect = document.getElementById('subject');
-            subjectSelect.innerHTML = '<option value="">选择项目</option>';
-            
-            data.forEach(subject => {
-                const option = document.createElement('option');
-                option.value = subject.id;
-                option.textContent = subject.name;
-                subjectSelect.appendChild(option);
-            });
-        })
-        .catch(error => console.error('Error loading subjects:', error));
-    }
-
     // 加载章节列表
-    function loadChapters(subjectId) {
+    function loadChapters(subjectId, includeChapterId) {
         if (!subjectId) {
             document.getElementById('chapter').innerHTML = '<option value="">请先选择项目</option>';
             return;
         }
-        
-        fetch(`/planner/api/chapters/?subject=${subjectId}`, {
+        var chapterQs = 'subject=' + encodeURIComponent(subjectId);
+        if (includeChapterId != null && includeChapterId !== '') {
+            chapterQs += '&include_chapter=' + encodeURIComponent(includeChapterId);
+        }
+        fetch('/planner/api/chapters/?' + chapterQs, {
             headers: {
                 'X-CSRFToken': csrftoken
             }
@@ -927,6 +1803,202 @@ function recordCalendarTitle(r) {
         if (isNaN(d.getTime())) return null;
         return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
+
+    function combineDateAndTimesToIso(dateStr, startHHMM, endHHMM) {
+        var startDt = new Date(dateStr + 'T' + startHHMM + ':00');
+        var endDt = new Date(dateStr + 'T' + endHHMM + ':00');
+        if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) return null;
+        if (endDt <= startDt) {
+            endDt = new Date(endDt.getTime() + 86400000);
+        }
+        return { start: startDt.toISOString(), end: endDt.toISOString() };
+    }
+
+    function openPlanRecordModal(event) {
+        function run() {
+            document.getElementById('planRecordPlannerTaskId').value = String(event.id);
+            var srcTitle = (event.extendedProps && event.extendedProps.task_raw_title) ? String(event.extendedProps.task_raw_title).trim() : '';
+            if (!srcTitle) srcTitle = (event.title || '').trim();
+            document.getElementById('planRecordSourceTaskTitle').value = srcTitle;
+            var srcDesc = (event.extendedProps && event.extendedProps.description != null) ? String(event.extendedProps.description).trim() : '';
+            document.getElementById('planRecordSourceTaskDescription').value = srcDesc;
+            var start = event.start;
+            window.planRecordDateStr = start.getFullYear() + '-' +
+                String(start.getMonth() + 1).padStart(2, '0') + '-' +
+                String(start.getDate()).padStart(2, '0');
+
+            var catVal = '';
+            if (event.extendedProps.subject_category_id != null && event.extendedProps.subject_category_id !== undefined) {
+                catVal = String(event.extendedProps.subject_category_id);
+            } else if (event.extendedProps.subject_id) {
+                var found = categorySubjectsTree.find(function (c) {
+                    return (c.subjects || []).some(function (s) {
+                        return String(s.id) === String(event.extendedProps.subject_id);
+                    });
+                });
+                catVal = found ? categoryOptionValue(found) : '';
+            }
+
+            syncPlanRecordCategorySelectFromTree();
+            var prCat = document.getElementById('planRecordSubjectCategory');
+            if (catVal && categorySubjectsTree.some(function (c) { return categoryOptionValue(c) === catVal; })) {
+                prCat.value = catVal;
+            } else {
+                prCat.value = '';
+            }
+            fillPlanRecordSubjectSelectForCategory(prCat.value);
+
+            if (event.extendedProps.subject_id) {
+                document.getElementById('planRecordSubject').value = String(event.extendedProps.subject_id);
+            }
+
+            var range = ensureMinDurationOneHour(event.start, event.end);
+            document.getElementById('planRecordStartTime').value = formatDateTimeForInput(range.start);
+            document.getElementById('planRecordEndTime').value = formatDateTimeForInput(range.end);
+
+            var desc = (event.extendedProps.description || '').trim();
+            if (!desc && event.extendedProps.task_raw_title) {
+                desc = String(event.extendedProps.task_raw_title).trim();
+            }
+            document.getElementById('planRecordDescription').value = desc;
+
+            loadPlanRecordChapters(event.extendedProps.subject_id, event.extendedProps.chapter_id, function () {
+                planRecordModal.show();
+            });
+        }
+
+        if (!categorySubjectsTree.length) {
+            loadSubjectCategoryOptions().then(function () { run(); });
+        } else {
+            run();
+        }
+    }
+
+    /** 「修改」保存记录后：在待安排中新增一条与原计划标题、说明相同的副本（占位日期与 9:00–10:00，排入日历时再定） */
+    function createUnscheduledDuplicateFromPlanRecord() {
+        var title = (document.getElementById('planRecordSourceTaskTitle').value || '').trim();
+        if (!title) title = '待安排计划';
+        var description = document.getElementById('planRecordSourceTaskDescription').value || '';
+        var subj = document.getElementById('planRecordSubject').value;
+        var chapter = document.getElementById('planRecordChapter').value;
+        var today = new Date();
+        var sd = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+        return fetch('/planner/api/tasks/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({
+                title: title,
+                description: description,
+                subject: parseInt(subj, 10),
+                chapter: parseInt(chapter, 10),
+                is_unscheduled: true,
+                repeat_type: 'none',
+                repeat_ends: '',
+                start_date: sd,
+                end_date: sd,
+                start_time: '09:00',
+                end_time: '10:00',
+                sync_important_reminder: false
+            })
+        }).then(function (r) {
+            if (!r.ok) {
+                return r.json().then(function (j) {
+                    throw new Error((j && (j.detail || j.error || (typeof j === 'string' ? j : JSON.stringify(j)))) || r.status);
+                });
+            }
+            return r.json();
+        });
+    }
+
+    function submitPlanExecutionRecord(markComplete) {
+        var taskId = document.getElementById('planRecordPlannerTaskId').value;
+        if (!taskId) {
+            alert('无效的任务');
+            return;
+        }
+        var dateStr = window.planRecordDateStr;
+        var st = document.getElementById('planRecordStartTime').value;
+        var et = document.getElementById('planRecordEndTime').value;
+        var chapter = document.getElementById('planRecordChapter').value;
+        var desc = document.getElementById('planRecordDescription').value || '';
+
+        var prCat = document.getElementById('planRecordSubjectCategory').value;
+        var subj = document.getElementById('planRecordSubject').value;
+        if (!prCat || !subj || !chapter || !dateStr || !st || !et) {
+            alert('请填写分类、项目、任务及起止时间');
+            return;
+        }
+
+        var times = combineDateAndTimesToIso(dateStr, st, et);
+        if (!times) {
+            alert('时间无效');
+            return;
+        }
+
+        var chSel = document.getElementById('planRecordChapter');
+        var chapterName = chSel.options[chSel.selectedIndex] ? chSel.options[chSel.selectedIndex].text : '';
+        var subSel = document.getElementById('planRecordSubject');
+        var subjectName = subSel.options[subSel.selectedIndex] ? subSel.options[subSel.selectedIndex].text : '';
+
+        var btnA = document.getElementById('planRecordAdjustBtn');
+        var btnC = document.getElementById('planRecordCompleteBtn');
+        if (btnA) btnA.disabled = true;
+        if (btnC) btnC.disabled = true;
+
+        fetch('/planner/api/tasks/' + encodeURIComponent(taskId) + '/plan_execution_record/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                start_time: times.start,
+                end_time: times.end,
+                chapter: parseInt(chapter, 10),
+                subject_name: subjectName,
+                chapter_name: chapterName,
+                learning_content: desc,
+                description: desc,
+                page_type: 'other',
+                mark_complete: !!markComplete
+            })
+        })
+            .then(function (r) {
+                if (!r.ok) {
+                    return r.json().then(function (j) {
+                        throw new Error(j.error || j.detail || JSON.stringify(j));
+                    });
+                }
+                return r.json();
+            })
+            .then(function () {
+                if (!markComplete) {
+                    return createUnscheduledDuplicateFromPlanRecord().catch(function (dupErr) {
+                        alert('学习记录已保存，但添加待安排副本失败: ' + (dupErr.message || dupErr));
+                    });
+                }
+            })
+            .then(function () {
+                planRecordModal.hide();
+                calendar.refetchEvents();
+                refreshUnscheduledTasksPanel();
+            })
+            .catch(function (err) {
+                alert('保存失败: ' + (err.message || err));
+            })
+            .finally(function () {
+                if (btnA) btnA.disabled = false;
+                if (btnC) btnC.disabled = false;
+            });
+    }
+
+    document.getElementById('planRecordAdjustBtn').addEventListener('click', function () {
+        submitPlanExecutionRecord(false);
+    });
+    document.getElementById('planRecordCompleteBtn').addEventListener('click', function () {
+        submitPlanExecutionRecord(true);
+    });
     
     // 设置时间选择器的值
     function setTimeSelectValue(selectId, timeValue) {
@@ -971,6 +2043,7 @@ function recordCalendarTitle(r) {
         .then(data => {
             taskDetailsModal.hide();
             calendar.refetchEvents(); // 刷新日历
+            refreshUnscheduledTasksPanel();
         })
         .catch(error => console.error('Error toggling task completion:', error));
     }
@@ -988,14 +2061,15 @@ function recordCalendarTitle(r) {
         const start_time = document.getElementById('startDateTime').value;
         const end_time = document.getElementById('endDateTime').value;
         const description = document.getElementById('description').value;
-        const focusLevel = document.getElementById('focusLevel').value;
-        const energyLevel = document.getElementById('energyLevel').value;
         const repeatType = document.getElementById('repeatType').value;
         const repeatEnds = document.getElementById('repeatEnds').value;
+        const subjectCategory = document.getElementById('subjectCategory').value;
+        const syncImportantReminder = document.getElementById('syncImportantReminder').checked;
+        const taskUnscheduled = document.getElementById('taskUnscheduled').checked;
         
         // 验证表单
-        if (!title || !subject || !chapter || !start_time || !end_time|| !focusLevel || !energyLevel|| !repeatType) {
-            alert('请填写所有必填字段');
+        if (!title || !subjectCategory || !subject || !chapter || !start_time || !end_time || !repeatType) {
+            alert('请填写所有必填字段（含分类与项目）');
             return;
         }
 
@@ -1005,9 +2079,11 @@ function recordCalendarTitle(r) {
         const start_date = selectedDate;
         const end_date = selectedDate;
 
-        if((repeatType === 'none' && repeatEnds)|| (repeatType !== 'none' && !repeatEnds)|| (repeatType !== 'none' &&repeatEnds <= start_date)){
-            alert('请填写正确的结束日期');
-            return;
+        if (!taskUnscheduled) {
+            if ((repeatType === 'none' && repeatEnds) || (repeatType !== 'none' && !repeatEnds) || (repeatType !== 'none' && repeatEnds <= start_date)) {
+                alert('请填写正确的结束日期');
+                return;
+            }
         }
 
         
@@ -1021,10 +2097,10 @@ function recordCalendarTitle(r) {
             end_time,
             start_date,
             end_date,
-            focus_level: focusLevel,
-            energy_level: energyLevel,
-            repeat_type: repeatType,
-            repeat_ends: repeatEnds
+            repeat_type: taskUnscheduled ? 'none' : repeatType,
+            repeat_ends: taskUnscheduled ? '' : repeatEnds,
+            sync_important_reminder: syncImportantReminder,
+            is_unscheduled: taskUnscheduled
         };
 
         
@@ -1118,6 +2194,7 @@ function recordCalendarTitle(r) {
                     }
                     // 刷新日历或执行其他操作
                     calendar.refetchEvents();
+                    refreshUnscheduledTasksPanel();
                 })
                 .catch(error => {
                     console.error('Error saving task:', error);
@@ -1178,6 +2255,7 @@ function recordCalendarTitle(r) {
                 }
                 // 关闭模态框
                 calendar.refetchEvents();
+                refreshUnscheduledTasksPanel();
             })
             .catch(error => {
                 console.error('Error saving task:', error);
@@ -1185,6 +2263,91 @@ function recordCalendarTitle(r) {
         }
         
  }
+
+    /** 删除确认：不重复则 confirm；重复任务则弹出范围选择（与任务详情一致） */
+    function promptDeletePlannerTask(taskId, repeatType) {
+        if (taskId === undefined || taskId === null || taskId === '') {
+            return;
+        }
+        var tid = String(taskId);
+        var rt = repeatType || 'none';
+
+        if (rt === 'none') {
+            if (confirm('确定要删除这个任务吗？')) {
+                taskFormModal.hide();
+                deleteTask(tid, 'this');
+            }
+            return;
+        }
+
+        taskFormModal.hide();
+
+        var globalModalContainer = document.getElementById('globalModalContainer');
+        if (!globalModalContainer) {
+            globalModalContainer = document.createElement('div');
+            globalModalContainer.id = 'globalModalContainer';
+            globalModalContainer.style.position = 'fixed';
+            globalModalContainer.style.top = '0';
+            globalModalContainer.style.left = '0';
+            globalModalContainer.style.width = '100%';
+            globalModalContainer.style.height = '100%';
+            globalModalContainer.style.zIndex = '2000';
+            globalModalContainer.style.display = 'flex';
+            globalModalContainer.style.justifyContent = 'center';
+            globalModalContainer.style.alignItems = 'center';
+            document.body.appendChild(globalModalContainer);
+        }
+
+        globalModalContainer.innerHTML = '';
+
+        var modal = document.createElement('div');
+        modal.className = 'modal-dialog';
+        modal.innerHTML = `
+            <div class="modal-content" style="width: 500px; max-width: 90%; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div class="modal-header" style="padding: 15px; border-bottom: 1px solid #e0e0e0;">
+                    <h5 class="modal-title">删除重复任务</h5>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <p>这是一个重复任务。您想删除：</p>
+                    <div class="form-check" style="margin-bottom: 10px;">
+                        <input class="form-check-input" type="radio" name="deleteScope" id="deleteThis" value="this" checked>
+                        <label class="form-check-label" for="deleteThis">仅删除当前任务</label>
+                    </div>
+                    <div class="form-check" style="margin-bottom: 10px;">
+                        <input class="form-check-input" type="radio" name="deleteScope" id="deleteFuture" value="future">
+                        <label class="form-check-label" for="deleteFuture">删除当前及所有未来任务</label>
+                    </div>
+                    <div class="form-check" style="margin-bottom: 10px;">
+                        <input class="form-check-input" type="radio" name="deleteScope" id="deleteAll" value="all">
+                        <label class="form-check-label" for="deleteAll">删除整个任务系列</label>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e0e0e0; display: flex; justify-content: space-between;">
+                    <button type="button" class="btn btn-secondary" id="cancelDelete" style="margin-right: 10px;">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDelete">确认</button>
+                </div>
+            </div>
+        `;
+
+        globalModalContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        globalModalContainer.appendChild(modal);
+
+        modal.querySelector('#cancelDelete').addEventListener('click', function () {
+            globalModalContainer.style.display = 'none';
+        });
+        modal.querySelector('#confirmDelete').addEventListener('click', function () {
+            var selectedScope = modal.querySelector('input[name="deleteScope"]:checked').value;
+            globalModalContainer.style.display = 'none';
+            deleteTask(tid, selectedScope);
+        });
+
+        globalModalContainer.style.display = 'flex';
+        globalModalContainer.addEventListener('click', function (e) {
+            if (e.target === globalModalContainer) {
+                globalModalContainer.style.display = 'none';
+            }
+        });
+    }
 
     // 删除任务_删除重复任务细节在后端处理，此处仅为前端触发删除操作
     function deleteTask(taskId, deleteScope= 'this') {
@@ -1201,11 +2364,19 @@ function recordCalendarTitle(r) {
                 throw new Error('Failed to delete task');
             }
             taskDetailsModal.hide();
+            taskFormModal.hide();
             calendar.refetchEvents(); // 刷新日历
+            refreshUnscheduledTasksPanel();
         })
         .catch(error => console.error('Error deleting task:', error));
 
     }
+
+    document.getElementById('taskFormDeleteBtn').addEventListener('click', function () {
+        var taskId = document.getElementById('taskId').value;
+        var repeatType = document.getElementById('repeatType').value;
+        promptDeletePlannerTask(taskId, repeatType);
+    });
 
     // 将时间字符串转换为ISO格式
     function convertToISODateTime(dateStr, timeStr) {
@@ -1234,78 +2405,105 @@ function recordCalendarTitle(r) {
         return date.toISOString();
     }
 
-    // // 打开编辑任务表单
     function openEditTaskForm(event) {
-
-            // 转换日期格式的函数
         function formatDateForInput(dateString) {
             if (!dateString) return '';
-            
             try {
-                // 直接截取日期部分，避免时区转换
-                const [datePart] = dateString.split ('T');
+                const [datePart] = String(dateString).split('T');
                 return datePart;
             } catch (error) {
                 console.error('日期转换错误:', error);
                 return '';
             }
         }
-        // 清空表单
+
         document.getElementById('taskForm').reset();
-        
-        // 填充表单数据
         document.getElementById('taskId').value = event.id;
         document.getElementById('title').value =
             (event.extendedProps && event.extendedProps.task_raw_title) || '';
         document.getElementById('taskFormModalLabel').textContent = '编辑任务';
-        
-        // 存储事件的日期，用于后续提交
         window.selectedDate = event.start.toISOString().split('T')[0];
-        
-        // 设置时间
+
         const startTime = formatDateTimeForInput(event.start);
         const endTime = formatDateTimeForInput(event.end);
-        
         if (startTime) document.getElementById('startDateTime').value = startTime;
         if (endTime) document.getElementById('endDateTime').value = endTime;
-        
-        // 填充其他字段
         document.getElementById('description').value = event.extendedProps.description || '';
-        document.getElementById('focusLevel').value = event.extendedProps.focus_level;
-        document.getElementById('energyLevel').value = event.extendedProps.energy_level;
-        document.getElementById('focusLevelValue').textContent = event.extendedProps.focus_level;
-        document.getElementById('energyLevelValue').textContent = event.extendedProps.energy_level;
-        
-        // 设置科目和章节
-        document.getElementById('subject').value = event.extendedProps.subject_id;
-        
-        // 加载章节并设置选中值
-        loadChapters(event.extendedProps.subject_id);
-        setTimeout(() => {
-            document.getElementById('chapter').value = event.extendedProps.chapter_id;
-        }, 500);
-        
-        // 设置重复类型
-        document.getElementById('repeatType').value = event.extendedProps.repeat_type;
-        // 设置结束日期
-        const repeatEnds = document.getElementById('repeatEnds');
-        const repeatType = document.getElementById('repeatType').value;
-        const repeatOptions = document.getElementById('repeatOptions');
 
-        // 根据repeatType的值显示或隐藏repeatEnd
-        if (repeatType !== 'none') {
-            repeatOptions.style.display = 'block'; // 显示repeatEnd
-            repeatEnds.value = formatDateForInput(event.extendedProps.repeat_ends);
-        } else {
-            repeatOptions.style.display = 'none'; // 隐藏repeatEnd
-            document.getElementById('repeatEnds').value = ''; // 清空结束日期
+        function finishForm(task) {
+            const syncEl = document.getElementById('syncImportantReminder');
+            if (syncEl) {
+                syncEl.checked = !!(task && task.has_important_reminder);
             }
-        // // 触发重复类型变化事件
-        const changeEvent = new Event('change');
-        document.getElementById('repeatType').dispatchEvent(changeEvent);      
-        
-        // 显示模态框
-        taskFormModal.show();
+
+            let catVal = '';
+            if (task && task.subject_category_id != null && task.subject_category_id !== undefined) {
+                catVal = String(task.subject_category_id);
+            } else if (task && task.subject) {
+                const found = categorySubjectsTree.find(function (c) {
+                    return (c.subjects || []).some(function (s) {
+                        return String(s.id) === String(task.subject);
+                    });
+                });
+                catVal = found ? categoryOptionValue(found) : '__uncat__';
+            }
+            const catSel = document.getElementById('subjectCategory');
+            if (catVal && categorySubjectsTree.some(function (c) {
+                return categoryOptionValue(c) === catVal;
+            })) {
+                catSel.value = catVal;
+            } else {
+                catSel.value = '';
+            }
+            fillSubjectSelectForCategory(catSel.value);
+            if (task && task.subject) {
+                document.getElementById('subject').value = String(task.subject);
+                loadChapters(task.subject, task.chapter);
+                setTimeout(function () {
+                    if (task.chapter) {
+                        document.getElementById('chapter').value = String(task.chapter);
+                    }
+                }, 400);
+            }
+
+            document.getElementById('repeatType').value = event.extendedProps.repeat_type || 'none';
+            const repeatEnds = document.getElementById('repeatEnds');
+            const repeatType = document.getElementById('repeatType').value;
+            const repeatOptions = document.getElementById('repeatOptions');
+            if (repeatType !== 'none') {
+                repeatOptions.style.display = 'block';
+                repeatEnds.value = formatDateForInput(event.extendedProps.repeat_ends);
+            } else {
+                repeatOptions.style.display = 'none';
+                repeatEnds.value = '';
+            }
+            document.getElementById('repeatType').dispatchEvent(new Event('change'));
+            var uSch = document.getElementById('taskUnscheduled');
+            if (uSch) {
+                uSch.checked = !!(task && task.is_unscheduled);
+                syncUnscheduledRepeatUi();
+            }
+            setTaskFormDeleteVisible(true);
+            taskFormModal.show();
+        }
+
+        fetch('/planner/api/tasks/' + encodeURIComponent(event.id) + '/', {
+            headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
+        })
+            .then(function (r) {
+                if (!r.ok) throw new Error('加载任务失败');
+                return r.json();
+            })
+            .then(function (task) { finishForm(task); })
+            .catch(function () {
+                finishForm({
+                    subject: event.extendedProps.subject_id,
+                    chapter: event.extendedProps.chapter_id,
+                    subject_category_id: event.extendedProps.subject_category_id,
+                    has_important_reminder: event.extendedProps.has_important_reminder,
+                    is_unscheduled: event.extendedProps.is_unscheduled
+                });
+            });
     }
     
     // 格式化日期时间范围

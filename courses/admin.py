@@ -1,26 +1,8 @@
 
 from django.contrib import admin
-from django.core.management import call_command
-from django.contrib import messages
-from django.http import HttpResponseRedirect
-from django.urls import reverse
-from .models import ReviewSet
-
-def generate_daily_review(modeladmin, request, queryset):
-    try:
-        call_command('generate_daily_review')
-        messages.success(request, "每日复习计划已生成")
-    except Exception as e:
-        messages.error(request, f"生成复习计划失败: {str(e)}")
-    return HttpResponseRedirect(reverse('admin:courses_reviewset_changelist'))
-
-generate_daily_review.short_description = "生成今日复习计划"
-
-@admin.register(ReviewSet)
-class ReviewSetAdmin(admin.ModelAdmin):
-    actions = [generate_daily_review]
 from mptt.admin import MPTTModelAdmin
-from .models import KnowledgePoint
+from .models import KnowledgePoint, SubjectCategory, Subject
+
 
 @admin.register(KnowledgePoint)
 class KnowledgePointAdmin(MPTTModelAdmin):
@@ -33,14 +15,11 @@ class KnowledgePointAdmin(MPTTModelAdmin):
             'fields': ('chapter', 'title', 'parent', 'description', 'content')
         }),
         ('关联内容', {
-            'fields': ('documents', 'videos', 'exercises'),
+            'fields': ('documents', 'videos'),
             'classes': ('collapse',)
         })
     )
-    filter_horizontal = ('documents', 'videos', 'exercises')
-
-
-from .models import SubjectCategory, Subject
+    filter_horizontal = ('documents', 'videos')
 
 
 @admin.register(SubjectCategory)

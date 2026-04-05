@@ -1,0 +1,23 @@
+{% load static %}
+<div class="qa-library-icon-field">
+    <p class="ant-form-text">从图标库选择（后台上传的 32×32 或 64×64 正方形图标）；不选则使用默认图标。本站创建页不再支持本地上传。</p>
+    <div class="qa-icon-grid">
+        <label class="qa-icon-option">
+            <input type="radio" name="library_icon" value="" {% if not form.library_icon.value %}checked{% endif %}>
+            <span class="qa-icon-thumb"><img src="{% static 'images/create_default.png' %}" width="32" height="32" alt=""></span>
+            <span class="qa-icon-label">默认</span>
+        </label>
+        {% for icon in form.library_icon.field.queryset %}
+        <label class="qa-icon-option">
+            <input type="radio" name="library_icon" value="{{ icon.pk }}" {% if form.library_icon.value == icon.pk %}checked{% endif %}>
+            <span class="qa-icon-thumb"><img src="{{ icon.image.url }}" width="32" height="32" alt="" loading="lazy"></span>
+            {% if icon.name %}<span class="qa-icon-label">{{ icon.name }}</span>{% endif %}
+        </label>
+        {% empty %}
+        <p class="qa-icon-empty ant-form-text">暂无库内图标，请管理员在后台「速记图标库」中上传。</p>
+        {% endfor %}
+    </div>
+    {% if form.library_icon.errors %}
+    <div class="qa-field-error">{{ form.library_icon.errors }}</div>
+    {% endif %}
+</div>

@@ -17,6 +17,36 @@ from .serializers import (  # 使用括号和逗号分隔
     WordsSerializer
 )
 from django.db import transaction
+from django.db.models import Q
+
+from .task_reminder_service import (
+    refresh_important_date_from_task_if_linked,
+    sync_task_important_reminder,
+)
+from courses.models import StudyRecord
+
+
+def _parse_iso_datetime_for_study_record(datetime_str):
+    if not datetime_str:
+        return None
+    try:
+        dt = dateparse.parse_datetime(str(datetime_str))
+        if dt is None:
+            return None
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt)
+        return dt.replace(microsecond=0)
+    except Exception:
+        return None
+
+
+def _request_sync_important_reminder(request):
+    v = request.data.get("sync_important_reminder", False)
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "1", "yes", "on")
+    return bool(v)
 
 
 class IsOwner(permissions.BasePermission):
@@ -70,19 +100,52 @@ class TaskViewSet(viewsets.ModelViewSet):
     #         return None
     # 获取任务列表的数据，可设定时间范围
     def get_queryset(self):
-        queryset = Task.objects.filter(user=self.request.user)
-        
-        # 添加日期范围过滤
+        queryset = Task.objects.filter(user=self.request.user).select_related("subject")
+
+        subject_raw = self.request.query_params.get("subject")
+        chapter_raw = self.request.query_params.get("chapter")
+        subject_id = None
+        chapter_id = None
+        if subject_raw not in (None, ""):
+            try:
+                subject_id = int(subject_raw)
+            except (TypeError, ValueError):
+                subject_id = None
+        if chapter_raw not in (None, ""):
+            try:
+                chapter_id = int(chapter_raw)
+            except (TypeError, ValueError):
+                chapter_id = None
+
+        def _apply_subject_chapter(qs):
+            if subject_id is not None:
+                qs = qs.filter(subject_id=subject_id)
+            if chapter_id is not None:
+                qs = qs.filter(chapter_id=chapter_id)
+            return qs
+
+        unscheduled = self.request.query_params.get('unscheduled')
+        if unscheduled in ('1', 'true', 'yes'):
+            return _apply_subject_chapter(queryset).filter(
+                is_unscheduled=True, is_completed=False
+            ).order_by('-created_at')
+
+        # 详情/更新/删除/自定义 action 需能访问待安排任务；列表排除待安排（由周历拉取）
+        if getattr(self, 'action', None) != 'list':
+            return _apply_subject_chapter(queryset)
+
+        queryset = queryset.exclude(is_unscheduled=True)
+        queryset = _apply_subject_chapter(queryset)
+
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
-        
+
         if start_date and end_date:
-                # 过滤在日期范围内的任务
-                queryset = queryset.filter(
-                    end_date__gte=start_date,
-                    start_date__lte=end_date
-                )
-        
+            queryset = queryset.filter(
+                end_date__gte=start_date,
+                start_date__lte=end_date,
+            )
+
         return queryset
     def _parse_date(self, date_str):
         """
@@ -128,7 +191,11 @@ class TaskViewSet(viewsets.ModelViewSet):
             subject=subject,
             chapter=chapter
         )
-        
+
+        if task.is_unscheduled:
+            sync_task_important_reminder(task, _request_sync_important_reminder(self.request))
+            return
+
         # 处理重复任务的批量创建
         if (task.repeat_type == 'daily' or task.repeat_type == 'weekly'or task.repeat_type == 'monthly'):
             # 使用事务确保原子性
@@ -184,11 +251,15 @@ class TaskViewSet(viewsets.ModelViewSet):
                 # 批量创建任务
                 Task.objects.bulk_create(created_tasks)
 
+                sync_task_important_reminder(task, _request_sync_important_reminder(self.request))
+
                 return Response({
                     'created': len(created_tasks),
                     'tasks': TaskBulkSerializer(created_tasks, many=True).data
                 }, status=status.HTTP_201_CREATED)
         
+        sync_task_important_reminder(task, _request_sync_important_reminder(self.request))
+
         # 如果不是重复任务，正常返回
         return Response(
             TaskSerializer(task).data, 
@@ -258,6 +329,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                 if tasks_to_update:
                     Task.objects.bulk_update(tasks_to_update, list(update_data.keys()))
         
+        sync_task_important_reminder(serializer.instance, _request_sync_important_reminder(self.request))
+
         return Response(serializer.data)
     
     def destroy(self, request, *args, **kwargs):
@@ -296,6 +369,81 @@ class TaskViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(task)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def plan_execution_record(self, request, pk=None):
+        """
+        为周历计划写入一条学习记录；可选同时将计划标记为已完成。
+        mark_complete=false：仅记「该时段实际做了什么」，不改变计划完成状态。
+        mark_complete=true：写入记录并将 is_completed 设为 True。
+        """
+        task = self.get_object()
+        mark_complete = request.data.get('mark_complete', False)
+        if isinstance(mark_complete, str):
+            mark_complete = mark_complete.strip().lower() in ('true', '1', 'yes', 'on')
+
+        start_dt = _parse_iso_datetime_for_study_record(request.data.get('start_time'))
+        end_dt = _parse_iso_datetime_for_study_record(request.data.get('end_time'))
+        if not start_dt or not end_dt:
+            return Response(
+                {'error': '缺少或无效的开始/结束时间'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if end_dt <= start_dt:
+            return Response(
+                {'error': '结束时间必须晚于开始时间'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        duration_sec = int((end_dt - start_dt).total_seconds())
+        if duration_sec <= 0:
+            return Response({'error': '时长须大于 0'}, status=status.HTTP_400_BAD_REQUEST)
+
+        chapter_id = request.data.get('chapter')
+        chapter = None
+        subject_name = (request.data.get('subject_name') or '').strip() or '—'
+        chapter_name = (request.data.get('chapter_name') or '').strip() or '—'
+
+        if chapter_id not in (None, '', 'null'):
+            try:
+                chapter = Chapter.objects.select_related('subject').get(pk=int(chapter_id))
+            except (ValueError, TypeError, Chapter.DoesNotExist):
+                return Response(
+                    {'error': '无效的任务（子任务）'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if chapter.subject:
+                subject_name = chapter.subject.name
+            chapter_name = chapter.title
+
+        learning_content = request.data.get('learning_content', '') or ''
+        description = request.data.get('description', '') or ''
+
+        page_type = request.data.get('page_type') or 'other'
+        valid_pt = {c[0] for c in StudyRecord.PAGE_TYPE_CHOICES}
+        if page_type not in valid_pt:
+            page_type = 'other'
+
+        with transaction.atomic():
+            StudyRecord.objects.create(
+                user=request.user,
+                created_date=timezone.localtime(start_dt).date(),
+                start_time=start_dt,
+                end_time=end_dt,
+                duration=duration_sec,
+                page_type=page_type,
+                chapter=chapter,
+                subject_name=subject_name,
+                chapter_name=chapter_name,
+                learning_content=learning_content,
+                description=description,
+            )
+            if mark_complete:
+                Task.objects.filter(pk=task.pk, user=request.user).update(is_completed=True)
+
+        task.refresh_from_db()
+        serializer = self.get_serializer(task)
+        return Response({'status': 'ok', 'mark_complete': bool(mark_complete), 'task': serializer.data})
         
     @action(detail=True, methods=['patch'])
     def move(self, request, pk=None):
@@ -343,6 +491,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         
         try:
             task.save()
+            refresh_important_date_from_task_if_linked(task)
             # 重新获取最新数据并序列化
             task.refresh_from_db()
             serializer = self.get_serializer(task)
@@ -376,7 +525,21 @@ class ChapterViewSet(viewsets.ModelViewSet):
     ordering = ['order', 'title']
 
     def get_queryset(self):
-        return Chapter.objects.all()
+        base = Chapter.objects.all()
+        # 仅列表接口排除「完成」，避免 retrieve 等单条访问被误伤
+        if getattr(self, 'action', None) != 'list':
+            return base
+        include_pk = None
+        raw = self.request.query_params.get('include_chapter')
+        if raw not in (None, ''):
+            try:
+                include_pk = int(raw)
+            except (TypeError, ValueError):
+                include_pk = None
+        q = ~Q(progress_status=Chapter.ProgressStatus.DONE)
+        if include_pk is not None:
+            q = q | Q(pk=include_pk)
+        return base.filter(q).distinct()
 
 class DailySummaryViewSet(viewsets.ModelViewSet):
     """

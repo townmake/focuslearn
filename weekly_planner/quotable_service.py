@@ -1,6 +1,6 @@
 """
-首页欢迎区名言：Quotable 随机名言 API。
-文档：https://github.com/lukePeavey/quotable · 服务端 https://api.quotable.io
+首页欢迎区名言：从本地库 LocalFamousQuote 随机选取。
+历史：DailyQuotableQuote / Quotable API 仍保留模型与命令，首页已不再调用外网。
 """
 import json
 import logging
@@ -98,16 +98,19 @@ def ensure_today_quotable_quotes(slots=None):
 
 
 def pick_random_welcome_quote():
-    """从今日已存的名言中随机取一条展示；无则返回 None。"""
-    from .models import DailyQuotableQuote
+    """从本地「名人名言」库中随机取一条（仅 is_active=True）；无则返回 None。"""
+    from .models import LocalFamousQuote
 
-    today = timezone.localdate()
-    rows = list(
-        DailyQuotableQuote.objects.filter(date=today).values("content", "author")
+    row = (
+        LocalFamousQuote.objects.filter(is_active=True)
+        .order_by("?")
+        .values("content", "author")
+        .first()
     )
-    if not rows:
+    if not row:
         return None
-    return random.choice(rows)
+    author = (row.get("author") or "").strip() or "佚名"
+    return {"content": row["content"], "author": author}
 
 
 def refresh_slot(today, slot, *, force=False):

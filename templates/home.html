@@ -1,40 +1,52 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}首页 - 学习系统{% endblock %}
+{% block title %}首页-时间投入管理系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'aieditor-main/dist/style.css' %}">
+<style>
+.home-weekly-ai-editor-wrap { margin-top: 10px; border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; background: #fff; }
+.home-weekly-ai-editor-wrap .aie-container { min-height: 72px; }
+.home-weekly-ai-editor-wrap .aie-content { padding: 10px 12px; }
+.home-weekly-ai-editor-wrap table { border-collapse: collapse; width: 100%; margin: 0.6em 0; font-size: 13px; }
+.home-weekly-ai-editor-wrap th, .home-weekly-ai-editor-wrap td { border: 1px solid #d9d9d9; padding: 6px 8px; text-align: left; vertical-align: top; }
+.home-weekly-ai-editor-wrap th { background: #fafafa; font-weight: 600; }
+.home-weekly-ai-editor-wrap--readonly { cursor: pointer; }
+.home-weekly-ai-editor-wrap--editing { box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.35); }
+</style>
+{% endblock %}
 
 {% block content %}
-{% load static %}
 
  <div class="main-content">
     {% if user.is_authenticated %}
-    <div class="welcome-hero">
-        <div class="welcome-hero__main">
-            <div class="welcome-hero__greeting">
-                <h1 class="welcome-hero__title">欢迎回来，{{ user.username }}！</h1>
-                {% if messages %}
-                <div class="messages">
-                    {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}">
-                        {{ message }}
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </div>
-            {% if welcome_quote %}
-            <aside class="welcome-quote" aria-label="今日一句">
-                <p class="welcome-quote__text">{{ welcome_quote.content }}</p>
-                <footer class="welcome-quote__meta">
-                    <span class="welcome-quote__author">— {{ welcome_quote.author }}</span>
-                    <span class="welcome-quote__credit">via <a href="https://github.com/lukePeavey/quotable" target="_blank" rel="noopener noreferrer">Quotable</a></span>
-                </footer>
-            </aside>
-            {% endif %}
-        </div>
-    </div>
-
     <div class="home-layout">
         <div class="home-layout__left">
+            <div class="welcome-hero">
+                <div class="welcome-hero__main">
+                    <div class="welcome-hero__greeting">
+                        <h1 class="welcome-hero__title">欢迎回来，{{ user.username }}！</h1>
+                        {% if messages %}
+                        <div class="messages">
+                            {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <aside class="welcome-quote" aria-label="今日一句">
+                        <div class="welcome-quote__head">
+                            <span class="welcome-quote__label">今日一句</span>
+                            <button type="button" class="welcome-quote__refresh-btn" id="welcome-quote-refresh" title="随机换一句">换一句</button>
+                        </div>
+                        <p class="welcome-quote__text" id="welcome-quote-text">{% if welcome_quote %}{{ welcome_quote.content }}{% else %}暂无名言。可在管理后台添加「本地名人名言」，或点击「换一句」重试。{% endif %}</p>
+                    </aside>
+                </div>
+            </div>
+
             <div class="schedule-container">
                 <div class="today-schedule">
                     <h2 class="schedule-title">今日计划</h2>
@@ -93,16 +105,14 @@
                 </div>
             </div>
 
-            <div class="countdown-container" id="important-dates-module"
-                 data-api-list="{% url 'weekly_planner:important_dates_api' %}">
+            <div class="countdown-container" id="important-dates-module">
                 <div class="countdown-header-row">
                     <h2 class="countdown-heading">重要日期提醒</h2>
-                    <button type="button" class="btn-countdown btn-countdown-primary" id="important-date-open-add">添加</button>
+                    <a href="{% url 'weekly_planner:calendar' %}?action=new&amp;reminder=1" class="btn-countdown btn-countdown-primary">添加</a>
                 </div>
                 {{ important_dates_with_countdown|json_script:"important-dates-initial" }}
                 <ul class="countdown-list" id="important-dates-list" aria-live="polite"></ul>
                 <p class="countdown-empty" id="important-dates-empty" hidden>暂无提醒事项</p>
-                <p class="countdown-msg" id="important-dates-msg" role="status"></p>
             </div>
         </div>
 
@@ -114,13 +124,27 @@
                         {% if user.weekly_dashboard_refreshed_at %}
                         <p class="home-weekly-panel__updated">最后更新：{{ user.weekly_dashboard_refreshed_at|date:"Y-m-d H:i" }}</p>
                         {% endif %}
+                        {% if weekly_dashboard_rows %}
+                        <p class="home-weekly-panel__totals">本周计划总时间：{{ weekly_dashboard_plan_total|floatformat:2 }} h，实际总时间：{{ weekly_dashboard_actual_total|floatformat:2 }} h</p>
+                        {% endif %}
                     </div>
-                    <button type="button" class="btn-countdown btn-countdown-primary home-weekly-panel__refresh" id="home-weekly-refresh-btn">更新</button>
+                    <div class="home-weekly-panel__actions">
+                        <label class="home-weekly-ai-regenerate-label" title="若本周已有总结，勾选后再次点击「周智能总结」可强制重新生成">
+                            <input type="checkbox" id="home-weekly-ai-regenerate"> 重新生成
+                        </label>
+                        <button type="button" class="btn-countdown btn-countdown-secondary home-weekly-panel__ai" id="home-weekly-ai-btn">周智能总结</button>
+                        <button type="button" class="btn-countdown btn-countdown-primary home-weekly-panel__refresh" id="home-weekly-refresh-btn">更新</button>
+                    </div>
                 </div>
+
                 <ul class="home-weekly-list">
                     {% for row in weekly_dashboard_rows %}
                     <li class="home-weekly-item">
+                        {% if row.subject.id %}
                         <a href="{% url 'courses:subject_detail' pk=row.subject.id %}" class="home-weekly-item__name">{{ row.subject.name }}</a>
+                        {% else %}
+                        <span class="home-weekly-item__name home-weekly-item__name--orphan" title="请在周历中为任务选择科目与章节，以便归入对应项目">{{ row.subject.name }}</span>
+                        {% endif %}
                         <div class="home-weekly-rows">
                             <div class="home-weekly-bar-row">
                                 <span class="home-weekly-bar-label">计划</span>
@@ -139,30 +163,47 @@
                         </div>
                     </li>
                     {% empty %}
-                    <li class="home-weekly-empty">本周暂无可展示的项目（当前用户在本周内无计划且无学习记录）。点击「更新」将按本周数据刷新各项目统计。</li>
+                    <li class="home-weekly-empty">暂无缓存的本周统计。请点击「更新」根据本周任务与学习记录刷新各项目数据（打开首页不再自动计算，避免卡顿）。</li>
                     {% endfor %}
                 </ul>
-            </div>
-        </div>
-    </div>
 
-    <div class="important-modal-backdrop" id="important-date-backdrop" hidden></div>
-    <div class="important-modal" id="important-date-modal" role="dialog" aria-modal="true" aria-labelledby="important-date-modal-title" hidden>
-        <div class="important-modal__panel">
-            <h3 class="important-modal__title" id="important-date-modal-title">添加提醒</h3>
-            <label class="important-modal__label">事项名称
-                <input type="text" id="imodal-name" class="important-modal__input" maxlength="100" autocomplete="off" placeholder="必填">
-            </label>
-            <label class="important-modal__label">描述
-                <textarea id="imodal-desc" class="important-modal__textarea" rows="3" placeholder="选填"></textarea>
-            </label>
-            <label class="important-modal__label">到期日期时间
-                <input type="datetime-local" id="imodal-due" class="important-modal__input">
-            </label>
-            <div class="important-modal__footer">
-                <button type="button" class="btn-countdown btn-countdown-primary" id="imodal-save">保存</button>
-                <button type="button" class="btn-countdown" id="imodal-cancel">放弃</button>
-                <button type="button" class="btn-countdown btn-countdown-danger important-modal__delete" id="imodal-delete" hidden>删除</button>
+                <div class="home-weekly-ai-section" id="home-weekly-ai-section" aria-labelledby="home-weekly-ai-heading">
+                    <div class="home-weekly-ai-section__head">
+                        <h3 class="home-weekly-ai-section__title" id="home-weekly-ai-heading">本周智能总结</h3>
+                        {% if weekly_ai_display %}
+                        <nav class="home-weekly-ai-nav" aria-label="周总结周次">
+                            {% if weekly_ai_prev_id %}
+                            <a class="home-weekly-ai-nav__link" href="{% url 'home' %}?weekly_summary={{ weekly_ai_prev_id }}">上一周</a>
+                            {% else %}
+                            <span class="home-weekly-ai-nav__muted">上一周</span>
+                            {% endif %}
+                            <span class="home-weekly-ai-nav__sep">|</span>
+                            {% if weekly_ai_next_id %}
+                            <a class="home-weekly-ai-nav__link" href="{% url 'home' %}?weekly_summary={{ weekly_ai_next_id }}">下一周</a>
+                            {% else %}
+                            <span class="home-weekly-ai-nav__muted">下一周</span>
+                            {% endif %}
+                        </nav>
+                        {% endif %}
+                    </div>
+                    {% if weekly_ai_week_job and weekly_ai_week_job.status == 'processing' %}
+                    <p class="home-weekly-ai-status home-weekly-ai-status--processing" id="home-weekly-ai-status-msg">正在生成本周总结（DeepSeek），请稍候… 完成后将提示刷新。</p>
+                    {% elif weekly_ai_week_job and weekly_ai_week_job.status == 'pending' %}
+                    <p class="home-weekly-ai-status" id="home-weekly-ai-status-msg">总结任务已排队，请稍候刷新。</p>
+                    {% endif %}
+                    {% if weekly_ai_display %}
+                    <article class="home-weekly-ai-card">
+                        <header class="home-weekly-ai-card__header">
+                            <h4 class="home-weekly-ai-card__title">{{ weekly_ai_display.title }}</h4>
+                            <p class="home-weekly-ai-card__overview">{{ weekly_ai_display.overview }}</p>
+                        </header>
+                        {{ weekly_ai_display.body|default:""|json_script:"home-weekly-ai-md" }}
+                        <div id="home-weekly-ai-editor-mount" class="home-weekly-ai-editor-wrap home-weekly-ai-editor-wrap--readonly" data-summary-id="{{ weekly_ai_display.pk }}" title="双击进入编辑；鼠标移出本区域后自动保存正文" aria-label="周总结正文"></div>
+                    </article>
+                    {% elif not weekly_ai_week_job or weekly_ai_week_job.status != 'pending' and weekly_ai_week_job.status != 'processing' %}
+                    <p class="home-weekly-ai-empty">暂无已生成的周总结。点击「周智能总结」将汇总本周各项目的计划与学习记录，并由 AI 撰写总结（需先在管理后台配置 DeepSeek API）。</p>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -171,19 +212,6 @@
     (function () {
         var root = document.getElementById('important-dates-module');
         if (!root) return;
-        var listUrl = root.dataset.apiList;
-        function detailUrl(id) {
-            return listUrl.replace(/\/?$/, '/') + id + '/';
-        }
-        function csrfToken() {
-            var el = document.querySelector('#django-csrf-holder input[name=csrfmiddlewaretoken]');
-            return el ? el.value : '';
-        }
-        function esc(s) {
-            var d = document.createElement('div');
-            d.textContent = s == null ? '' : String(s);
-            return d.innerHTML;
-        }
         var initialEl = document.getElementById('important-dates-initial');
         var items = [];
         try {
@@ -192,56 +220,27 @@
 
         var ul = document.getElementById('important-dates-list');
         var emptyEl = document.getElementById('important-dates-empty');
-        var msgEl = document.getElementById('important-dates-msg');
-        var modal = document.getElementById('important-date-modal');
-        var backdrop = document.getElementById('important-date-backdrop');
-        var modalTitle = document.getElementById('important-date-modal-title');
-        var inName = document.getElementById('imodal-name');
-        var inDesc = document.getElementById('imodal-desc');
-        var inDue = document.getElementById('imodal-due');
-        var btnSave = document.getElementById('imodal-save');
-        var btnCancel = document.getElementById('imodal-cancel');
-        var btnDelete = document.getElementById('imodal-delete');
-        var btnOpenAdd = document.getElementById('important-date-open-add');
+        var calendarBase = '{% url "weekly_planner:calendar" %}';
 
-        var modalEditId = null;
-
-        function setMsg(text, isErr) {
-            msgEl.textContent = text || '';
-            msgEl.style.color = isErr ? '#c00' : '#666';
+        function esc(s) {
+            var d = document.createElement('div');
+            d.textContent = s == null ? '' : String(s);
+            return d.innerHTML;
         }
 
-        function openModal() {
-            modal.hidden = false;
-            backdrop.hidden = false;
-            document.body.style.overflow = 'hidden';
-            inName.focus();
-        }
-        function closeModal() {
-            modal.hidden = true;
-            backdrop.hidden = true;
-            document.body.style.overflow = '';
-            modalEditId = null;
-        }
-
-        function openAddModal() {
-            modalEditId = null;
-            modalTitle.textContent = '添加提醒';
-            inName.value = '';
-            inDesc.value = '';
-            inDue.value = '';
-            btnDelete.hidden = true;
-            openModal();
-        }
-
-        function openEditModal(it) {
-            modalEditId = it.id;
-            modalTitle.textContent = '编辑提醒';
-            inName.value = it.name || '';
-            inDesc.value = it.description || '';
-            inDue.value = it.due_at || '';
-            btnDelete.hidden = false;
-            openModal();
+        function itemHref(it) {
+            var parts = [];
+            if (it.calendar_date) {
+                parts.push('date=' + encodeURIComponent(it.calendar_date));
+            }
+            if (it.planner_task_id) {
+                parts.push('task=' + encodeURIComponent(String(it.planner_task_id)));
+            }
+            if (!parts.length) {
+                return null;
+            }
+            var sep = calendarBase.indexOf('?') >= 0 ? '&' : '?';
+            return calendarBase + sep + parts.join('&');
         }
 
         function renderList() {
@@ -256,100 +255,64 @@
                 var expired = it.is_expired ? ' is-expired' : '';
                 var li = document.createElement('li');
                 li.className = 'countdown-item ' + stripe + expired;
-                li.dataset.id = String(it.id);
-                li.innerHTML =
-                    '<div class="countdown-item-clickable" tabindex="0" role="button">' +
+                var href = itemHref(it);
+                var inner =
                     '<div class="countdown-text-stack">' +
                     '<div class="countdown-title-row">' +
                     '<span class="countdown-name-lg">' + esc(it.name) + '</span>' +
                     '<span class="countdown-badge">' + esc(it.days_display) + '</span>' +
                     '</div>' +
                     '<div class="countdown-desc-clamp">' + esc(it.description || '') + '</div>' +
-                    '</div></div>';
-                var clickTarget = li.querySelector('.countdown-item-clickable');
-                function openThis() { openEditModal(it); }
-                clickTarget.addEventListener('click', openThis);
-                clickTarget.addEventListener('keydown', function (ev) {
-                    if (ev.key === 'Enter' || ev.key === ' ') {
-                        ev.preventDefault();
-                        openThis();
-                    }
-                });
+                    '</div>';
+                if (href) {
+                    var a = document.createElement('a');
+                    a.className = 'countdown-item-clickable';
+                    a.href = href;
+                    a.innerHTML = inner;
+                    li.appendChild(a);
+                } else {
+                    var wrap = document.createElement('div');
+                    wrap.className = 'countdown-item-clickable';
+                    wrap.setAttribute('tabindex', '0');
+                    wrap.innerHTML = inner;
+                    li.appendChild(wrap);
+                }
                 ul.appendChild(li);
             });
         }
 
-        function applyItems(newItems) {
-            items = newItems || [];
-            renderList();
-        }
-
-        function jsonFetch(url, options) {
-            options = options || {};
-            options.headers = Object.assign(
-                { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
-                options.headers || {}
-            );
-            options.credentials = 'same-origin';
-            return fetch(url, options).then(function (r) {
-                return r.json().then(function (body) {
-                    if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
-                    return body;
-                });
-            });
-        }
-
-        function saveModal() {
-            var name = inName.value.trim();
-            var description = inDesc.value.trim();
-            var due = inDue.value;
-            if (!name) { setMsg('请填写事项名称', true); return; }
-            if (!due) { setMsg('请选择到期日期时间', true); return; }
-            setMsg('保存中…');
-            var payload = { name: name, description: description, due_at: due };
-            var req = modalEditId
-                ? jsonFetch(detailUrl(modalEditId), { method: 'PATCH', body: JSON.stringify(payload) })
-                : jsonFetch(listUrl, { method: 'POST', body: JSON.stringify(payload) });
-            req.then(function (data) {
-                applyItems(data.items);
-                closeModal();
-                setMsg(modalEditId ? '已保存' : '已添加');
-            }).catch(function (e) {
-                setMsg(e.message || '保存失败', true);
-            });
-        }
-
-        function deleteFromModal() {
-            if (!modalEditId) return;
-            if (!confirm('确定删除该提醒吗？')) return;
-            setMsg('删除中…');
-            jsonFetch(detailUrl(modalEditId), { method: 'DELETE' })
-                .then(function (data) {
-                    applyItems(data.items);
-                    closeModal();
-                    setMsg('已删除');
-                })
-                .catch(function (e) {
-                    setMsg(e.message || '删除失败', true);
-                });
-        }
-
-        btnOpenAdd.addEventListener('click', function () {
-            setMsg('');
-            openAddModal();
-        });
-        btnCancel.addEventListener('click', closeModal);
-        backdrop.addEventListener('click', closeModal);
-        modal.addEventListener('click', function (ev) {
-            if (ev.target === modal) closeModal();
-        });
-        btnSave.addEventListener('click', saveModal);
-        btnDelete.addEventListener('click', deleteFromModal);
-        document.addEventListener('keydown', function (ev) {
-            if (ev.key === 'Escape' && !modal.hidden) closeModal();
-        });
-
         renderList();
+    })();
+    </script>
+
+    <script>
+    (function () {
+        var btn = document.getElementById('welcome-quote-refresh');
+        if (!btn) return;
+        var textEl = document.getElementById('welcome-quote-text');
+        var url = '{% url "random_welcome_quote" %}';
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('bad status');
+                    return r.json();
+                })
+                .then(function (data) {
+                    if (!textEl) return;
+                    if (data.content) {
+                        textEl.textContent = data.content;
+                    } else {
+                        textEl.textContent = data.message || '暂无可展示的名言。';
+                    }
+                })
+                .catch(function () {
+                    if (textEl) textEl.textContent = '加载失败，请稍后重试。';
+                })
+                .finally(function () {
+                    btn.disabled = false;
+                });
+        });
     })();
     </script>
 
@@ -383,6 +346,190 @@
         });
     })();
     </script>
+
+    <script>
+    (function () {
+        var btn = document.getElementById('home-weekly-ai-btn');
+        if (!btn) return;
+        var startUrl = '{% url "home_weekly_ai_summary_start" %}';
+        var statusUrlTpl = '{% url "weekly_ai_summary_status" pk=999999 %}'.replace('999999', '__ID__');
+        var tokEl = document.querySelector('#django-csrf-holder input[name=csrfmiddlewaretoken]');
+        var regen = document.getElementById('home-weekly-ai-regenerate');
+        var statusEl = document.getElementById('home-weekly-ai-status-msg');
+
+        function pollSummary(id) {
+            var tries = 0;
+            var maxTries = 100;
+            var t = setInterval(function () {
+                tries += 1;
+                var u = statusUrlTpl.replace('__ID__', String(id));
+                fetch(u, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data.status === 'completed') {
+                            clearInterval(t);
+                            alert('周总结已生成，将刷新页面。');
+                            location.reload();
+                            return;
+                        }
+                        if (data.status === 'failed') {
+                            clearInterval(t);
+                            alert('生成失败：' + (data.error_message || '未知错误'));
+                            btn.disabled = false;
+                            return;
+                        }
+                        if (tries >= maxTries) {
+                            clearInterval(t);
+                            alert('等待超时，请稍后手动刷新页面查看结果。');
+                            btn.disabled = false;
+                        }
+                    })
+                    .catch(function () {
+                        if (tries >= maxTries) {
+                            clearInterval(t);
+                            btn.disabled = false;
+                        }
+                    });
+            }, 3000);
+        }
+
+        {% if weekly_ai_week_job and weekly_ai_week_job.status == 'processing' %}
+        btn.disabled = true;
+        pollSummary({{ weekly_ai_week_job.id }});
+        {% endif %}
+
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            var fd = new FormData();
+            if (regen && regen.checked) {
+                fd.append('regenerate', '1');
+            }
+            fetch(startUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRFToken': tokEl ? tokEl.value : '',
+                    Accept: 'application/json'
+                },
+                body: fd
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.ok) throw new Error(data.message || '请求失败');
+                    if (data.message) {
+                        alert(data.message);
+                    }
+                    if (data.status === 'started' || data.status === 'processing') {
+                        if (data.id) pollSummary(data.id);
+                        else btn.disabled = false;
+                    } else if (data.status === 'completed') {
+                        btn.disabled = false;
+                        location.reload();
+                    } else {
+                        btn.disabled = false;
+                    }
+                })
+                .catch(function () {
+                    alert('提交失败，请稍后重试');
+                    btn.disabled = false;
+                });
+        });
+    })();
+    </script>
+
+    {% if weekly_ai_display %}
+    <script type="module">
+    import { AiEditor } from '/static/aieditor-main/dist/index.js';
+    (function () {
+        var mount = document.getElementById('home-weekly-ai-editor-mount');
+        var dataEl = document.getElementById('home-weekly-ai-md');
+        if (!mount || !dataEl) return;
+        var md = '';
+        try {
+            md = JSON.parse(dataEl.textContent);
+        } catch (e) {
+            return;
+        }
+        if (typeof md !== 'string') md = String(md || '');
+        var saveUrl = '{% url "weekly_ai_summary_update_body" pk=weekly_ai_display.pk %}';
+        var tokEl = document.querySelector('#django-csrf-holder input[name=csrfmiddlewaretoken]');
+        var editing = false;
+        var saving = false;
+        var opts = typeof window.getAiEditorImageOption === 'function' ? window.getAiEditorImageOption() : {};
+        window.homeWeeklyAiEditor = new AiEditor({
+            ...opts,
+            element: '#home-weekly-ai-editor-mount',
+            toolbarKeys: [],
+            placeholder: '',
+            theme: 'default',
+            onCreated: function (editor) {
+                editor.setEditable(true);
+                if (md.trim()) {
+                    editor.setMarkdownContent(md);
+                } else {
+                    editor.setContent('<p></p>');
+                }
+                editor.setEditable(false);
+
+                mount.addEventListener('dblclick', function (ev) {
+                    if (saving) return;
+                    ev.preventDefault();
+                    editing = true;
+                    mount.classList.remove('home-weekly-ai-editor-wrap--readonly');
+                    mount.classList.add('home-weekly-ai-editor-wrap--editing');
+                    editor.setEditable(true);
+                    try {
+                        if (typeof editor.focus === 'function') editor.focus();
+                    } catch (e) { /* ignore */ }
+                });
+
+                mount.addEventListener('mouseleave', function () {
+                    if (!editing || saving) return;
+                    saving = true;
+                    var mdText = '';
+                    try {
+                        mdText = typeof editor.getMarkdown === 'function' ? editor.getMarkdown() : '';
+                    } catch (e) {
+                        mdText = '';
+                    }
+                    fetch(saveUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': tokEl ? tokEl.value : ''
+                        },
+                        body: JSON.stringify({ body: mdText })
+                    })
+                        .then(function (r) {
+                            if (!r.ok) {
+                                return r.json().then(function (j) {
+                                    throw new Error((j && j.error) ? j.error : ('HTTP ' + r.status));
+                                });
+                            }
+                            return r.json();
+                        })
+                        .then(function () {
+                            editing = false;
+                            editor.setEditable(false);
+                            mount.classList.add('home-weekly-ai-editor-wrap--readonly');
+                            mount.classList.remove('home-weekly-ai-editor-wrap--editing');
+                            if (dataEl) {
+                                dataEl.textContent = JSON.stringify(mdText);
+                            }
+                        })
+                        .catch(function (err) {
+                            alert('保存失败：' + (err.message || err));
+                        })
+                        .finally(function () {
+                            saving = false;
+                        });
+                });
+            }
+        });
+    })();
+    </script>
+    {% endif %}
 
 <style>
     .home-layout {
@@ -432,9 +579,109 @@
         font-size: 13px;
         color: #666;
     }
-    .home-weekly-panel__refresh {
+    .home-weekly-panel__totals {
+        margin: 6px 0 0;
+        font-size: 13px;
+        color: #333;
+        font-weight: 600;
+    }
+    .home-weekly-panel__actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
         flex-shrink: 0;
         margin-top: 2px;
+    }
+    .home-weekly-ai-regenerate-label {
+        font-size: 12px;
+        color: #666;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        user-select: none;
+    }
+    .home-weekly-panel__refresh,
+    .home-weekly-panel__ai {
+        flex-shrink: 0;
+    }
+    .home-weekly-ai-section {
+        margin: 16px 0 18px;
+        padding: 14px 14px 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+    .home-weekly-ai-section__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .home-weekly-ai-section__title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    .home-weekly-ai-nav {
+        font-size: 13px;
+    }
+    .home-weekly-ai-nav__link {
+        color: #1976d2;
+        text-decoration: none;
+    }
+    .home-weekly-ai-nav__link:hover {
+        text-decoration: underline;
+    }
+    .home-weekly-ai-nav__muted {
+        color: #bbb;
+    }
+    .home-weekly-ai-nav__sep {
+        margin: 0 6px;
+        color: #ccc;
+    }
+    .home-weekly-ai-status {
+        font-size: 13px;
+        color: #b45309;
+        margin: 0 0 10px;
+    }
+    .home-weekly-ai-status--processing {
+        font-weight: 600;
+    }
+    .home-weekly-ai-empty {
+        font-size: 13px;
+        color: #64748b;
+        margin: 0;
+        line-height: 1.5;
+    }
+    .home-weekly-ai-card {
+        background: #fff;
+        border-radius: 6px;
+        padding: 12px 14px;
+        border: 1px solid #e2e8f0;
+    }
+    .home-weekly-ai-card__title {
+        margin: 0 0 8px;
+        font-size: 15px;
+        font-weight: 600;
+        color: #0f172a;
+    }
+    .home-weekly-ai-card__overview {
+        margin: 0 0 12px;
+        font-size: 14px;
+        color: #334155;
+        line-height: 1.45;
+    }
+    .home-weekly-ai-card__body {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.6;
+        white-space: pre-wrap;
     }
     .home-weekly-list {
         list-style: none;
@@ -458,6 +705,10 @@
     .home-weekly-item__name:hover {
         text-decoration: underline;
         color: #1976d2;
+    }
+    .home-weekly-item__name--orphan {
+        color: #555;
+        cursor: help;
     }
     .home-weekly-rows {
         display: flex;
@@ -561,13 +812,13 @@
         opacity: 0.7;
     }
     .welcome-hero {
-        margin-bottom: 24px;
+        margin-bottom: 0;
     }
     .welcome-hero__main {
         display: flex;
-        flex-wrap: wrap;
+        flex-direction: column;
         align-items: stretch;
-        gap: 20px 28px;
+        gap: 18px;
         padding: 22px 24px;
         background: linear-gradient(135deg, #f8fafc 0%, #ffffff 48%, #f3f6fb 100%);
         border: 1px solid rgba(25, 118, 210, 0.12);
@@ -575,7 +826,8 @@
         box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
     }
     .welcome-hero__greeting {
-        flex: 1 1 220px;
+        flex: none;
+        width: 100%;
         min-width: 0;
     }
     .welcome-hero__title {
@@ -587,8 +839,9 @@
         line-height: 1.25;
     }
     .welcome-quote {
-        flex: 1 1 280px;
-        max-width: 520px;
+        flex: none;
+        width: 100%;
+        max-width: none;
         margin: 0;
         padding: 16px 18px;
         background: rgba(255, 255, 255, 0.85);
@@ -596,33 +849,45 @@
         border-radius: 0 10px 10px 0;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
     }
+    .welcome-quote__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+    .welcome-quote__label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: none;
+        letter-spacing: 0.04em;
+        color: #1976d2;
+    }
+    .welcome-quote__refresh-btn {
+        flex-shrink: 0;
+        padding: 4px 12px;
+        font-size: 0.8rem;
+        line-height: 1.4;
+        color: #1976d2;
+        background: #fff;
+        border: 1px solid rgba(25, 118, 210, 0.45);
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    .welcome-quote__refresh-btn:hover:not(:disabled) {
+        background: rgba(25, 118, 210, 0.08);
+        border-color: #1976d2;
+    }
+    .welcome-quote__refresh-btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
     .welcome-quote__text {
-        margin: 0 0 12px;
+        margin: 0;
         font-size: 1.02rem;
         line-height: 1.65;
         color: #334155;
         font-style: italic;
-    }
-    .welcome-quote__meta {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 8px 16px;
-        font-size: 0.85rem;
-        color: #64748b;
-    }
-    .welcome-quote__author {
-        font-style: normal;
-        font-weight: 600;
-        color: #475569;
-    }
-    .welcome-quote__credit a {
-        color: #1976d2;
-        text-decoration: none;
-    }
-    .welcome-quote__credit a:hover {
-        text-decoration: underline;
     }
     .countdown-container {
         width: 100%;
@@ -766,6 +1031,16 @@
         color: #fff;
         border-color: #1565c0;
     }
+    .btn-countdown-secondary {
+        background: #fff;
+        color: #1976d2;
+        border-color: #90caf9;
+    }
+    .btn-countdown-secondary:hover {
+        background: #e3f2fd;
+        color: #1565c0;
+        border-color: #64b5f6;
+    }
     .btn-countdown-danger {
         color: #c62828;
         border-color: #ffcdd2;
@@ -773,75 +1048,20 @@
     .btn-countdown-danger:hover {
         background: #ffebee;
     }
-    .countdown-msg {
-        min-height: 1.25em;
-        margin-top: 10px;
-        font-size: 13px;
-    }
-    .important-modal-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.45);
-        z-index: 1040;
-    }
-    .important-modal {
-        position: fixed;
-        inset: 0;
-        z-index: 1050;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
+    a.btn-countdown {
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
         box-sizing: border-box;
     }
-    .important-modal[hidden],
-    .important-modal-backdrop[hidden] {
-        display: none !important;
-    }
-    .important-modal__panel {
-        background: #fff;
-        border-radius: 12px;
-        padding: 22px 24px;
-        width: 100%;
-        max-width: 440px;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-    }
-    .important-modal__title {
-        margin: 0 0 18px;
-        font-size: 1.15rem;
-        font-weight: 700;
-    }
-    .important-modal__label {
+    .countdown-item a.countdown-item-clickable {
+        text-decoration: none;
+        color: inherit;
         display: block;
-        font-size: 13px;
-        font-weight: 600;
-        color: #444;
-        margin-bottom: 14px;
     }
-    .important-modal__input,
-    .important-modal__textarea {
-        display: block;
-        width: 100%;
-        margin-top: 6px;
-        padding: 10px 12px;
-        border: 1px solid #d9d9d9;
-        border-radius: 8px;
-        font-size: 14px;
-        box-sizing: border-box;
-    }
-    .important-modal__textarea {
-        resize: vertical;
-        min-height: 72px;
-    }
-    .important-modal__footer {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 20px;
-        justify-content: flex-end;
-    }
-    .important-modal__delete {
-        margin-right: auto;
+    .countdown-item a.countdown-item-clickable:focus-visible {
+        outline: 2px solid #1976d2;
+        outline-offset: 2px;
     }
     
     /* 优先级标签 */
