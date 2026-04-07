@@ -1,0 +1,99 @@
+# Nginx 反向代理 Gunicorn（Django）示例
+# ------------------------------------------------------------
+# 服务器上操作概要：
+#   1) 停用 Apache（避免占用 80）：  sudo systemctl disable --now httpd
+#   2) 安装 Nginx：                 sudo dnf install -y nginx
+#   3) 复制本文件并改路径/域名后放到 /etc/nginx/conf.d/focuslearn.conf
+#   4) 测试并重载：                 sudo nginx -t && sudo systemctl enable --now nginx && sudo systemctl reload nginx
+#   5) Django ALLOWED_HOSTS 写入本机公网 IP 与正式域名
+#   6) 若 Gunicorn 用 unix socket，确保 nginx 进程用户能访问该 socket（见文末权限说明）
+# ------------------------------------------------------------
+
+upstream django_focuslearn {
+    server unix:/run/gunicorn/focuslearn.sock fail_timeout=0;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    # 解析未生效前可写公网 IP；域名生效后改为域名，或两者都写
+    server_name 8.134.117.237 linzz.cn;
+
+    client_max_body_size 25M;
+
+    location /static/ {
+        alias /var/www/linzz/focuslearn/staticfiles/;
+        access_log off;
+        expires 30d;
+    }
+
+    location /media/ {
+        alias /var/www/linzz/focuslearn/media/;
+        access_log off;
+        expires 7d;
+    }
+
+    location / {
+        proxy_pass http://django_focuslearn;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
+
+# HTTPS 示例（证书就绪后取消注释，并把证书路径换成你的）
+ server {
+     listen 443 ssl http2;
+     listen [::]:443 ssl http2;
+     server_name example.com;
+
+     ssl_certificate     /etc/nginx/ssl/example.com/fullchain.pem;
+     ssl_certificate_key /etc/nginx/ssl/example.com/privkey.pem;
+     ssl_protocols       TLSv1.2 TLSv1.3;
+
+     client_max_body_size 25M;
+
+     location /static/ {
+         alias /var/www/linzz/focuslearn/staticfiles/;
+         access_log off;
+         expires 30d;
+     }
+
+     location /media/ {
+         alias /var/www/linzz/focuslearn/media/;
+         access_log off;
+         expires 7d;
+     }
+
+     location / {
+         proxy_pass http://django_focuslearn;
+         proxy_set_header Host $http_host;
+         proxy_set_header X-Real-IP $remote_addr;
+         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+         proxy_set_header X-Forwarded-Proto $scheme;
+         proxy_redirect off;
+         proxy_read_timeout 300s;
+         proxy_connect_timeout 300s;
+         proxy_send_timeout 300s;
+     }
+ }
+
+ server {
+     listen 80;
+     server_name linzz.cn;
+     return 301 https://$host$request_uri;
+ }
+
+# ------------------------------------------------------------
+# Gunicorn unix socket 权限（502 Bad Gateway 常见原因）
+#   - learning.service 里 User/Group 与 nginx 一致，或
+#   - 将 nginx 用户加入 Gunicorn 运行用户所在组，并对 /run/gunicorn 设组读写，例如：
+#       RuntimeDirectoryMode=0770 且 Group=nginx（与 learning.service 中一致）
+# SELinux 若开启：sudo setsebool -P httpd_can_network_connect 1
+#   对 unix socket 还可能需要：chcon 或相关 boolean，按 audit 日志调整
+# ------------------------------------------------------------
