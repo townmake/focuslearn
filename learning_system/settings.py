@@ -200,8 +200,11 @@ LOGGING = {
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
-    os.path.join(BASE_DIR, 'node_modules/aieditor/dist'),
 ]
+# 仅当本机存在前端构建目录时加入（服务器上常未执行 npm install，避免 staticfiles.W004）
+_aieditor_dist = BASE_DIR / 'node_modules' / 'aieditor' / 'dist'
+if _aieditor_dist.is_dir():
+    STATICFILES_DIRS.append(str(_aieditor_dist))
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Media files
@@ -251,9 +254,11 @@ CACHES = {
     }
 }
 
-# 开发环境需添加，存放fullcalendar 相关
+# 开发环境需添加，存放 fullcalendar 相关（目录不存在则跳过）
 if DEBUG:
-    STATICFILES_DIRS += [os.path.join(BASE_DIR, 'static/vendor')]
+    _vendor_static = BASE_DIR / 'static' / 'vendor'
+    if _vendor_static.is_dir():
+        STATICFILES_DIRS.append(str(_vendor_static))
 
 
 # Default primary key field type

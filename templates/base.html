@@ -11,9 +11,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}时间管理系统{% endblock %}</title>
+    <title>{% block title %}个人时间投入管理{% endblock %}</title>
 
     <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            margin: 0;
+        }
+
         .navbar {
             background-color: #1976d2;
             padding: 1rem 2rem;
@@ -83,6 +90,27 @@
         
         main {
             padding: 2rem;
+            flex: 1 0 auto;
+        }
+
+        .site-footer {
+            text-align: center;
+            padding: 1rem 1rem 1.25rem;
+            font-size: 13px;
+            color: #666;
+            border-top: 1px solid #e8e8e8;
+            background: #fafafa;
+            flex-shrink: 0;
+        }
+
+        .site-footer a {
+            color: #666;
+            text-decoration: none;
+        }
+
+        .site-footer a:hover {
+            text-decoration: underline;
+            color: #1976d2;
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -111,7 +139,7 @@
     </script>
     {% if not hide_navbar %}
     <nav class="navbar">
-        <a href="{% url 'home' %}" class="navbar-brand">时间管理系统</a>
+        <a href="{% url 'home' %}" class="navbar-brand">个人时间投入管理</a>
         <ul class="navbar-nav">
             {% if user.is_authenticated %}
                 <li class="nav-item"><a href="{% url 'home' %}">首页</a></li>
@@ -132,6 +160,10 @@
         {% block content %}
         {% endblock %}
     </main>
+
+    <footer class="site-footer">
+        <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">闽ICP备18013285号-1</a>
+    </footer>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
