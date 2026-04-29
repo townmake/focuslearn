@@ -576,7 +576,7 @@ class WordsViewSet(viewsets.ModelViewSet):
     单词的API视图集
     """
     serializer_class = WordsSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]  # 修改为认证用户可写，匿名用户只读
+    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.OrderingFilter, DjangoFilterBackend, filters.SearchFilter]
     ordering_fields = ['created_at', 'updated_at', 'level']
     ordering = ['-created_at']

@@ -1,4 +1,4 @@
-
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Document, Comment
 from .serializers import DocumentSerializer_post,DocumentSerializer_get
 
+@login_required
 def document_detail(request, pk):
     """文档详情页视图"""
     document = get_object_or_404(Document, pk=pk)
@@ -19,6 +20,7 @@ def document_detail(request, pk):
         'type_id': pk
     })
 
+@login_required
 def document_file_view(request, chapter_id, filename):
     """
     处理文档文件访问的视图
@@ -88,6 +90,7 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 class DocumentListAPI(ListAPIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = DocumentSerializer_get
     pagination_class = StandardResultsSetPagination
     queryset = Document.objects.all().order_by('-created_at')

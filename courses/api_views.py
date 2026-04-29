@@ -1,9 +1,10 @@
 
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Max
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Chapter, KnowledgePoint, KnowledgePointAnnotation
@@ -124,6 +125,7 @@ class KnowledgePointAnnotationDetailAPI(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def knowledge_points_list(request):
     chapter_id = request.GET.get('chapter')
     exclude_id = request.GET.get('exclude')
@@ -145,6 +147,7 @@ def knowledge_points_list(request):
     return Response({'results': data})
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def knowledge_point_resources(request, pk):
     try:
         knowledge_point = KnowledgePoint.objects.get(pk=pk)
@@ -161,6 +164,7 @@ def knowledge_point_resources(request, pk):
 
 
 @api_view(['PUT'])
+@permission_classes([IsAuthenticated])
 def update_knowledge_point_content(request, pk):
     try:
         knowledge_point = KnowledgePoint.objects.get(pk=pk)
@@ -174,6 +178,8 @@ def update_knowledge_point_content(request, pk):
     knowledge_point.save()
     return Response({'status': 'content updated'})
 
+
+@login_required
 def search_knowledge_points(request, chapter_id):
     """
     知识点模糊查询API
@@ -191,15 +197,11 @@ def search_knowledge_points(request, chapter_id):
     
     return JsonResponse(list(points), safe=False)
 
-class KnowledgePointDetailAPI(APIView):
-    """知识点详情API"""
-    def get(self, request, pk):
-        knowledge_point = get_object_or_404(KnowledgePoint, pk=pk)
-        serializer = KnowledgePointSerializer(knowledge_point)
-        return Response(serializer.data)
 
 class KnowledgePointResourcesAPI(APIView):
     """知识点关联资源API"""
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, pk):
         knowledge_point = get_object_or_404(KnowledgePoint, pk=pk)
         
@@ -215,6 +217,8 @@ class KnowledgePointResourcesAPI(APIView):
 
 class KnowledgePointUpdateAPI(APIView):
     """知识点更新API"""
+    permission_classes = [IsAuthenticated]
+
     def put(self, request, pk):
         knowledge_point = get_object_or_404(KnowledgePoint, pk=pk)
         serializer = KnowledgePointSerializer(knowledge_point, data=request.data)
@@ -225,6 +229,8 @@ class KnowledgePointUpdateAPI(APIView):
 
 class KnowledgePointDeleteAPI(APIView):
     """知识点删除API"""
+    permission_classes = [IsAuthenticated]
+
     def delete(self, request, pk):
         from django.db import transaction
         
@@ -245,6 +251,8 @@ class KnowledgePointDeleteAPI(APIView):
 
 class KnowledgePointCreateAPI(APIView):
     """知识点创建API"""
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         serializer = KnowledgePointSerializer(data=request.data)
         if serializer.is_valid():
@@ -254,6 +262,8 @@ class KnowledgePointCreateAPI(APIView):
 
 
 class KnowledgePointAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
     @csrf_exempt
     def post(self, request):
         serializer = KnowledgePointSerializer(data=request.data)
@@ -263,6 +273,8 @@ class KnowledgePointAPI(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class KnowledgeTreeAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, chapter_id):
         chapter = get_object_or_404(Chapter, pk=chapter_id)
         
@@ -288,6 +300,8 @@ class KnowledgePointDetailAPI(APIView):
     知识点详情API
     支持GET(获取详情), PUT/PATCH(更新), DELETE(删除)
     """
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, pk):
         try:
             kp = KnowledgePoint.objects.get(pk=pk)
@@ -327,6 +341,8 @@ class KnowledgePointListAPI(APIView):
     知识点列表API
     支持GET(列表), POST(创建)
     """
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         kps = KnowledgePoint.objects.all()
         serializer = KnowledgePointSerializer(kps, many=True)

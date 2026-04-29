@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
@@ -65,6 +66,7 @@ def fast_record(request):
     }
     return render(request, 'weekly_planner/fast_record.html', context)
 
+@login_required
 def word_view(request):
     """
     单词管理视图
@@ -125,7 +127,7 @@ def update_task_status(request):
     except Exception as e:
         return HttpResponseBadRequest(f"更新任务状态失败: {str(e)}")
     
-class QuickAccessListView(ListView):
+class QuickAccessListView(LoginRequiredMixin, ListView):
     model = QuickAccess
     template_name = 'weekly_planner/quick_access_list.html'
     context_object_name = 'quick_access_items'
@@ -137,7 +139,7 @@ class QuickAccessListView(ListView):
     def get_queryset(self):
         return super().get_queryset().order_by('position')
 
-class QuickAccessDetailView(DetailView):
+class QuickAccessDetailView(LoginRequiredMixin, DetailView):
     model = QuickAccess
     template_name = 'weekly_planner/quick_access_detail.html'
 
@@ -145,7 +147,7 @@ class QuickAccessDetailView(DetailView):
         return QuickAccess.objects.select_related("library_icon")
     context_object_name = 'object'
 
-class QuickAccessCreateView(SuccessMessageMixin, CreateView):
+class QuickAccessCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = QuickAccess
     form_class = QuickAccessForm
     template_name = 'weekly_planner/quick_access_create.html'
@@ -157,14 +159,14 @@ class QuickAccessCreateView(SuccessMessageMixin, CreateView):
             form.instance.icon = 'images/create_default.png'
         return super().form_valid(form)
 
-class QuickAccessUpdateView(SuccessMessageMixin, UpdateView):
+class QuickAccessUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     model = QuickAccess
     form_class = QuickAccessForm
     template_name = 'weekly_planner/quick_access_edit.html'
     success_url = reverse_lazy('weekly_planner:quick_access_list')
     success_message = "便捷记录已成功更新!"
 
-class QuickAccessDeleteView(DeleteView):
+class QuickAccessDeleteView(LoginRequiredMixin, DeleteView):
     model = QuickAccess
     success_url = reverse_lazy('weekly_planner:quick_access_list')
 

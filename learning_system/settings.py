@@ -220,32 +220,6 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 20971520  # 20 MB (默认是2.5 MB)
 # 音频文件大小限制（10MB）
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
 
-# settings.py
-OCR_CONFIG = {
-    'BAIDU_OCR': {
-        'API_KEY': '3gWAOxn1oSpXjMPOxN4QKpkM',
-        'SECRET_KEY': 'eKwVljNNrf0en1RSmqcQ1DS4wa6YEf2L',
-        'ACCESS_TOKEN_URL': 'https://aip.baidubce.com/oauth/2.0/token',
-        'OCR_URL': 'https://aip.baidubce.com/rest/2.0/ocr/v1/'
-    }
-}
-
-DICT_CONFIG = {
-    'BAIDU_DICT': {
-        'API_KEY': 'XbAfLKDASTaLCqD7Y7Q2NOEy',
-        'SECRET_KEY': 'VTWwe58G1paeyRfI6pMcHhPvF1X5c1YP',
-        'ACCESS_TOKEN_URL': 'https://aip.baidubce.com/oauth/2.0/token',
-        'OCR_URL': 'https://aip.baidubce.com/rpc/2.0/mt/texttrans-with-dict/v1'
-    }
-}
-# deepseek API密钥
-DEEPSEEK_API_KEY = "sk-df70ae5ba9394fd6bed1192bfae8263b"
-
-# 阿里云OCR配置
-ALIYUN_OCR_ACCESS_KEY_ID = 'LTAI5tPA14jRbQFSVAByEKoD'
-ALIYUN_OCR_ACCESS_KEY_SECRET = '0mwSGzxMt1BkPg4yAMoGPVMlJjXUnm'
-ALIYUN_OCR_REGION_ID = 'cn-shanghai'  # 根据实际区域修改
-
 # 确保缓存配置正确
 CACHES = {
     'default': {
@@ -265,3 +239,6 @@ if DEBUG:
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# 未登录访问受保护页面时重定向到登录（与 path('login/', name='login') 一致）
+LOGIN_URL = '/login/'

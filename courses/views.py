@@ -28,6 +28,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 import json
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.decorators.http import require_POST
 import logging
 
@@ -65,7 +66,7 @@ def get_tree_data(queryset):
 
 
 # 记录视图
-class StudyRecordListView(APIView):
+class StudyRecordListView(LoginRequiredMixin, APIView):
     def get(self, request):
         created_date_start = request.GET.get('created_date_start')
         created_date_end = request.GET.get('created_date_end')
@@ -212,7 +213,7 @@ class StudyRecordsAPIView(APIView):
             }
         )
 
-class KnowledgePointListView(ListView):
+class KnowledgePointListView(LoginRequiredMixin, ListView):
     model = KnowledgePoint
     template_name = 'courses/knowledgepoint_list.html'
     context_object_name = 'knowledge_points'
@@ -224,7 +225,7 @@ class KnowledgePointListView(ListView):
             queryset = queryset.filter(chapter_id=chapter_id)
         return queryset.select_related('chapter')
 
-class KnowledgePointDetailView(DetailView):
+class KnowledgePointDetailView(LoginRequiredMixin, DetailView):
     model = KnowledgePoint
     template_name = 'courses/knowledgepoint_detail.html'
     context_object_name = 'knowledge_point'
@@ -235,7 +236,9 @@ class KnowledgePointDetailView(DetailView):
         context['chapter'] = self.object.chapter
         return context
 
-    
+
+
+@login_required
 def subjectListView(request):  # 处理GET请求
     """按科目分类分块展示：分类按显示权重降序。
     归属「是否显示=否」的分类的科目不在本页展示（入口隐藏）；「其他」仅含未分类科目。
@@ -290,6 +293,7 @@ def subjectListView(request):  # 处理GET请求
     )
 
 
+@login_required
 def subject_create(request):
     if request.method == 'POST':
         # 处理科目创建逻辑
@@ -306,6 +310,7 @@ def subject_create(request):
 
 logger = logging.getLogger(__name__)
 
+@login_required
 def subject_update(request,pk):
     subject = get_object_or_404(Subject, pk=pk)
     if request.method == 'POST':
@@ -315,6 +320,7 @@ def subject_update(request,pk):
             return JsonResponse({'status': 'success'})
         return JsonResponse({'errors': form.errors}, status=400)
     
+@login_required
 def subject_delete(request, pk):
     subject = get_object_or_404(Subject, pk=pk)
     if request.method == 'POST':
@@ -323,6 +329,7 @@ def subject_delete(request, pk):
     return JsonResponse({'status': 'error', 'message': '无效的请求方法'}, status=400)
 
 
+@login_required
 def subject_data(request, pk):
     subject = get_object_or_404(Subject, pk=pk)
     if request.method == 'POST':
@@ -365,6 +372,7 @@ def subject_refresh(request, pk):
         }
     )
 
+@login_required
 def subject_detail(request, pk):
     subject = get_object_or_404(Subject.objects.select_related('category'), pk=pk)
     chapters_qs = subject.chapters.all().order_by('order')
@@ -378,6 +386,7 @@ def subject_detail(request, pk):
         'subject_categories': subject_categories,
     })
 
+@login_required
 def chapter_detail(request, pk):
     chapter = get_object_or_404(Chapter, pk=pk)
     knowledge_points = KnowledgePoint.objects.filter(chapter=chapter)
@@ -397,6 +406,7 @@ def chapter_detail(request, pk):
     return render(request, "courses/chapter_detail.html", context)
 
 
+@login_required
 def chapter_create(request):
     if request.method == 'POST':
         form = ChapterForm(request.POST)
@@ -425,6 +435,7 @@ def chapter_update_progress_status(request, pk):
     return JsonResponse({"status": "success", "progress_status": raw})
 
 
+@login_required
 def chapter_update(request, pk):
     chapter = get_object_or_404(Chapter, pk=pk)
 
@@ -443,6 +454,7 @@ def chapter_update(request, pk):
             return JsonResponse({'status': 'success'})
         return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
 
+@login_required
 def chapter_delete(request, pk):
     chapter = get_object_or_404(Chapter, pk=pk)
     if request.method == 'POST':
@@ -450,6 +462,7 @@ def chapter_delete(request, pk):
         return JsonResponse({'status': 'success'})
     return JsonResponse({'status': 'error', 'message': '无效的请求方法'}, status=400)
 
+@login_required
 def subject_chapter_options(request):
     """提供科目和章节的级联选项数据"""
     subjects = Subject.objects.all().prefetch_related('chapters')
@@ -472,7 +485,7 @@ def subject_chapter_options(request):
     
     return JsonResponse(options, safe=False)
 
-class ChapterDetailView(DetailView):
+class ChapterDetailView(LoginRequiredMixin, DetailView):
     model = Chapter
     template_name = 'courses/chapter_detail.html'
     context_object_name = 'chapter'
@@ -509,20 +522,24 @@ class ChapterListAPI(generics.ListAPIView):
 class StudyRecordCreateAPI(generics.CreateAPIView):
     queryset = StudyRecord.objects.all()
     serializer_class = StudyRecordSerializer
-    permission_classes = []  # 移除认证要求
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
+        User = get_user_model()
+        user = self.request.user
         user_id = self.request.data.get('user')
-        try:
-            User = get_user_model()
-            user = User.objects.get(pk=user_id) if user_id else None
-            if user and not user.is_active:
-                raise serializers.ValidationError({'user': '用户账户未激活'})
-            serializer.save(user=user)
-        except User.DoesNotExist:
-            raise serializers.ValidationError({'user': '用户不存在'})
-        except Exception as e:
-            raise serializers.ValidationError(str(e))
+        if user_id is not None and str(user_id).strip() != '':
+            if not self.request.user.is_staff:
+                raise serializers.ValidationError(
+                    {'user': '只有管理员可代其他用户创建记录'}
+                )
+            try:
+                user = User.objects.get(pk=user_id)
+            except (User.DoesNotExist, TypeError, ValueError):
+                raise serializers.ValidationError({'user': '用户不存在'})
+        if user and not user.is_active:
+            raise serializers.ValidationError({'user': '用户账户未激活'})
+        serializer.save(user=user)
 
 
 class StudyRecordDetailAPI(generics.RetrieveUpdateDestroyAPIView):
