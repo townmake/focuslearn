@@ -13,8 +13,12 @@
                 {% endif %}
             </div>
             <div class="ant-page-header-heading-extra">
+                {% if perms.weekly_planner.change_quickaccess %}
                 <a href="{% url 'weekly_planner:quick_access_edit' object.id %}" class="ant-btn ant-btn-warning">编辑</a>
-                <button class="ant-btn ant-btn-danger" onclick="confirmDelete(event, {{ object.id }})">删除</button>
+                {% endif %}
+                {% if perms.weekly_planner.delete_quickaccess %}
+                <button type="button" class="ant-btn ant-btn-danger" onclick="confirmDelete(event, {{ object.id }})">删除</button>
+                {% endif %}
                 <a href="{% url 'weekly_planner:quick_access_list' %}" class="ant-btn ant-btn-default">返回</a>
             </div>
         </div>
@@ -245,6 +249,10 @@ function confirmDelete(event, id) {
                 window.location.href = "{% url 'weekly_planner:quick_access_list' %}";
             },
             error: function(xhr) {
+                if (xhr.status === 403) {
+                    alert('删除失败：当前账号没有删除权限。');
+                    return;
+                }
                 let errorMsg = '删除失败: ';
                 try {
                     const response = JSON.parse(xhr.responseText);

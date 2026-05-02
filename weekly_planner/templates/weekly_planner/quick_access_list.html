@@ -213,7 +213,7 @@
 
     <div class="qa-list-toolbar">
         <span class="qa-list-toolbar__hint">点击卡片或图标：有外链则跳转，否则进入详情</span>
-        {% if user.is_authenticated %}
+        {% if perms.weekly_planner.add_quickaccess %}
         <a href="{% url 'weekly_planner:quick_access_create' %}" class="qa-list-btn-new">＋ 新增记录</a>
         {% endif %}
     </div>
@@ -250,7 +250,7 @@
             </div>
         </article>
         {% empty %}
-        <p style="grid-column: 1/-1; text-align:center; color:#94a3b8; padding:40px;">暂无记录，登录后点击「新增记录」即可添加。</p>
+        <p style="grid-column: 1/-1; text-align:center; color:#94a3b8; padding:40px;">暂无记录。若有「新增」权限，可点击「新增记录」添加。</p>
         {% endfor %}
     </div>
 
