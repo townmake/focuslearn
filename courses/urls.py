@@ -21,6 +21,7 @@ from .views import (
     subject_chapter_options,
     chapter_detail,
     subjectListView,
+    subjectClosedListView,
     subject_detail,
     subject_create,
     subject_data,
@@ -30,6 +31,7 @@ from .views import (
     chapter_create,
     chapter_update,
     chapter_update_progress_status,
+    chapter_transfer,
     chapter_delete,
     ChapterDetailView,
     ChapterListAPI,
@@ -88,6 +90,7 @@ urlpatterns = [
     path('api/study-records/', StudyRecordCreateAPI.as_view(), name='study-records-create'),
 
     path('subjects/', subjectListView, name='subject_list'),
+    path('subjects/closed/', subjectClosedListView, name='subject_closed_list'),
     path('subject/<int:pk>/data/', subject_data, name='subject_data'),
     path('subject_create/', subject_create, name='subject_create'),
     path('subject_update/<int:pk>/', subject_update, name='subject_update'),
@@ -135,6 +138,11 @@ urlpatterns = [
         'chapter/<int:pk>/progress-status/',
         chapter_update_progress_status,
         name='chapter_progress_status',
+    ),
+    path(
+        'chapter/<int:pk>/transfer/',
+        chapter_transfer,
+        name='chapter_transfer',
     ),
     path('chapter/<int:pk>/delete/', chapter_delete, name='chapter_delete'),
 

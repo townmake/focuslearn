@@ -33,7 +33,9 @@ class SubjectCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'order', 'estimated_hours', 'already_hours', 'progress')
-    list_filter = ('category',)
+    list_display = ('name', 'category', 'open_status', 'heat', 'order', 'estimated_hours', 'already_hours', 'progress')
+    list_editable = ('heat', 'open_status')
+    list_filter = ('open_status', 'category')
     search_fields = ('name', 'description')
     autocomplete_fields = ('category',)
+    ordering = ('-heat', 'order', 'name')

@@ -192,6 +192,9 @@ class TaskViewSet(viewsets.ModelViewSet):
             chapter=chapter
         )
 
+        from courses.subject_heat import bump_heat_after_task_create
+        bump_heat_after_task_create(task.subject_id)
+
         if task.is_unscheduled:
             sync_task_important_reminder(task, _request_sync_important_reminder(self.request))
             return
@@ -504,14 +507,20 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 class SubjectViewSet(viewsets.ModelViewSet):
     """
-    学科的API视图集
+    学科的API视图集（默认仅返回开启中的项目）
     """
-    queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.OrderingFilter]
-    ordering_fields = ['order', 'name', 'created_at']
-    ordering = ['order', 'name']
+    ordering_fields = ['heat', 'order', 'name', 'created_at']
+    ordering = ['-heat', 'order', 'name']
+
+    def get_queryset(self):
+        qs = Subject.objects.all()
+        include_closed = self.request.query_params.get('include_closed')
+        if include_closed not in ('1', 'true', 'yes'):
+            qs = qs.filter(open_status=Subject.OpenStatus.OPEN)
+        return qs
 
 class ChapterViewSet(viewsets.ModelViewSet):
     """

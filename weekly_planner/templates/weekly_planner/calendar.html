@@ -206,21 +206,11 @@ main.main--embed {
                     </div>
                     <div class="mb-3 row align-items-center">
                         <div class="col-3">
-                            <label for="subjectCategory" class="form-label mb-0">分类</label>
-                        </div>
-                        <div class="col-9">
-                            <select class="form-select" id="subjectCategory" required>
-                                <option value="">选择分类</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mb-3 row align-items-center">
-                        <div class="col-3">
                             <label for="subject" class="form-label mb-0">项目</label>
                         </div>
                         <div class="col-9">
-                            <select class="form-select" id="subject" required disabled>
-                                <option value="">请先选择分类</option>
+                            <select class="form-select" id="subject" required>
+                                <option value="">选择项目</option>
                             </select>
                         </div>
                     </div>
@@ -511,9 +501,51 @@ function recordCalendarTitle(r) {
     const csrftoken = getCookie('csrftoken');
     
     var categorySubjectsTree = [];
+    var taskFormSubjects = [];
 
     function categoryOptionValue(c) {
         return (c && (c.id === null || c.id === undefined)) ? '__uncat__' : String(c.id);
+    }
+
+    function fillTaskFormSubjectSelect(preselectSubjectId) {
+        var subjSel = document.getElementById('subject');
+        if (!subjSel) return;
+        subjSel.innerHTML = '<option value="">选择项目</option>';
+        taskFormSubjects.forEach(function (s) {
+            if (s.open_status && s.open_status !== 'open') {
+                return;
+            }
+            var o = document.createElement('option');
+            o.value = String(s.id);
+            var heat = (s.heat != null) ? s.heat : 0;
+            o.textContent = s.name + (heat > 0 ? (' ·' + heat) : '');
+            subjSel.appendChild(o);
+        });
+        if (preselectSubjectId != null && preselectSubjectId !== '') {
+            subjSel.value = String(preselectSubjectId);
+        }
+        document.getElementById('chapter').innerHTML = subjSel.value
+            ? '<option value="">选择任务</option>'
+            : '<option value="">请先选择项目</option>';
+    }
+
+    function loadTaskFormSubjects(preselectSubjectId) {
+        return fetch('/planner/api/subjects/?ordering=-heat,order,name', {
+            headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var list = Array.isArray(data) ? data : (data.results || []);
+                taskFormSubjects = list.filter(function (s) {
+                    return !s.open_status || s.open_status === 'open';
+                });
+                fillTaskFormSubjectSelect(preselectSubjectId);
+            })
+            .catch(function (e) {
+                console.error('加载项目列表失败', e);
+                taskFormSubjects = [];
+                fillTaskFormSubjectSelect(preselectSubjectId);
+            });
     }
 
     function loadSubjectCategoryOptions() {
@@ -522,14 +554,13 @@ function recordCalendarTitle(r) {
         })
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                categorySubjectsTree = data.categories || [];
-                var catSel = document.getElementById('subjectCategory');
-                catSel.innerHTML = '<option value=\"\">选择分类</option>';
-                categorySubjectsTree.forEach(function (c) {
-                    var opt = document.createElement('option');
-                    opt.value = categoryOptionValue(c);
-                    opt.textContent = c.name || '';
-                    catSel.appendChild(opt);
+                categorySubjectsTree = (data.categories || []).map(function (c) {
+                    var subjects = (c.subjects || []).filter(function (s) {
+                        return !s.open_status || s.open_status === 'open';
+                    });
+                    return Object.assign({}, c, { subjects: subjects });
+                }).filter(function (c) {
+                    return c.subjects && c.subjects.length;
                 });
                 syncPlanRecordCategorySelectFromTree();
                 syncBatchCategorySelectFromTree();
@@ -563,6 +594,12 @@ function recordCalendarTitle(r) {
 
     function fillSubjectSelectForCategory(catVal) {
         var subjSel = document.getElementById('subject');
+        // 任务表单已改为扁平项目列表；此函数仅兼容旧调用，实际走 fillTaskFormSubjectSelect
+        if (subjSel && !document.getElementById('subjectCategory')) {
+            fillTaskFormSubjectSelect(subjSel.value || '');
+            return;
+        }
+        if (!subjSel) return;
         subjSel.innerHTML = '<option value=\"\">选择项目</option>';
         document.getElementById('chapter').innerHTML = '<option value=\"\">请先选择项目</option>';
         subjSel.disabled = true;
@@ -581,10 +618,7 @@ function recordCalendarTitle(r) {
     }
 
     loadSubjectCategoryOptions();
-
-    document.getElementById('subjectCategory').addEventListener('change', function () {
-        fillSubjectSelectForCategory(this.value);
-    });
+    loadTaskFormSubjects();
 
     document.getElementById('subject').addEventListener('change', function () {
         loadChapters(this.value);
@@ -616,7 +650,11 @@ function recordCalendarTitle(r) {
             if (typeof done === 'function') done();
             return;
         }
-        fetch('/courses/api/chapters/?subject_id=' + encodeURIComponent(subjectId), {
+        var qs = 'subject_id=' + encodeURIComponent(subjectId);
+        if (preselectChapterId != null && preselectChapterId !== '') {
+            qs += '&include_chapter=' + encodeURIComponent(preselectChapterId);
+        }
+        fetch('/courses/api/chapters/?' + qs, {
             headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
         })
             .then(function (r) {
@@ -686,7 +724,11 @@ function recordCalendarTitle(r) {
             if (typeof done === 'function') done();
             return;
         }
-        fetch('/courses/api/chapters/?subject_id=' + encodeURIComponent(subjectId), {
+        var qs = 'subject_id=' + encodeURIComponent(subjectId);
+        if (preselectChapterId != null && preselectChapterId !== '') {
+            qs += '&include_chapter=' + encodeURIComponent(preselectChapterId);
+        }
+        fetch('/courses/api/chapters/?' + qs, {
             headers: { 'Accept': 'application/json', 'X-CSRFToken': csrftoken }
         })
             .then(function (r) {
@@ -1029,8 +1071,7 @@ function recordCalendarTitle(r) {
         repeatType.value = 'none';
         repeatOptions.style.display = 'none';
         repeatEnds.value = ''; // 清空结束日期
-        document.getElementById('subjectCategory').value = '';
-        fillSubjectSelectForCategory('');
+        loadTaskFormSubjects();
         var syncEl = document.getElementById('syncImportantReminder');
         if (syncEl) syncEl.checked = false;
         var tu = document.getElementById('taskUnscheduled');
@@ -1421,8 +1462,7 @@ function recordCalendarTitle(r) {
         document.getElementById('taskId').value = '';
         document.getElementById('taskFormModalLabel').textContent = '创建任务';
         document.getElementById('repeatType').value = 'none';
-        document.getElementById('subjectCategory').value = '';
-        fillSubjectSelectForCategory('');
+        loadTaskFormSubjects();
         document.getElementById('syncImportantReminder').checked = false;
         var tuSel = document.getElementById('taskUnscheduled');
         if (tuSel) tuSel.checked = false;
@@ -1590,8 +1630,7 @@ function recordCalendarTitle(r) {
         document.getElementById('taskId').value = '';
         document.getElementById('taskFormModalLabel').textContent = '创建任务';
         document.getElementById('repeatType').value = 'none';
-        document.getElementById('subjectCategory').value = '';
-        fillSubjectSelectForCategory('');
+        loadTaskFormSubjects();
         document.getElementById('syncImportantReminder').checked = false;
         var tu = document.getElementById('taskUnscheduled');
         if (tu) tu.checked = true;
@@ -1657,8 +1696,7 @@ function recordCalendarTitle(r) {
             var repNew = document.getElementById('repeatType');
             if (repNew) repNew.disabled = false;
             syncUnscheduledRepeatUi();
-            document.getElementById('subjectCategory').value = '';
-            fillSubjectSelectForCategory('');
+            loadTaskFormSubjects();
             initializeTimeSelectors();
             window.selectedDate = dateOk ? dateStr : new Date().toISOString().split('T')[0];
             const syncEl = document.getElementById('syncImportantReminder');
@@ -2063,13 +2101,12 @@ function recordCalendarTitle(r) {
         const description = document.getElementById('description').value;
         const repeatType = document.getElementById('repeatType').value;
         const repeatEnds = document.getElementById('repeatEnds').value;
-        const subjectCategory = document.getElementById('subjectCategory').value;
         const syncImportantReminder = document.getElementById('syncImportantReminder').checked;
         const taskUnscheduled = document.getElementById('taskUnscheduled').checked;
         
         // 验证表单
-        if (!title || !subjectCategory || !subject || !chapter || !start_time || !end_time || !repeatType) {
-            alert('请填写所有必填字段（含分类与项目）');
+        if (!title || !subject || !chapter || !start_time || !end_time || !repeatType) {
+            alert('请填写所有必填字段（含项目与任务）');
             return;
         }
 
@@ -2436,35 +2473,18 @@ function recordCalendarTitle(r) {
                 syncEl.checked = !!(task && task.has_important_reminder);
             }
 
-            let catVal = '';
-            if (task && task.subject_category_id != null && task.subject_category_id !== undefined) {
-                catVal = String(task.subject_category_id);
-            } else if (task && task.subject) {
-                const found = categorySubjectsTree.find(function (c) {
-                    return (c.subjects || []).some(function (s) {
-                        return String(s.id) === String(task.subject);
-                    });
-                });
-                catVal = found ? categoryOptionValue(found) : '__uncat__';
-            }
-            const catSel = document.getElementById('subjectCategory');
-            if (catVal && categorySubjectsTree.some(function (c) {
-                return categoryOptionValue(c) === catVal;
-            })) {
-                catSel.value = catVal;
-            } else {
-                catSel.value = '';
-            }
-            fillSubjectSelectForCategory(catSel.value);
-            if (task && task.subject) {
-                document.getElementById('subject').value = String(task.subject);
-                loadChapters(task.subject, task.chapter);
-                setTimeout(function () {
-                    if (task.chapter) {
-                        document.getElementById('chapter').value = String(task.chapter);
-                    }
-                }, 400);
-            }
+            var sid = task && task.subject != null ? task.subject : '';
+            loadTaskFormSubjects(sid).then(function () {
+                if (sid) {
+                    document.getElementById('subject').value = String(sid);
+                    loadChapters(sid, task.chapter);
+                    setTimeout(function () {
+                        if (task.chapter) {
+                            document.getElementById('chapter').value = String(task.chapter);
+                        }
+                    }, 400);
+                }
+            });
 
             document.getElementById('repeatType').value = event.extendedProps.repeat_type || 'none';
             const repeatEnds = document.getElementById('repeatEnds');

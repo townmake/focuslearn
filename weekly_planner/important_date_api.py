@@ -228,21 +228,41 @@ def subject_category_options_api(request):
 
     categories = []
     for c in SubjectCategory.objects.filter(is_visible=True).order_by("-display_weight", "id"):
-        subs = Subject.objects.filter(category=c).order_by("order", "name")
+        subs = Subject.objects.filter(
+            category=c, open_status=Subject.OpenStatus.OPEN
+        ).order_by("-heat", "order", "name")
         categories.append(
             {
                 "id": c.id,
                 "name": c.name,
-                "subjects": [{"id": s.id, "name": s.name} for s in subs],
+                "subjects": [
+                    {
+                        "id": s.id,
+                        "name": s.name,
+                        "heat": s.heat,
+                        "open_status": s.open_status,
+                    }
+                    for s in subs
+                ],
             }
         )
-    loose = Subject.objects.filter(category__isnull=True).order_by("order", "name")
+    loose = Subject.objects.filter(
+        category__isnull=True, open_status=Subject.OpenStatus.OPEN
+    ).order_by("-heat", "order", "name")
     if loose.exists():
         categories.append(
             {
                 "id": None,
                 "name": "未分类",
-                "subjects": [{"id": s.id, "name": s.name} for s in loose],
+                "subjects": [
+                    {
+                        "id": s.id,
+                        "name": s.name,
+                        "heat": s.heat,
+                        "open_status": s.open_status,
+                    }
+                    for s in loose
+                ],
             }
         )
     return JsonResponse({"categories": categories})

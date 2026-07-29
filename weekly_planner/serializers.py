@@ -186,7 +186,7 @@ class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
         fields = [
-            'id', 'name', 'description', 'color',
+            'id', 'name', 'description', 'color', 'heat', 'open_status',
             'order', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']

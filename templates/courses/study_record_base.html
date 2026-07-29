@@ -399,41 +399,39 @@ function fillManualRecordSubjectSelect() {
     const subSel = document.getElementById('mr-subject-id');
     if (!subSel) return;
     subSel.innerHTML = '<option value="">请选择项目</option>';
-    manualRecordSubjectTree.forEach((s) => {
+    const openSubjects = (manualRecordSubjectTree || []).filter((s) => {
+        return !s.open_status || s.open_status === 'open';
+    });
+    openSubjects.forEach((s) => {
         const o = document.createElement('option');
         o.value = String(s.value);
-        o.textContent = s.label;
+        const heat = (s.heat != null) ? Number(s.heat) : 0;
+        o.textContent = heat > 0 ? `${s.label} ·${heat}` : s.label;
         subSel.appendChild(o);
     });
 }
 
-function onManualRecordSubjectChange() {
-    const subSel = document.getElementById('mr-subject-id');
-    const chapSel = document.getElementById('mr-chapter-id');
-    if (!subSel || !chapSel) return;
-    const subId = subSel.value;
-    chapSel.innerHTML = '<option value="">请选择任务</option>';
-    chapSel.removeAttribute('required');
-    if (!subId) {
-        chapSel.innerHTML = '<option value="">请先选择项目</option>';
-        chapSel.disabled = true;
-        return;
-    }
-    const node = manualRecordSubjectTree.find((x) => String(x.value) === String(subId));
-    const children = node && Array.isArray(node.children) ? node.children : [];
-    if (!children.length) {
-        chapSel.innerHTML = '<option value="">该项目下暂无任务</option>';
-        chapSel.disabled = true;
-        return;
-    }
-    children.forEach((ch) => {
-        const o = document.createElement('option');
-        o.value = String(ch.value);
-        o.textContent = ch.label;
-        chapSel.appendChild(o);
-    });
-    chapSel.disabled = false;
-    chapSel.setAttribute('required', 'required');
+function reloadManualRecordSubjectTree() {
+    return fetch('{% url "courses:subject_chapter_options" %}', {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin'
+    })
+        .then((r) => r.json())
+        .then((options) => {
+            let list = Array.isArray(options) ? options : [];
+            if (window.__FIXED_PLAN_REVIEW_SUBJECT) {
+                const sid = String(window.__FIXED_PLAN_REVIEW_SUBJECT);
+                list = list.filter((s) => String(s.value) === sid);
+            }
+            manualRecordSubjectTree = list.filter(
+                (s) => !s.open_status || s.open_status === 'open'
+            );
+            return manualRecordSubjectTree;
+        })
+        .catch(() => {
+            manualRecordSubjectTree = [];
+            return manualRecordSubjectTree;
+        });
 }
 
 function openManualRecordModal() {
@@ -441,7 +439,6 @@ function openManualRecordModal() {
     const form = document.getElementById('manual-record-form');
     if (!modal || !form) return;
     form.reset();
-    fillManualRecordSubjectSelect();
     document.getElementById('mr-subject-id').value = '';
     resetManualRecordChapterSelect();
     const now = new Date();
@@ -450,6 +447,21 @@ function openManualRecordModal() {
     document.getElementById('mr-end-time').value = formatDatetimeLocal(now);
     modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
+    reloadManualRecordSubjectTree().then(() => {
+        fillManualRecordSubjectSelect();
+        if (window.__FIXED_PLAN_REVIEW_SUBJECT) {
+            const mrSub = document.getElementById('mr-subject-id');
+            if (mrSub) {
+                mrSub.value = String(window.__FIXED_PLAN_REVIEW_SUBJECT);
+                onManualRecordSubjectChange();
+                const cid = window.__FIXED_PLAN_REVIEW_CHAPTER;
+                if (cid != null) {
+                    const mrCh = document.getElementById('mr-chapter-id');
+                    if (mrCh) mrCh.value = String(cid);
+                }
+            }
+        }
+    });
 }
 
 function closeManualRecordModal() {
@@ -725,11 +737,13 @@ function initCascader() {
     })
     .then(response => response.json())
     .then(options => {
-        manualRecordSubjectTree = Array.isArray(options) ? options : [];
+        manualRecordSubjectTree = (Array.isArray(options) ? options : []).filter(
+            (s) => !s.open_status || s.open_status === 'open'
+        );
         fillManualRecordSubjectSelect();
         ReactDOM.render(
             React.createElement(antd.Cascader, {
-                options: options,
+                options: manualRecordSubjectTree,
                 placeholder: '选择科目/章节',
                 style: { width: 250 },
                 onChange: (value) => {

@@ -42,6 +42,17 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        <div class="ant-form-item">
+                            <label>项目热度 (0–10)</label>
+                            <input type="number" name="heat" id="editSubjectHeat" class="ant-input" min="0" max="10" step="1" value="0" required>
+                        </div>
+                        <div class="ant-form-item">
+                            <label>项目状态</label>
+                            <select name="open_status" id="editSubjectOpenStatus" class="ant-input">
+                                <option value="open">开启</option>
+                                <option value="closed">关闭</option>
+                            </select>
+                        </div>
                     </form>
                 </div>
                 <div class="ant-modal-footer">
@@ -142,6 +153,20 @@
                                     {% endif %}
                                 {% else %}
                                     <span>无分类</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="ant-descriptions-item-label">项目热度</td>
+                            <td class="ant-descriptions-item-content">{{ subject.heat }}</td>
+                        </tr>
+                        <tr>
+                            <td class="ant-descriptions-item-label">项目状态</td>
+                            <td class="ant-descriptions-item-content">
+                                {% if subject.open_status == 'closed' %}
+                                    <span style="color:#cf1322;">关闭</span>
+                                {% else %}
+                                    <span style="color:#389e0d;">开启</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -405,6 +430,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const catSel = document.getElementById('editSubjectCategory');
                 if (catSel) {
                     catSel.value = data.category_id ? String(data.category_id) : '';
+                }
+                const heatEl = document.getElementById('editSubjectHeat');
+                if (heatEl) {
+                    heatEl.value = (data.heat != null && data.heat !== '') ? data.heat : 0;
+                }
+                const statusEl = document.getElementById('editSubjectOpenStatus');
+                if (statusEl) {
+                    statusEl.value = data.open_status === 'closed' ? 'closed' : 'open';
                 }
                 
                 // 显示现有图片

@@ -127,6 +127,25 @@ class Subject(models.Model):
         default='#4a6bdf', 
         verbose_name="主题颜色"
     )
+    heat = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="项目热度",
+        help_text="0–10，用于日历/记录里项目下拉排序；创建周历任务时会自动调整",
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+    )
+
+    class OpenStatus(models.TextChoices):
+        OPEN = "open", "开启"
+        CLOSED = "closed", "关闭"
+
+    open_status = models.CharField(
+        max_length=16,
+        choices=OpenStatus.choices,
+        default=OpenStatus.OPEN,
+        db_index=True,
+        verbose_name="项目状态",
+        help_text="关闭后的项目不出现在主列表与日历/记录选项目下拉中",
+    )
     created_at = models.DateTimeField(
         auto_now_add=True, 
         verbose_name="创建时间"
@@ -148,7 +167,7 @@ class Subject(models.Model):
     class Meta:
         verbose_name = "科目"
         verbose_name_plural = "科目"
-        ordering = ['name']
+        ordering = ['-heat', 'order', 'name']
     
     def __str__(self):
         return self.name
@@ -156,6 +175,24 @@ class Subject(models.Model):
     def save(self, *args, **kwargs):
         # 仅保存基础字段，统计字段由信号处理器更新
         super().save(*args, **kwargs)
+
+
+class SubjectHeatTracker(models.Model):
+    """单例：创建周历任务次数计数，满 10 次后全体项目热度 -1。"""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    creations_since_decay = models.PositiveIntegerField(
+        default=0,
+        verbose_name="距上次衰减的创建次数",
+    )
+
+    class Meta:
+        verbose_name = "项目热度计数器"
+        verbose_name_plural = "项目热度计数器"
+
+    def __str__(self):
+        return f"热度计数 {self.creations_since_decay}/10"
+
 
 class Chapter(models.Model):
     subject = models.ForeignKey(

@@ -24,6 +24,7 @@
         </div>
         <div class="page-header__actions">
             <button class="view-btn" id="exercise-view-btn" type="button">安排与回顾</button>
+            <button class="view-btn" id="transfer-chapter-btn" type="button">转移</button>
             <button class="view-btn" id="back-view-btn" type="button">返回项目</button>
         </div>
     </div>
@@ -1754,6 +1755,106 @@ document.getElementById('exercise-view-btn').addEventListener('click', function(
     } else {
         antd.message.error('无法获取章节信息');
     }
+});
+
+// 转移任务到其他项目
+document.getElementById('transfer-chapter-btn').addEventListener('click', function () {
+    var selectId = 'chapter-transfer-subject-select';
+    var transferUrl = '{% url "courses:chapter_transfer" chapter.id %}';
+    var csrf = '{{ csrf_token }}';
+    var currentName = '{{ chapter.subject.name|escapejs }}';
+    var subjectOptions = [
+        {% for s in transfer_subjects %}
+        { value: '{{ s.id }}', label: '{{ s.name|escapejs }}' }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    var optionNodes = [
+        React.createElement('option', { key: '', value: '' }, '请选择目标项目')
+    ].concat(subjectOptions.map(function (s) {
+        return React.createElement('option', { key: String(s.value), value: String(s.value) }, s.label);
+    }));
+    if (!subjectOptions.length) {
+        optionNodes = [
+            React.createElement('option', { key: '', value: '' }, '暂无其他可转移的项目')
+        ];
+    }
+
+    var content = React.createElement(
+        'div',
+        null,
+        React.createElement(
+            'p',
+            { style: { margin: '0 0 12px', color: 'rgba(0,0,0,0.65)', fontSize: 14 } },
+            '当前项目：',
+            React.createElement('strong', null, currentName),
+            React.createElement('br'),
+            '选择目标项目后，本任务将移动到该项目下。'
+        ),
+        React.createElement(
+            'label',
+            {
+                htmlFor: selectId,
+                style: { display: 'block', marginBottom: 6, fontWeight: 500 }
+            },
+            '目标项目'
+        ),
+        React.createElement(
+            'select',
+            {
+                id: selectId,
+                style: {
+                    width: '100%',
+                    padding: '8px 10px',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 6,
+                    fontSize: 14
+                }
+            },
+            optionNodes
+        )
+    );
+
+    antd.Modal.confirm({
+        title: '转移任务',
+        content: content,
+        okText: '确认转移',
+        cancelText: '取消',
+        centered: true,
+        onOk: function () {
+            var sel = document.getElementById(selectId);
+            var subjectId = sel ? sel.value : '';
+            if (!subjectId) {
+                antd.message.warning('请选择目标项目');
+                return Promise.reject();
+            }
+            var fd = new FormData();
+            fd.append('subject_id', subjectId);
+            return fetch(transferUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrf },
+                body: fd,
+                credentials: 'same-origin'
+            }).then(function (r) {
+                return r.json().then(function (body) {
+                    if (!r.ok || body.status !== 'success') {
+                        throw new Error(body.message || '转移失败');
+                    }
+                    return body;
+                });
+            }).then(function (body) {
+                antd.message.success('已转移到「' + (body.subject_name || '') + '」');
+                if (body.redirect_url) {
+                    window.location.href = body.redirect_url;
+                } else {
+                    window.location.reload();
+                }
+            }).catch(function (err) {
+                antd.message.error(err.message || '转移失败');
+                return Promise.reject();
+            });
+        }
+    });
 });
 
 // 添加返回科目按钮事件处理

@@ -242,9 +242,12 @@ class KnowledgePointDetailView(LoginRequiredMixin, DetailView):
 def subjectListView(request):  # 处理GET请求
     """按科目分类分块展示：分类按显示权重降序。
     归属「是否显示=否」的分类的科目不在本页展示（入口隐藏）；「其他」仅含未分类科目。
+    仅展示「开启」状态的项目。
     """
-    # 列表中允许出现的科目：未分类，或分类为「显示」
-    listed_q = Q(category__isnull=True) | Q(category__is_visible=True)
+    # 列表中允许出现的科目：开启 +（未分类，或分类为「显示」）
+    listed_q = Q(open_status=Subject.OpenStatus.OPEN) & (
+        Q(category__isnull=True) | Q(category__is_visible=True)
+    )
 
     unfinished_chapters_sq = Count(
         'chapters',
@@ -270,7 +273,9 @@ def subjectListView(request):  # 处理GET请求
             category_blocks.append({'title': cat.name, 'subjects': subs})
 
     other_subjects = list(
-        subjects_with_unfinished_qs(Q(category__isnull=True))
+        subjects_with_unfinished_qs(
+            Q(open_status=Subject.OpenStatus.OPEN, category__isnull=True)
+        )
     )
     if other_subjects:
         category_blocks.append({'title': '其他', 'subjects': other_subjects})
@@ -279,6 +284,7 @@ def subjectListView(request):  # 处理GET请求
     total_hours = queryset.aggregate(Sum('estimated_hours'))['estimated_hours__sum'] or 0
     total_actual_hours = queryset.aggregate(Sum('actual_study_hours'))['actual_study_hours__sum'] or 0
     subject_categories = SubjectCategory.objects.all().order_by('-display_weight', 'name')
+    closed_count = Subject.objects.filter(open_status=Subject.OpenStatus.CLOSED).count()
 
     return render(
         request,
@@ -287,6 +293,37 @@ def subjectListView(request):  # 处理GET请求
             'category_blocks': category_blocks,
             'total_subject_count': queryset.count(),
             'subject_categories': subject_categories,
+            'total_hours': total_hours,
+            'total_actual_hours': total_actual_hours,
+            'closed_count': closed_count,
+            'is_closed_list': False,
+        },
+    )
+
+
+@login_required
+def subjectClosedListView(request):
+    """已关闭项目列表。"""
+    unfinished_chapters_sq = Count(
+        'chapters',
+        filter=~Q(chapters__progress_status=Chapter.ProgressStatus.DONE),
+    )
+    subjects = (
+        Subject.objects.filter(open_status=Subject.OpenStatus.CLOSED)
+        .select_related('category')
+        .annotate(unfinished_tasks_count=unfinished_chapters_sq)
+        .order_by('order', 'name')
+    )
+    total_hours = subjects.aggregate(Sum('estimated_hours'))['estimated_hours__sum'] or 0
+    total_actual_hours = (
+        subjects.aggregate(Sum('actual_study_hours'))['actual_study_hours__sum'] or 0
+    )
+    return render(
+        request,
+        'courses/subject_closed_list.html',
+        {
+            'subjects': subjects,
+            'total_subject_count': subjects.count(),
             'total_hours': total_hours,
             'total_actual_hours': total_actual_hours,
         },
@@ -346,6 +383,8 @@ def subject_data(request, pk):
         'estimated_hours': subject.estimated_hours,
         'background_image': subject.background_image.url if subject.background_image else None,
         'category_id': subject.category_id,
+        'heat': subject.heat,
+        'open_status': subject.open_status,
     })
     
 @login_required
@@ -402,6 +441,11 @@ def chapter_detail(request, pk):
         "comment_type": "chapter",
         "type_id": pk,
         "chapter_progress_statuses": statuses,
+        "transfer_subjects": Subject.objects.filter(
+            open_status=Subject.OpenStatus.OPEN
+        )
+        .exclude(pk=chapter.subject_id)
+        .order_by("-heat", "order", "name"),
     }
     return render(request, "courses/chapter_detail.html", context)
 
@@ -436,6 +480,58 @@ def chapter_update_progress_status(request, pk):
 
 
 @login_required
+@require_POST
+def chapter_transfer(request, pk):
+    """将任务（章节）转移到其他项目。"""
+    from django.db import transaction
+    from django.db.models import Max
+
+    chapter = get_object_or_404(Chapter, pk=pk)
+    raw = (request.POST.get("subject_id") or "").strip()
+    try:
+        subject_id = int(raw)
+    except (TypeError, ValueError):
+        return JsonResponse({"status": "error", "message": "请选择目标项目"}, status=400)
+
+    if subject_id == chapter.subject_id:
+        return JsonResponse({"status": "error", "message": "任务已在该项目中"}, status=400)
+
+    new_subject = get_object_or_404(Subject, pk=subject_id)
+    old_subject_id = chapter.subject_id
+
+    with transaction.atomic():
+        max_order = (
+            Chapter.objects.filter(subject=new_subject)
+            .aggregate(m=Max("order"))
+            .get("m")
+        )
+        chapter.subject = new_subject
+        chapter.order = (max_order or 0) + 1
+        chapter.save(update_fields=["subject", "order"])
+
+        # 同步周历任务上冗余的 subject，避免筛选/展示错位
+        from weekly_planner.models import Task
+
+        Task.objects.filter(chapter_id=chapter.pk).update(subject_id=new_subject.pk)
+
+        # 学习记录中的项目名一并更新（仍挂在该任务下的记录）
+        StudyRecord.objects.filter(chapter_id=chapter.pk).update(
+            subject_name=new_subject.name
+        )
+
+    return JsonResponse(
+        {
+            "status": "success",
+            "chapter_id": chapter.pk,
+            "old_subject_id": old_subject_id,
+            "subject_id": new_subject.pk,
+            "subject_name": new_subject.name,
+            "redirect_url": f"/courses/subject/{new_subject.pk}/",
+        }
+    )
+
+
+@login_required
 def chapter_update(request, pk):
     chapter = get_object_or_404(Chapter, pk=pk)
 
@@ -464,25 +560,33 @@ def chapter_delete(request, pk):
 
 @login_required
 def subject_chapter_options(request):
-    """提供科目和章节的级联选项数据"""
-    subjects = Subject.objects.all().prefetch_related('chapters')
+    """提供科目和章节的级联选项数据（仅开启项目；按热度排序；任务下拉不含已完成）。"""
+    subjects = (
+        Subject.objects.filter(open_status=Subject.OpenStatus.OPEN)
+        .prefetch_related('chapters')
+        .order_by('-heat', 'order', 'name')
+    )
     options = []
-    
+
     for subject in subjects:
         subject_data = {
             'value': str(subject.id),
             'label': subject.name,
+            'heat': subject.heat,
+            'open_status': subject.open_status,
             'children': []
         }
-        
-        for chapter in subject.chapters.all():
+
+        for chapter in subject.chapters.exclude(
+            progress_status=Chapter.ProgressStatus.DONE
+        ):
             subject_data['children'].append({
                 'value': str(chapter.id),
                 'label': chapter.title
             })
-            
+
         options.append(subject_data)
-    
+
     return JsonResponse(options, safe=False)
 
 class ChapterDetailView(LoginRequiredMixin, DetailView):
@@ -504,6 +608,9 @@ class ChapterDetailView(LoginRequiredMixin, DetailView):
         context["chapter_progress_statuses"] = [
             c[0] for c in Chapter.ProgressStatus.choices
         ]
+        context["transfer_subjects"] = Subject.objects.filter(
+            open_status=Subject.OpenStatus.OPEN
+        ).exclude(pk=chapter.subject_id).order_by("-heat", "order", "name")
         return context
 
 # API视图
@@ -517,6 +624,19 @@ class ChapterListAPI(generics.ListAPIView):
         subject_id = self.request.query_params.get('subject_id')
         if subject_id:
             queryset = queryset.filter(subject_id=subject_id)
+        # 新建任务/记录时不下发已完成；编辑回显可通过 include_chapter 保留当前项
+        include_pk = None
+        raw = self.request.query_params.get('include_chapter')
+        if raw not in (None, ''):
+            try:
+                include_pk = int(raw)
+            except (TypeError, ValueError):
+                include_pk = None
+        incomplete = ~Q(progress_status=Chapter.ProgressStatus.DONE)
+        if include_pk is not None:
+            queryset = queryset.filter(incomplete | Q(pk=include_pk)).distinct()
+        else:
+            queryset = queryset.filter(incomplete)
         return queryset
 
 class StudyRecordCreateAPI(generics.CreateAPIView):
