@@ -411,6 +411,35 @@ function fillManualRecordSubjectSelect() {
     });
 }
 
+function onManualRecordSubjectChange() {
+    const subSel = document.getElementById('mr-subject-id');
+    const chapSel = document.getElementById('mr-chapter-id');
+    if (!subSel || !chapSel) return;
+    const subId = subSel.value;
+    chapSel.innerHTML = '<option value="">请选择任务</option>';
+    chapSel.removeAttribute('required');
+    if (!subId) {
+        chapSel.innerHTML = '<option value="">请先选择项目</option>';
+        chapSel.disabled = true;
+        return;
+    }
+    const node = manualRecordSubjectTree.find((x) => String(x.value) === String(subId));
+    const children = node && Array.isArray(node.children) ? node.children : [];
+    if (!children.length) {
+        chapSel.innerHTML = '<option value="">该项目下暂无未完成任务</option>';
+        chapSel.disabled = true;
+        return;
+    }
+    children.forEach((ch) => {
+        const o = document.createElement('option');
+        o.value = String(ch.value);
+        o.textContent = ch.label;
+        chapSel.appendChild(o);
+    });
+    chapSel.disabled = false;
+    chapSel.setAttribute('required', 'required');
+}
+
 function reloadManualRecordSubjectTree() {
     return fetch('{% url "courses:subject_chapter_options" %}', {
         headers: { Accept: 'application/json' },
