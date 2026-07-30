@@ -523,6 +523,37 @@ body.modal-open .modal-backdrop {
     line-height: 1.25;
 }
 
+/*
+ * 日视图：时间与文案同一行连续排布，放不下再换行
+ * （默认 FC 为纵向：时间在上、标题在下；含已完成任务、学习记录）
+ */
+.fc-timeGridDay-view .fc-timegrid-event .fc-event-main-frame,
+.fc-timeGridDay-view .fc-v-event .fc-event-main-frame {
+    display: block !important;
+    flex-direction: unset !important;
+    line-height: 1.35;
+    padding: 1px 2px;
+}
+
+.fc-timeGridDay-view .fc-timegrid-event .fc-event-time,
+.fc-timeGridDay-view .fc-timegrid-event .fc-event-title-container,
+.fc-timeGridDay-view .fc-timegrid-event .fc-event-title,
+.fc-timeGridDay-view .fc-timegrid-event.task-completed .fc-event-time,
+.fc-timeGridDay-view .fc-timegrid-event.task-completed .fc-event-title,
+.fc-timeGridDay-view .fc-timegrid-event.calendar-study-record .fc-event-time,
+.fc-timeGridDay-view .fc-timegrid-event.calendar-study-record .fc-event-title-container,
+.fc-timeGridDay-view .fc-timegrid-event.calendar-study-record .fc-event-title {
+    display: inline !important;
+    white-space: normal !important;
+    vertical-align: baseline;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.fc-timeGridDay-view .fc-timegrid-event .fc-event-time::after {
+    content: '\00a0';
+}
+
 /* 计划任务：与记录重叠时在下层（同上，不用 position:relative 以免破坏时间轴定位） */
 .fc-event.calendar-plan-task {
     z-index: 6 !important;

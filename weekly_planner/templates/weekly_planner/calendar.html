@@ -100,6 +100,7 @@ main.main--embed {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-danger" id="recordDeleteBtn">删除</button>
                 <button type="button" class="btn btn-primary" id="recordOpenChapterBtn" style="display: none;">打开子任务</button>
             </div>
         </div>
@@ -115,28 +116,17 @@ main.main--embed {
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3">请确认该时段<strong>实际执行</strong>的项目、任务、时间与内容。点「修改」会保存学习记录（计划仍视为未完成），并自动在「待安排」中新增一条与原计划标题、说明相同的副本，便于改期再排；点「完成」会保存记录并将本计划标为已完成。</p>
                 <form id="planRecordForm">
                     <input type="hidden" id="planRecordPlannerTaskId" value="">
                     <input type="hidden" id="planRecordSourceTaskTitle" value="">
                     <input type="hidden" id="planRecordSourceTaskDescription" value="">
                     <div class="mb-3 row align-items-center">
                         <div class="col-3">
-                            <label for="planRecordSubjectCategory" class="form-label mb-0">分类</label>
-                        </div>
-                        <div class="col-9">
-                            <select class="form-select" id="planRecordSubjectCategory" required>
-                                <option value="">选择分类</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mb-3 row align-items-center">
-                        <div class="col-3">
                             <label for="planRecordSubject" class="form-label mb-0">项目</label>
                         </div>
                         <div class="col-9">
-                            <select class="form-select" id="planRecordSubject" required disabled>
-                                <option value="">请先选择分类</option>
+                            <select class="form-select" id="planRecordSubject" required>
+                                <option value="">选择项目</option>
                             </select>
                         </div>
                     </div>
@@ -176,10 +166,12 @@ main.main--embed {
                     </div>
                 </form>
             </div>
-            <div class="modal-footer flex-wrap gap-2">
+            <div class="modal-footer d-flex flex-wrap align-items-center gap-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-outline-primary" id="planRecordAdjustBtn">修改</button>
-                <button type="button" class="btn btn-success" id="planRecordCompleteBtn">完成</button>
+                <div class="ms-auto d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-primary" id="planRecordAdjustBtn">记录其他任务</button>
+                    <button type="button" class="btn btn-success" id="planRecordCompleteBtn">完成任务</button>
+                </div>
             </div>
         </div>
     </div>
@@ -624,23 +616,39 @@ function recordCalendarTitle(r) {
         loadChapters(this.value);
     });
 
-    function fillPlanRecordSubjectSelectForCategory(catVal) {
+    function fillPlanRecordSubjectSelect(preselectSubjectId) {
         var subjSel = document.getElementById('planRecordSubject');
+        if (!subjSel) return;
         subjSel.innerHTML = '<option value="">选择项目</option>';
         document.getElementById('planRecordChapter').innerHTML = '<option value="">请先选择项目</option>';
-        subjSel.disabled = true;
-        if (!catVal) return;
-        var cat = categorySubjectsTree.find(function (c) {
-            return categoryOptionValue(c) === catVal;
-        });
-        if (!cat || !cat.subjects) return;
-        cat.subjects.forEach(function (s) {
+
+        var seen = {};
+        var list = [];
+        // 优先用创建任务同一套按热度排序的开启项目列表
+        if (taskFormSubjects && taskFormSubjects.length) {
+            list = taskFormSubjects.slice();
+        } else {
+            (categorySubjectsTree || []).forEach(function (c) {
+                (c.subjects || []).forEach(function (s) {
+                    if (!seen[s.id]) {
+                        seen[s.id] = true;
+                        list.push(s);
+                    }
+                });
+            });
+        }
+        list.forEach(function (s) {
+            if (s.open_status && s.open_status !== 'open') return;
             var o = document.createElement('option');
             o.value = String(s.id);
-            o.textContent = s.name;
+            var heat = (s.heat != null) ? s.heat : 0;
+            var name = s.name || ('项目 #' + s.id);
+            o.textContent = heat > 0 ? (name + ' ·' + heat) : name;
             subjSel.appendChild(o);
         });
-        subjSel.disabled = false;
+        if (preselectSubjectId != null && preselectSubjectId !== '') {
+            subjSel.value = String(preselectSubjectId);
+        }
     }
 
     function loadPlanRecordChapters(subjectId, preselectChapterId, done) {
@@ -683,9 +691,6 @@ function recordCalendarTitle(r) {
             });
     }
 
-    document.getElementById('planRecordSubjectCategory').addEventListener('change', function () {
-        fillPlanRecordSubjectSelectForCategory(this.value);
-    });
     document.getElementById('planRecordSubject').addEventListener('change', function () {
         loadPlanRecordChapters(this.value, null, null);
     });
@@ -1326,6 +1331,7 @@ function recordCalendarTitle(r) {
                         resourceEditable: false,
                         extendedProps: {
                             kind: 'study_record',
+                            study_record_id: r.id,
                             learning_content: r.learning_content,
                             description: r.description,
                             page_type_display: r.page_type_display,
@@ -1507,6 +1513,37 @@ function recordCalendarTitle(r) {
                     event.extendedProps.duration_display || '—';
                 document.getElementById('recordLearningContent').textContent =
                     event.extendedProps.learning_content || '（无）';
+
+                const recordId = event.extendedProps.study_record_id;
+                const deleteBtn = document.getElementById('recordDeleteBtn');
+                deleteBtn.onclick = function () {
+                    if (!recordId) {
+                        alert('无法删除：缺少记录 ID');
+                        return;
+                    }
+                    if (!confirm('确定删除这条记录？删除后不可恢复。')) {
+                        return;
+                    }
+                    deleteBtn.disabled = true;
+                    fetch('/courses/api/study-records/' + encodeURIComponent(recordId) + '/', {
+                        method: 'DELETE',
+                        headers: { 'X-CSRFToken': csrftoken }
+                    })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('删除失败');
+                            }
+                            studyRecordDetailsModal.hide();
+                            calendar.refetchEvents();
+                        })
+                        .catch(function (error) {
+                            console.error('Error deleting study record:', error);
+                            alert(error.message || '删除失败');
+                        })
+                        .finally(function () {
+                            deleteBtn.disabled = false;
+                        });
+                };
 
                 const openBtn = document.getElementById('recordOpenChapterBtn');
                 const cid = event.extendedProps.chapter_id;
@@ -1865,44 +1902,31 @@ function recordCalendarTitle(r) {
                 String(start.getMonth() + 1).padStart(2, '0') + '-' +
                 String(start.getDate()).padStart(2, '0');
 
-            var catVal = '';
-            if (event.extendedProps.subject_category_id != null && event.extendedProps.subject_category_id !== undefined) {
-                catVal = String(event.extendedProps.subject_category_id);
-            } else if (event.extendedProps.subject_id) {
-                var found = categorySubjectsTree.find(function (c) {
-                    return (c.subjects || []).some(function (s) {
-                        return String(s.id) === String(event.extendedProps.subject_id);
-                    });
+            var sid = event.extendedProps.subject_id;
+            function afterSubjectsReady() {
+                fillPlanRecordSubjectSelect(sid);
+                // 开始/结束时间与原计划一致（不再默认把不足 1 小时的结束时间拉长）
+                var planStart = event.start;
+                var planEnd = event.end || event.start;
+                document.getElementById('planRecordStartTime').value = formatDateTimeForInput(planStart);
+                document.getElementById('planRecordEndTime').value = formatDateTimeForInput(planEnd);
+
+                var desc = (event.extendedProps.description || '').trim();
+                if (!desc && event.extendedProps.task_raw_title) {
+                    desc = String(event.extendedProps.task_raw_title).trim();
+                }
+                document.getElementById('planRecordDescription').value = desc;
+
+                loadPlanRecordChapters(sid, event.extendedProps.chapter_id, function () {
+                    planRecordModal.show();
                 });
-                catVal = found ? categoryOptionValue(found) : '';
             }
 
-            syncPlanRecordCategorySelectFromTree();
-            var prCat = document.getElementById('planRecordSubjectCategory');
-            if (catVal && categorySubjectsTree.some(function (c) { return categoryOptionValue(c) === catVal; })) {
-                prCat.value = catVal;
+            if (!taskFormSubjects.length) {
+                loadTaskFormSubjects(sid).then(afterSubjectsReady);
             } else {
-                prCat.value = '';
+                afterSubjectsReady();
             }
-            fillPlanRecordSubjectSelectForCategory(prCat.value);
-
-            if (event.extendedProps.subject_id) {
-                document.getElementById('planRecordSubject').value = String(event.extendedProps.subject_id);
-            }
-
-            var range = ensureMinDurationOneHour(event.start, event.end);
-            document.getElementById('planRecordStartTime').value = formatDateTimeForInput(range.start);
-            document.getElementById('planRecordEndTime').value = formatDateTimeForInput(range.end);
-
-            var desc = (event.extendedProps.description || '').trim();
-            if (!desc && event.extendedProps.task_raw_title) {
-                desc = String(event.extendedProps.task_raw_title).trim();
-            }
-            document.getElementById('planRecordDescription').value = desc;
-
-            loadPlanRecordChapters(event.extendedProps.subject_id, event.extendedProps.chapter_id, function () {
-                planRecordModal.show();
-            });
         }
 
         if (!categorySubjectsTree.length) {
@@ -1961,10 +1985,9 @@ function recordCalendarTitle(r) {
         var chapter = document.getElementById('planRecordChapter').value;
         var desc = document.getElementById('planRecordDescription').value || '';
 
-        var prCat = document.getElementById('planRecordSubjectCategory').value;
         var subj = document.getElementById('planRecordSubject').value;
-        if (!prCat || !subj || !chapter || !dateStr || !st || !et) {
-            alert('请填写分类、项目、任务及起止时间');
+        if (!subj || !chapter || !dateStr || !st || !et) {
+            alert('请填写项目、任务及起止时间');
             return;
         }
 
