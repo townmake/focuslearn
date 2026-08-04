@@ -62,10 +62,13 @@
             <span class="subject-total-actual-hours">已投：<span class="total-actual-hours-value">{{ total_actual_hours }}</span>小时</span>
         </div>
         <div class="header-actions">
-            <div class="search-bar">
-                <input type="text" placeholder="搜索项目或任务..." class="search-input" id="subjectSearchInput">
-                <button type="button" class="ant-btn ant-btn-primary header-action-btn">搜索</button>
-            </div>
+            <form class="search-bar" method="get" action="{% url 'courses:subject_list' %}" role="search">
+                <input type="text" name="q" value="{{ search_q }}" placeholder="搜索项目、任务、文章…" class="search-input" id="subjectSearchInput" autocomplete="off">
+                <button type="submit" class="ant-btn ant-btn-primary header-action-btn search-btn">搜索</button>
+                {% if search_q %}
+                <a href="{% url 'courses:subject_list' %}" class="ant-btn header-action-btn" style="text-decoration:none;">清除</a>
+                {% endif %}
+            </form>
             <button type="button" class="ant-btn ant-btn-primary header-action-btn" onclick="showCreateSubjectModal()">
                 <i class="anticon anticon-plus"></i> 新建项目
             </button>
@@ -75,6 +78,66 @@
         </div>
     </div>
 
+    {% if search_q %}
+    <div class="subject-search-results">
+        <div class="subject-search-summary">
+            搜索「{{ search_q }}」：共 {{ search_results.total }} 条
+            <span class="subject-search-summary-detail">
+                （项目 {{ search_results.subjects|length }} · 任务 {{ search_results.chapters|length }} · 文章 {{ search_results.articles|length }}）
+            </span>
+        </div>
+
+        {% if search_results.total == 0 %}
+        <div class="subject-search-empty">未找到匹配内容。请使用至少 2 个字的关键词；已关闭项目中的内容也会出现在结果里并标注「已关闭」。</div>
+        {% endif %}
+
+        {% if search_results.subjects %}
+        <section class="subject-search-section">
+            <h3 class="subject-search-section-title">项目</h3>
+            <ul class="subject-search-list">
+                {% for item in search_results.subjects %}
+                <li class="subject-search-item">
+                    <a class="subject-search-link" href="{{ item.url }}">{{ item.name }}</a>
+                    {% if item.is_closed %}<span class="subject-search-badge">已关闭</span>{% endif %}
+                    {% if item.category_name %}<span class="subject-search-meta">{{ item.category_name }}</span>{% endif %}
+                    {% if item.description_snippet %}<div class="subject-search-snippet">{{ item.description_snippet }}</div>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        {% if search_results.chapters %}
+        <section class="subject-search-section">
+            <h3 class="subject-search-section-title">任务</h3>
+            <ul class="subject-search-list">
+                {% for item in search_results.chapters %}
+                <li class="subject-search-item">
+                    <a class="subject-search-link" href="{{ item.url }}">{{ item.title }}</a>
+                    <span class="subject-search-meta">{{ item.subject_name }}{% if item.subject_closed %} · 已关闭{% endif %}{% if item.progress_status %} · {{ item.progress_status }}{% endif %}</span>
+                    {% if item.description_snippet %}<div class="subject-search-snippet">{{ item.description_snippet }}</div>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        {% if search_results.articles %}
+        <section class="subject-search-section">
+            <h3 class="subject-search-section-title">文章（知识点）</h3>
+            <ul class="subject-search-list">
+                {% for item in search_results.articles %}
+                <li class="subject-search-item">
+                    <a class="subject-search-link" href="{{ item.url }}">{{ item.title }}</a>
+                    <span class="subject-search-meta">{{ item.subject_name }} / {{ item.chapter_title }}{% if item.subject_closed %} · 已关闭{% endif %}</span>
+                    {% if item.snippet %}<div class="subject-search-snippet">{{ item.snippet }}</div>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+    </div>
+    {% else %}
     <div class="subject-table">
         <table class="ant-table ant-table-bordered ant-table-striped">
             <thead class="ant-table-thead">
@@ -117,6 +180,7 @@
             </tbody>
         </table>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 

@@ -243,7 +243,13 @@ def subjectListView(request):  # 处理GET请求
     """按科目分类分块展示：分类按显示权重降序。
     归属「是否显示=否」的分类的科目不在本页展示（入口隐藏）；「其他」仅含未分类科目。
     仅展示「开启」状态的项目。
+    支持 ?q= 统一搜索：项目 / 任务 / 任务下文章（知识点）。
     """
+    from .subject_search import search_subjects_tasks_articles
+
+    search_q = (request.GET.get('q') or '').strip()
+    search_results = search_subjects_tasks_articles(search_q) if search_q else None
+
     # 列表中允许出现的科目：开启 +（未分类，或分类为「显示」）
     listed_q = Q(open_status=Subject.OpenStatus.OPEN) & (
         Q(category__isnull=True) | Q(category__is_visible=True)
@@ -267,18 +273,19 @@ def subjectListView(request):  # 处理GET请求
     )
 
     category_blocks = []
-    for cat in visible_categories:
-        subs = list(subjects_with_unfinished_qs(listed_q & Q(category=cat)))
-        if subs:
-            category_blocks.append({'title': cat.name, 'subjects': subs})
+    if not search_q:
+        for cat in visible_categories:
+            subs = list(subjects_with_unfinished_qs(listed_q & Q(category=cat)))
+            if subs:
+                category_blocks.append({'title': cat.name, 'subjects': subs})
 
-    other_subjects = list(
-        subjects_with_unfinished_qs(
-            Q(open_status=Subject.OpenStatus.OPEN, category__isnull=True)
+        other_subjects = list(
+            subjects_with_unfinished_qs(
+                Q(open_status=Subject.OpenStatus.OPEN, category__isnull=True)
+            )
         )
-    )
-    if other_subjects:
-        category_blocks.append({'title': '其他', 'subjects': other_subjects})
+        if other_subjects:
+            category_blocks.append({'title': '其他', 'subjects': other_subjects})
 
     queryset = Subject.objects.filter(listed_q)
     total_hours = queryset.aggregate(Sum('estimated_hours'))['estimated_hours__sum'] or 0
@@ -297,6 +304,8 @@ def subjectListView(request):  # 处理GET请求
             'total_actual_hours': total_actual_hours,
             'closed_count': closed_count,
             'is_closed_list': False,
+            'search_q': search_q,
+            'search_results': search_results,
         },
     )
 

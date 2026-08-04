@@ -10,6 +10,7 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.urls import reverse_lazy
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib import messages
+from django.db.models import Q
 from .models import QuickAccess
 from .forms import QuickAccessForm
 
@@ -135,7 +136,26 @@ class QuickAccessListView(LoginRequiredMixin, ListView):
     paginate_by = 36  # 6行×6列=36项每页
 
     def get_queryset(self):
-        return QuickAccess.objects.select_related("library_icon").order_by("position", "-created_at")
+        qs = QuickAccess.objects.select_related("library_icon").order_by(
+            "position", "-created_at"
+        )
+        q = (self.request.GET.get("q") or "").strip()
+        tokens = [t for t in q.split() if len(t) >= 2][:8]
+        if not tokens:
+            return qs
+        combined = Q()
+        for token in tokens:
+            combined &= (
+                Q(title__icontains=token)
+                | Q(subtitle__icontains=token)
+                | Q(description__icontains=token)
+            )
+        return qs.filter(combined)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["search_q"] = (self.request.GET.get("q") or "").strip()
+        return context
 
 class QuickAccessDetailView(LoginRequiredMixin, DetailView):
     model = QuickAccess

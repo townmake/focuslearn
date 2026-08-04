@@ -223,8 +223,8 @@
 
 /* 与 .ant-btn 主按钮高度对齐（约 32px） */
 .subject-list-header .search-input {
-    width: 200px;
-    min-width: 160px;
+    width: 280px;
+    min-width: 180px;
     height: 32px;
     padding: 4px 11px;
     font-size: 14px;
@@ -311,4 +311,101 @@
 .subject-category-title {
     color: #1d39c4;
     font-weight: 600;
+}
+
+/* 统一搜索结果 */
+.subject-search-results {
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 4px;
+    padding: 16px 20px 24px;
+    margin-top: 8px;
+}
+
+.subject-search-summary {
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.85);
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.subject-search-summary-detail {
+    color: rgba(0, 0, 0, 0.45);
+    margin-left: 4px;
+}
+
+.subject-search-empty {
+    color: rgba(0, 0, 0, 0.45);
+    padding: 24px 0;
+    text-align: center;
+}
+
+.subject-search-section {
+    margin-bottom: 20px;
+}
+
+.subject-search-section:last-child {
+    margin-bottom: 0;
+}
+
+.subject-search-section-title {
+    margin: 0 0 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d39c4;
+}
+
+.subject-search-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.subject-search-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.subject-search-item:last-child {
+    border-bottom: none;
+}
+
+.subject-search-link {
+    font-size: 15px;
+    color: #1890ff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.subject-search-link:hover {
+    color: #40a9ff;
+    text-decoration: underline;
+}
+
+.subject-search-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 0 6px;
+    font-size: 12px;
+    line-height: 20px;
+    color: #d46b08;
+    background: #fff7e6;
+    border: 1px solid #ffd591;
+    border-radius: 2px;
+    vertical-align: middle;
+}
+
+.subject-search-meta {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.45);
+}
+
+.subject-search-snippet {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(0, 0, 0, 0.65);
 }

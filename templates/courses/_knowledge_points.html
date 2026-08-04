@@ -1173,7 +1173,10 @@ function renderKnowledgeTree(treeData) {
             throw new Error('无效的树形数据');
         }
         // node.key很重要，用于后续加载详情,这里用的是id作为key
-        const treeElement = React.createElement(antd.Tree, {
+        const preferKp = (typeof window !== 'undefined' && window.__preferKnowledgePointId)
+            ? String(window.__preferKnowledgePointId)
+            : '';
+        const treeProps = {
             showLine: true,
             treeData: formattedData,
             onSelect: (selectedKeys, {node}) => {
@@ -1194,7 +1197,14 @@ function renderKnowledgeTree(treeData) {
                     setTimeout(syncHeights, 500);
                 }
             }
-        });
+        };
+        if (preferKp) {
+            const preferKey = Number(preferKp);
+            const selectedKey = Number.isNaN(preferKey) ? preferKp : preferKey;
+            treeProps.defaultSelectedKeys = [selectedKey];
+            treeProps.defaultExpandedKeys = [selectedKey];
+        }
+        const treeElement = React.createElement(antd.Tree, treeProps);
         
         // 渲染到DOM并强制验证状态
         ReactDOM.render(treeElement, treeContainer, () => {
@@ -1342,10 +1352,22 @@ async function loadKnowledgePoints() {
             return;
         }
 
+        // 优先打开 URL ?kp=（须在渲染树之前写入）
+        const preferId = new URLSearchParams(window.location.search).get('kp');
+        window.__preferKnowledgePointId = preferId || '';
+
         // 渲染树
         renderKnowledgeTree(treeData);
-        // 自动选中第一个知识点
         setTimeout(() => {
+            if (preferId) {
+                if (typeof loadKnowledgePointDetail === 'function') {
+                    loadKnowledgePointDetail(preferId);
+                }
+                if (typeof loadKnowledgePointAnnotations === 'function') {
+                    loadKnowledgePointAnnotations(preferId);
+                }
+                return;
+            }
             const firstNode = document.querySelector('.ant-tree-node-content-wrapper');
             if (firstNode) {
                 firstNode.click();
