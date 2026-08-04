@@ -110,6 +110,7 @@
             <div class="detail-header" >
                 <h2>详细内容</h2>
                 <div class="action-buttons" >
+                    <button class="edit-btn" id="export-pdf-btn" type="button">导出 PDF</button>
                     <button class="edit-btn" id="edit-btn-content">编辑</button>
                 </div>
             </div>
@@ -1023,6 +1024,23 @@ function submitAnnotation(text, content, currentKnowledgePointId, loadingModal) 
 
 // 编辑器-编辑/保存按钮逻辑
 document.getElementById('edit-btn-content').addEventListener('click',SaveBtnLogic);
+
+document.getElementById('export-pdf-btn').addEventListener('click', function () {
+    var id = '';
+    if (typeof currentKnowledgePointId !== 'undefined' && currentKnowledgePointId) {
+        id = String(currentKnowledgePointId).trim();
+    }
+    if (!id) {
+        var showEl = document.getElementById('kp-id-show');
+        if (showEl) id = String(showEl.textContent || '').trim();
+    }
+    if (!id) {
+        alert('请先在左侧选择一篇文章');
+        return;
+    }
+    window.open('/courses/knowledge-points/' + encodeURIComponent(id) + '/export/?autoprint=1', '_blank');
+});
+
 //新增双击编辑器区域进入编辑状态
 document.getElementById('Aiditor-knowledge-content').addEventListener('dblclick',()=>{
     const editBtn = document.getElementById('edit-btn-content');

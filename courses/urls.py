@@ -47,6 +47,7 @@ from .views import (
     plan_review_records_embed,
     subject_plan_summary_edit,
 )
+from .knowledge_point_export import knowledge_point_export
 from .document_views import (
     DocumentCreateAPI,
     DocumentUpdateAPI,
@@ -65,6 +66,7 @@ urlpatterns = [
     path('knowledgepoints/', KnowledgePointListView.as_view(), name='knowledgepoint_list'),
     path('knowledgepoints/<int:pk>/', KnowledgePointDetailView.as_view(), name='knowledgepoint_detail'),
     path('knowledgepoints/view/<int:pk>/', KnowledgePointDetailView.as_view(), name='knowledgepoint_view'),
+    path('knowledge-points/<int:pk>/export/', knowledge_point_export, name='knowledge_point_export'),
     path('knowledge-points/<int:pk>/', KnowledgePointDetailAPI.as_view(), name='knowledgepoint-detail'),
     path('knowledge-points/', KnowledgePointListAPI.as_view(), name='knowledgepoint-list'),
     path('api/knowledge-points-list/', knowledge_points_list, name='knowledge-points-list'),
