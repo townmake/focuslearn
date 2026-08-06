@@ -206,6 +206,150 @@ def persist_subject_weekly_stats(user, subject):
     return stats
 
 
+def aggregate_subjects_week_list_stats(user, subject_ids, week_start=None, week_end=None):
+    """
+    项目列表「本周」四项统计（批量，按自然周窗口）：
+
+    - week_task_count：本周有重叠的周历计划条数（不含待安排）
+    - week_unfinished_task_count：上述计划中未完成（is_completed=False）条数
+    - week_planned_hours：本周计划重叠时长合计（小时）
+    - week_actual_hours：本周学习记录重叠时长合计（小时）
+
+    归属：优先 chapter.subject_id，否则 task.subject_id；
+    记录优先 chapter.subject_id，否则按 subject_name 匹配。
+    """
+    from weekly_planner.models import Task
+
+    ids = [int(i) for i in subject_ids if i is not None]
+    empty = {
+        "week_task_count": 0,
+        "week_unfinished_task_count": 0,
+        "week_planned_hours": 0.0,
+        "week_actual_hours": 0.0,
+    }
+    result = {sid: dict(empty) for sid in ids}
+    if not ids:
+        return result
+
+    if week_start is None or week_end is None:
+        week_start, week_end = get_local_week_range()
+    tz = dj_tz.get_current_timezone()
+    ws_d, we_d = week_start.date(), week_end.date()
+
+    id_set = set(ids)
+    subjects = list(Subject.objects.filter(id__in=ids).only("id", "name"))
+    name_to_id = {}
+    for s in subjects:
+        k = (s.name or "").strip().casefold()
+        if k and k not in name_to_id:
+            name_to_id[k] = s.id
+
+    task_count = defaultdict(int)
+    unfinished_count = defaultdict(int)
+    planned_hours = defaultdict(lambda: Decimal("0"))
+    actual_hours = defaultdict(lambda: Decimal("0"))
+
+    tasks = (
+        Task.objects.filter(user=user)
+        .filter(Q(subject_id__in=ids) | Q(chapter__subject_id__in=ids))
+        .filter(start_date__lte=we_d, end_date__gte=ws_d)
+        .filter(is_unscheduled=False)
+        .select_related("chapter")
+        .only(
+            "id",
+            "subject_id",
+            "chapter_id",
+            "is_completed",
+            "start_date",
+            "start_time",
+            "end_date",
+            "end_time",
+            "chapter__subject_id",
+        )
+    )
+    for task in tasks.iterator():
+        sid = None
+        if task.chapter_id and getattr(task.chapter, "subject_id", None) in id_set:
+            sid = task.chapter.subject_id
+        elif task.subject_id in id_set:
+            sid = task.subject_id
+        if sid is None:
+            continue
+        t0, t1 = _task_aware_interval(task, tz)
+        secs = overlap_seconds(t0, t1, week_start, week_end)
+        if secs <= 0:
+            continue
+        task_count[sid] += 1
+        if not task.is_completed:
+            unfinished_count[sid] += 1
+        planned_hours[sid] += Decimal(secs) / Decimal(3600)
+
+    name_match_q = Q()
+    for s in subjects:
+        n = (s.name or "").strip()
+        if n:
+            name_match_q |= Q(subject_name__iexact=n)
+
+    records = StudyRecord.objects.filter(
+        user=user,
+        end_time__gte=week_start,
+        start_time__lte=week_end,
+    ).filter(Q(chapter__subject_id__in=ids) | name_match_q).select_related("chapter").only(
+        "id",
+        "chapter_id",
+        "subject_name",
+        "start_time",
+        "end_time",
+        "chapter__subject_id",
+    )
+    for rec in records.iterator():
+        sid = None
+        if rec.chapter_id and getattr(rec.chapter, "subject_id", None) in id_set:
+            sid = rec.chapter.subject_id
+        else:
+            sid = name_to_id.get((rec.subject_name or "").strip().casefold())
+        if sid is None or sid not in id_set:
+            continue
+        secs = overlap_seconds(rec.start_time, rec.end_time, week_start, week_end)
+        if secs <= 0:
+            continue
+        actual_hours[sid] += Decimal(secs) / Decimal(3600)
+
+    for sid in ids:
+        result[sid] = {
+            "week_task_count": task_count.get(sid, 0),
+            "week_unfinished_task_count": unfinished_count.get(sid, 0),
+            "week_planned_hours": float(
+                planned_hours.get(sid, Decimal("0")).quantize(Decimal("0.01"))
+            ),
+            "week_actual_hours": float(
+                actual_hours.get(sid, Decimal("0")).quantize(Decimal("0.01"))
+            ),
+        }
+    return result
+
+
+def attach_subject_week_list_stats(subjects, stats_map):
+    """给 Subject 挂上本周列表展示字段。"""
+    out = []
+    for s in subjects:
+        st = stats_map.get(
+            s.id,
+            {
+                "week_task_count": 0,
+                "week_unfinished_task_count": 0,
+                "week_planned_hours": 0.0,
+                "week_actual_hours": 0.0,
+            },
+        )
+        s.week_task_count = st["week_task_count"]
+        s.week_unfinished_task_count = st["week_unfinished_task_count"]
+        s.week_planned_hours = st["week_planned_hours"]
+        s.week_actual_hours = st["week_actual_hours"]
+        out.append(s)
+    return out
+
+
 def _orphan_weekly_plan_namespace(display_name=None):
     """用于首页列表展示：无真实 Subject 时的占位对象（id=0，不可点进项目详情）。"""
     name = (display_name or _ORPHAN_WEEKLY_PLAN_LABEL).strip() or _ORPHAN_WEEKLY_PLAN_LABEL
@@ -379,3 +523,187 @@ def sum_actual_hours_for_subject_in_range(subject, week_start, week_end, user=No
         if secs > 0:
             total += Decimal(secs) / Decimal(3600)
     return total
+
+
+def _task_duration_hours(task, tz):
+    """单条周历任务的计划时长（小时）。"""
+    t0, t1 = _task_aware_interval(task, tz)
+    secs = max(0, int((t1 - t0).total_seconds()))
+    return Decimal(secs) / Decimal(3600)
+
+
+def aggregate_chapters_week_plan_record_stats(user, subject, week_start=None, week_end=None):
+    """
+    仅统计「本周」窗口内、按 chapter 外键归属的：
+
+    - plan_task_count：与本周有重叠的周历 Task 条数
+    - planned_hours：与本周重叠的计划时长（小时）
+    - actual_hours：与本周重叠的学习记录时长（小时）
+
+    返回 dict[chapter_id] -> {plan_task_count, planned_hours, actual_hours}
+    """
+    from weekly_planner.models import Task
+
+    if week_start is None or week_end is None:
+        week_start, week_end = get_local_week_range()
+    tz = dj_tz.get_current_timezone()
+    ws_d, we_d = week_start.date(), week_end.date()
+
+    chapters = list(Chapter.objects.filter(subject=subject).only("id"))
+    chapter_ids = [c.id for c in chapters]
+    result = {
+        cid: {
+            "plan_task_count": 0,
+            "planned_hours": 0.0,
+            "actual_hours": 0.0,
+        }
+        for cid in chapter_ids
+    }
+    if not chapter_ids:
+        return result
+
+    planned_hours = defaultdict(lambda: Decimal("0"))
+    plan_counts = defaultdict(int)
+    actual_hours = defaultdict(lambda: Decimal("0"))
+
+    tasks = (
+        Task.objects.filter(user=user, chapter_id__in=chapter_ids)
+        .filter(start_date__lte=we_d, end_date__gte=ws_d)
+        .only("id", "chapter_id", "start_date", "start_time", "end_date", "end_time")
+    )
+    for task in tasks.iterator():
+        cid = task.chapter_id
+        if cid not in result:
+            continue
+        t0, t1 = _task_aware_interval(task, tz)
+        secs = overlap_seconds(t0, t1, week_start, week_end)
+        if secs <= 0:
+            continue
+        plan_counts[cid] += 1
+        planned_hours[cid] += Decimal(secs) / Decimal(3600)
+
+    records = StudyRecord.objects.filter(
+        user=user,
+        chapter_id__in=chapter_ids,
+        end_time__gte=week_start,
+        start_time__lte=week_end,
+    ).only("id", "chapter_id", "start_time", "end_time")
+    for rec in records.iterator():
+        cid = rec.chapter_id
+        if cid not in result:
+            continue
+        secs = overlap_seconds(rec.start_time, rec.end_time, week_start, week_end)
+        if secs <= 0:
+            continue
+        actual_hours[cid] += Decimal(secs) / Decimal(3600)
+
+    for cid in chapter_ids:
+        result[cid] = {
+            "plan_task_count": plan_counts.get(cid, 0),
+            "planned_hours": float(
+                planned_hours.get(cid, Decimal("0")).quantize(Decimal("0.01"))
+            ),
+            "actual_hours": float(
+                actual_hours.get(cid, Decimal("0")).quantize(Decimal("0.01"))
+            ),
+        }
+    return result
+
+
+def rollup_subject_week_stats_into_history(user, subject):
+    """
+    在项目「总结」插入成功后调用：把本周各任务的三项统计累加进 Chapter 历史字段。
+
+    - 新的一周：直接累加本周值，并记下本周贡献快照
+    - 同一周再次写入总结：用最新本周值「替换」该周贡献（先减旧快照再加新值），避免早写总结把本周锁死
+    """
+    from django.db import transaction
+
+    week_start, week_end = get_local_week_range()
+    ws_d = week_start.date()
+    week_stats = aggregate_chapters_week_plan_record_stats(
+        user, subject, week_start=week_start, week_end=week_end
+    )
+
+    with transaction.atomic():
+        subj = Subject.objects.select_for_update().get(pk=subject.pk)
+        chapters = list(
+            Chapter.objects.select_for_update().filter(subject_id=subj.id)
+        )
+        replaced = subj.hist_stats_rolled_week_start == ws_d
+
+        for ch in chapters:
+            s = week_stats.get(
+                ch.id,
+                {"plan_task_count": 0, "planned_hours": 0.0, "actual_hours": 0.0},
+            )
+            new_cnt = int(s["plan_task_count"] or 0)
+            new_plan = Decimal(str(s["planned_hours"] or 0)).quantize(Decimal("0.01"))
+            new_act = Decimal(str(s["actual_hours"] or 0)).quantize(Decimal("0.01"))
+
+            hist_cnt = int(ch.hist_plan_task_count or 0)
+            hist_plan = Decimal(str(ch.hist_planned_hours or 0))
+            hist_act = Decimal(str(ch.hist_actual_hours or 0))
+
+            if ch.last_roll_week_start == ws_d:
+                hist_cnt = max(0, hist_cnt - int(ch.last_roll_plan_task_count or 0))
+                hist_plan = max(
+                    Decimal("0"),
+                    hist_plan - Decimal(str(ch.last_roll_planned_hours or 0)),
+                )
+                hist_act = max(
+                    Decimal("0"),
+                    hist_act - Decimal(str(ch.last_roll_actual_hours or 0)),
+                )
+
+            ch.hist_plan_task_count = hist_cnt + new_cnt
+            ch.hist_planned_hours = (hist_plan + new_plan).quantize(Decimal("0.01"))
+            ch.hist_actual_hours = (hist_act + new_act).quantize(Decimal("0.01"))
+            ch.last_roll_week_start = ws_d
+            ch.last_roll_plan_task_count = new_cnt
+            ch.last_roll_planned_hours = new_plan
+            ch.last_roll_actual_hours = new_act
+            ch.save(
+                update_fields=[
+                    "hist_plan_task_count",
+                    "hist_planned_hours",
+                    "hist_actual_hours",
+                    "last_roll_week_start",
+                    "last_roll_plan_task_count",
+                    "last_roll_planned_hours",
+                    "last_roll_actual_hours",
+                ]
+            )
+
+        subj.hist_stats_rolled_week_start = ws_d
+        subj.save(update_fields=["hist_stats_rolled_week_start"])
+
+    return {
+        "rolled": True,
+        "replaced_same_week": replaced,
+        "week_start": str(ws_d),
+        "by_chapter": week_stats,
+    }
+
+
+def attach_chapter_plan_record_stats(chapters, week_stats_map):
+    """给 Chapter 挂上本周实时统计 + 库内历史累计（不写库）。"""
+    out = []
+    for ch in chapters:
+        w = week_stats_map.get(
+            ch.id,
+            {"plan_task_count": 0, "planned_hours": 0.0, "actual_hours": 0.0},
+        )
+        ch.week_plan_task_count = w["plan_task_count"]
+        ch.week_planned_hours = w["planned_hours"]
+        ch.week_actual_hours = w["actual_hours"]
+        ch.hist_plan_task_count_display = int(getattr(ch, "hist_plan_task_count", 0) or 0)
+        ch.hist_planned_hours_display = float(getattr(ch, "hist_planned_hours", 0) or 0)
+        ch.hist_actual_hours_display = float(getattr(ch, "hist_actual_hours", 0) or 0)
+        out.append(ch)
+    return out
+
+
+# 兼容旧名
+def aggregate_chapters_plan_record_stats(user, subject):
+    return aggregate_chapters_week_plan_record_stats(user, subject)

@@ -53,28 +53,121 @@
     cursor: pointer;
     user-select: none;
 }
-.subject-weekly-ai-panel {
-    margin-bottom: 14px;
-    padding: 14px 16px;
-    background: #fafafa;
-    border: 1px solid #e8e8e8;
-    border-radius: 8px;
+.subject-weekly-ai-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
 }
-.subject-weekly-ai-panel__title {
-    margin: 0 0 8px;
-    font-size: 15px;
+.subject-weekly-ai-modal[hidden] { display: none !important; }
+.subject-weekly-ai-modal__mask {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+}
+.subject-weekly-ai-modal__dialog {
+    position: relative;
+    z-index: 1;
+    width: min(920px, 100%);
+    max-height: min(88vh, 900px);
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+}
+.subject-weekly-ai-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+}
+.subject-weekly-ai-modal__header h3 {
+    margin: 0;
+    font-size: 16px;
     font-weight: 600;
 }
-.subject-weekly-ai-panel__status {
-    margin: 0 0 10px;
+.subject-weekly-ai-modal__close {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    line-height: 1;
+    color: #8c8c8c;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+.subject-weekly-ai-modal__close:hover { color: #262626; }
+.subject-weekly-ai-modal__body {
+    padding: 14px 18px;
+    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.subject-weekly-ai-modal__status {
+    margin: 0 0 12px;
     font-size: 13px;
     color: #ad6800;
+    min-height: 1.2em;
 }
-.subject-weekly-ai-panel__content {
+.subject-weekly-ai-field {
+    margin-bottom: 12px;
+}
+.subject-weekly-ai-field label {
+    display: block;
     font-size: 13px;
-    line-height: 1.6;
-    color: #333;
-    white-space: pre-wrap;
+    color: #595959;
+    margin-bottom: 6px;
+}
+.subject-weekly-ai-field input,
+.subject-weekly-ai-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+}
+.subject-weekly-ai-field input:focus,
+.subject-weekly-ai-field textarea:focus {
+    outline: none;
+    border-color: #40a9ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.15);
+}
+.subject-weekly-ai-field textarea {
+    resize: vertical;
+    min-height: 64px;
+}
+.subject-weekly-ai-editor-mount {
+    border: 1px solid #d9d9d9;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    min-height: 220px;
+}
+.subject-weekly-ai-editor-mount .aie-container { min-height: 200px; }
+.subject-weekly-ai-editor-mount .aie-content { padding: 10px 12px; }
+.subject-weekly-ai-modal__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid #f0f0f0;
+    flex-shrink: 0;
+}
+.subject-weekly-ai-hint {
+    margin-right: auto;
+    font-size: 12px;
+    color: #8c8c8c;
 }
 .plan-review-tabs {
     display: flex;
@@ -170,15 +263,10 @@
         <p class="sub">
             项目：<strong>{{ subject.name }}</strong>
             {% if chapter %} · 子任务：<strong>{{ chapter.title }}</strong>{% endif %}
-            · <a href="{% url 'courses:subject_detail' subject.id %}">返回项目详情</a>
+            · <a href="{% url 'courses:subject_detail' subject.id %}">进入项目详情</a>
+            · <a href="{% url 'weekly_planner:calendar' %}">返回</a>
         </p>
         <div class="plan-review-head-right">
-            <div class="plan-review-head-actions">
-                <label class="plan-review-ai-regen" title="本周已有 AI 总结时，勾选可强制重新生成">
-                    <input type="checkbox" id="subject-weekly-ai-regenerate"> 重新生成
-                </label>
-                <button type="button" class="ant-btn ant-btn-default" id="subject-weekly-ai-btn">周智能总结</button>
-            </div>
             <div class="plan-review-tabs" role="tablist">
                 <button type="button" class="is-active" data-panel="plan" role="tab">项目计划</button>
                 <button type="button" data-panel="records" role="tab">记录汇总</button>
@@ -189,13 +277,33 @@
         </div>
     </div>
 
-    <div id="subject-weekly-ai-panel" class="subject-weekly-ai-panel" hidden>
-        <h3 class="subject-weekly-ai-panel__title">本周 AI 周总结（本项目）</h3>
-        <p class="subject-weekly-ai-panel__status" id="subject-weekly-ai-status"></p>
-        <div id="subject-weekly-ai-content" class="subject-weekly-ai-panel__content">
-            <h4 id="subject-weekly-ai-title" class="subject-weekly-ai-title"></h4>
-            <p id="subject-weekly-ai-overview" class="subject-weekly-ai-overview"></p>
-            <div id="subject-weekly-ai-editor-mount" class="subject-weekly-ai-editor-mount"></div>
+    <div id="subject-weekly-ai-modal" class="subject-weekly-ai-modal" hidden role="dialog" aria-modal="true" aria-labelledby="subject-weekly-ai-modal-title">
+        <div class="subject-weekly-ai-modal__mask" id="subject-weekly-ai-mask"></div>
+        <div class="subject-weekly-ai-modal__dialog">
+            <div class="subject-weekly-ai-modal__header">
+                <h3 id="subject-weekly-ai-modal-title">本周 AI 周总结</h3>
+                <button type="button" class="subject-weekly-ai-modal__close" id="subject-weekly-ai-close" aria-label="关闭">×</button>
+            </div>
+            <div class="subject-weekly-ai-modal__body">
+                <p class="subject-weekly-ai-modal__status" id="subject-weekly-ai-status"></p>
+                <div class="subject-weekly-ai-field">
+                    <label for="subject-weekly-ai-title">标题</label>
+                    <input type="text" id="subject-weekly-ai-title" maxlength="200" placeholder="总结标题" disabled>
+                </div>
+                <div class="subject-weekly-ai-field">
+                    <label for="subject-weekly-ai-overview">概述</label>
+                    <textarea id="subject-weekly-ai-overview" rows="2" placeholder="简短概述" disabled></textarea>
+                </div>
+                <div class="subject-weekly-ai-field">
+                    <label>正文</label>
+                    <div id="subject-weekly-ai-editor-mount" class="subject-weekly-ai-editor-mount"></div>
+                </div>
+            </div>
+            <div class="subject-weekly-ai-modal__footer">
+                <span class="subject-weekly-ai-hint" id="subject-weekly-ai-hint">生成完成后可编辑，提交后写入「总结」列表</span>
+                <button type="button" class="ant-btn" id="subject-weekly-ai-cancel">取消</button>
+                <button type="button" class="ant-btn ant-btn-primary" id="subject-weekly-ai-save-btn" disabled>提交到总结</button>
+            </div>
         </div>
     </div>
 
@@ -217,6 +325,10 @@
             <input type="text" id="summarySearchQ" placeholder="搜索：标题、概述、正文关键词或日期 YYYY-MM-DD">
             <button type="button" class="ant-btn ant-btn-primary" id="summarySearchBtn">查询</button>
             <a class="ant-btn ant-btn-primary" href="{% url 'courses:subject_plan_summary_create' subject_pk=subject.id %}">创建总结</a>
+            <button type="button" class="ant-btn ant-btn-default" id="subject-weekly-ai-btn">周智能总结</button>
+            <label class="plan-review-ai-regen" title="本周已有 AI 总结时，勾选可强制重新生成">
+                <input type="checkbox" id="subject-weekly-ai-regenerate"> 重新生成
+            </label>
         </div>
         <div class="summary-table-wrap">
             <table class="ant-table ant-table-bordered summary-table" style="font-size:14px;">
@@ -251,21 +363,30 @@
         records: document.getElementById('panel-records'),
         summary: document.getElementById('panel-summary')
     };
+
+    function activateTab(id) {
+        tabBtns.forEach(function (b) {
+            b.classList.toggle('is-active', b.getAttribute('data-panel') === id);
+        });
+        Object.keys(panels).forEach(function (k) {
+            var p = panels[k];
+            if (!p) return;
+            p.classList.toggle('is-active', k === id);
+        });
+    }
+
     tabBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
-            var id = btn.getAttribute('data-panel');
-            tabBtns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
-            Object.keys(panels).forEach(function (k) {
-                var p = panels[k];
-                if (!p) return;
-                p.classList.toggle('is-active', k === id);
-            });
+            activateTab(btn.getAttribute('data-panel'));
         });
     });
+
+    window.planReviewActivateTab = activateTab;
 
     var tbody = document.getElementById('summaryTableBody');
     var listUrl = '{% url "courses:subject_plan_summaries_api" subject_pk=subject.id %}';
     var summaryEditPrefix = '/courses/subject/{{ subject.id }}/plan-summaries/';
+    var createSummaryUrl = '{% url "courses:subject_plan_summaries_api" subject_pk=subject.id %}';
 
     function esc(s) {
         if (!s) return '';
@@ -329,6 +450,9 @@
             });
     }
 
+    window.planReviewLoadSummaries = loadSummaries;
+    window.planReviewCreateSummaryUrl = createSummaryUrl;
+
     var searchBtn = document.getElementById('summarySearchBtn');
     if (searchBtn) searchBtn.addEventListener('click', loadSummaries);
     if (tbody) loadSummaries();
@@ -342,54 +466,189 @@
     var statusUrlTpl = '{% url "weekly_ai_summary_status" pk=999999 %}'.replace('999999', '__ID__');
     var tokEl = document.querySelector('#django-csrf-holder input[name=csrfmiddlewaretoken]');
     var regen = document.getElementById('subject-weekly-ai-regenerate');
-    var panel = document.getElementById('subject-weekly-ai-panel');
+    var modal = document.getElementById('subject-weekly-ai-modal');
+    var mask = document.getElementById('subject-weekly-ai-mask');
+    var closeBtn = document.getElementById('subject-weekly-ai-close');
+    var cancelBtn = document.getElementById('subject-weekly-ai-cancel');
     var stEl = document.getElementById('subject-weekly-ai-status');
     var titleEl = document.getElementById('subject-weekly-ai-title');
     var overviewEl = document.getElementById('subject-weekly-ai-overview');
+    var saveBtn = document.getElementById('subject-weekly-ai-save-btn');
+    var pollTimer = null;
+    var ready = false;
+    var saving = false;
+
+    function setStatus(text, color) {
+        if (!stEl) return;
+        stEl.textContent = text || '';
+        stEl.style.color = color || '#ad6800';
+    }
+
+    function setFormEnabled(on) {
+        if (titleEl) titleEl.disabled = !on;
+        if (overviewEl) overviewEl.disabled = !on;
+        if (saveBtn) saveBtn.disabled = !on;
+        if (typeof window.setSubjectWeeklyAiEditable === 'function') {
+            window.setSubjectWeeklyAiEditable(!!on);
+        }
+        ready = !!on;
+    }
+
+    function openModal() {
+        if (!modal) return;
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+        if (modal) modal.hidden = true;
+        document.body.style.overflow = '';
+        btn.disabled = false;
+        ready = false;
+        setFormEnabled(false);
+    }
 
     function showContent(data) {
-        if (!panel) return;
-        panel.hidden = false;
-        if (titleEl) titleEl.textContent = data.title || '';
-        if (overviewEl) overviewEl.textContent = data.overview || '';
+        openModal();
+        if (titleEl) titleEl.value = data.title || '';
+        if (overviewEl) overviewEl.value = data.overview || '';
         if (typeof window.renderSubjectWeeklyAiMarkdown === 'function') {
             window.renderSubjectWeeklyAiMarkdown(data.body || '');
         }
+        setFormEnabled(true);
+        setStatus('可编辑后点击「提交到总结」，将写入下方「总结」分页', '#8c8c8c');
     }
+
     function poll(id) {
         var n = 0;
-        var t = setInterval(function () {
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(function () {
             n += 1;
             fetch(statusUrlTpl.replace('__ID__', String(id)), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    if (stEl) stEl.textContent = data.status === 'processing' ? 'DeepSeek 生成中，请稍候…' : '';
+                    if (data.status === 'processing' || data.status === 'pending') {
+                        setStatus('DeepSeek 生成中，请稍候…', '#ad6800');
+                    }
                     if (data.status === 'completed') {
-                        clearInterval(t);
+                        clearInterval(pollTimer);
+                        pollTimer = null;
                         btn.disabled = false;
                         showContent(data);
-                        if (stEl) stEl.textContent = '';
                     }
                     if (data.status === 'failed') {
-                        clearInterval(t);
+                        clearInterval(pollTimer);
+                        pollTimer = null;
                         btn.disabled = false;
-                        if (stEl) stEl.textContent = '失败：' + (data.error_message || '');
+                        setFormEnabled(false);
+                        setStatus('失败：' + (data.error_message || ''), '#cf1322');
                     }
                     if (n >= 100) {
-                        clearInterval(t);
+                        clearInterval(pollTimer);
+                        pollTimer = null;
                         btn.disabled = false;
-                        if (stEl) stEl.textContent = '等待超时，请稍后刷新页面。';
+                        setStatus('等待超时，请稍后重试。', '#cf1322');
                     }
                 })
                 .catch(function () {});
         }, 3000);
     }
+
+    function onCloseClick() {
+        if (saving) return;
+        closeModal();
+    }
+
+    if (mask) mask.addEventListener('click', onCloseClick);
+    if (closeBtn) closeBtn.addEventListener('click', onCloseClick);
+    if (cancelBtn) cancelBtn.addEventListener('click', onCloseClick);
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal && !modal.hidden && !saving) closeModal();
+    });
+
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function () {
+            if (!ready || saving) return;
+            var title = titleEl ? (titleEl.value || '').trim() : '';
+            if (!title) {
+                alert('请填写标题');
+                return;
+            }
+            var overview = overviewEl ? (overviewEl.value || '').trim() : '';
+            var bodyHtml = '';
+            try {
+                if (typeof window.getSubjectWeeklyAiHtml === 'function') {
+                    bodyHtml = window.getSubjectWeeklyAiHtml() || '';
+                }
+            } catch (e) {
+                bodyHtml = '';
+            }
+            var createUrl = window.planReviewCreateSummaryUrl;
+            if (!createUrl) {
+                alert('当前项目未开启总结分页');
+                return;
+            }
+            saving = true;
+            saveBtn.disabled = true;
+            setStatus('正在提交到总结…', '#ad6800');
+            fetch(createUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': tokEl ? tokEl.value : '',
+                    Accept: 'application/json'
+                },
+                body: JSON.stringify({ title: title.slice(0, 200), overview: overview, body: bodyHtml })
+            })
+                .then(function (r) {
+                    return r.json().then(function (j) {
+                        if (!r.ok) {
+                            throw new Error((j && (j.detail || j.error)) ? (j.detail || j.error) : ('HTTP ' + r.status));
+                        }
+                        return j;
+                    });
+                })
+                .then(function (j) {
+                    closeModal();
+                    if (typeof window.planReviewActivateTab === 'function') {
+                        window.planReviewActivateTab('summary');
+                    }
+                    if (typeof window.planReviewLoadSummaries === 'function') {
+                        window.planReviewLoadSummaries();
+                    }
+                    var roll = j && j.hist_rollup;
+                    if (roll && roll.rolled) {
+                        var tip = roll.replaced_same_week
+                            ? '已写入总结，并已用最新本周数据更新历史中的本周贡献'
+                            : '已写入总结，并将本周「子任务数 / 计划时长 / 已投入」累加到历史';
+                        alert(tip);
+                    }
+                })
+                .catch(function (err) {
+                    alert('提交失败：' + (err.message || err));
+                    saveBtn.disabled = false;
+                    setStatus('提交失败，请重试', '#cf1322');
+                })
+                .finally(function () {
+                    saving = false;
+                });
+        });
+    }
+
     btn.addEventListener('click', function () {
         btn.disabled = true;
-        if (panel) panel.hidden = false;
-        if (stEl) stEl.textContent = '正在提交…';
-        if (titleEl) titleEl.textContent = '';
-        if (overviewEl) overviewEl.textContent = '';
+        openModal();
+        ready = false;
+        setFormEnabled(false);
+        setStatus('正在提交…', '#ad6800');
+        if (titleEl) titleEl.value = '';
+        if (overviewEl) overviewEl.value = '';
         if (typeof window.renderSubjectWeeklyAiMarkdown === 'function') {
             window.renderSubjectWeeklyAiMarkdown('');
         }
@@ -405,21 +664,23 @@
             .then(function (data) {
                 if (data.message) alert(data.message);
                 if (!data.ok) throw new Error('bad');
-                if (data.id && (data.status === 'started' || data.status === 'processing')) {
+                if (data.id && (data.status === 'started' || data.status === 'processing' || data.status === 'pending')) {
+                    setStatus('DeepSeek 生成中，请稍候…', '#ad6800');
                     poll(data.id);
-                } else if (data.status === 'completed') {
+                } else if (data.status === 'completed' && data.id) {
                     btn.disabled = false;
                     return fetch(statusUrlTpl.replace('__ID__', String(data.id)), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
                         .then(function (r) { return r.json(); })
                         .then(showContent);
                 } else {
                     btn.disabled = false;
+                    setStatus('未能启动总结，请重试', '#cf1322');
                 }
             })
             .catch(function () {
                 alert('提交失败');
                 btn.disabled = false;
-                if (stEl) stEl.textContent = '';
+                setStatus('提交失败', '#cf1322');
             });
     });
 })();
@@ -428,6 +689,29 @@
 import { AiEditor } from '/static/aieditor-main/dist/index.js';
 
 var subjectWeeklyAiEditor = null;
+var subjectWeeklyAiWantEditable = false;
+
+function applySubjectWeeklyAiEditable() {
+    if (!subjectWeeklyAiEditor) return;
+    try {
+        subjectWeeklyAiEditor.setEditable(!!subjectWeeklyAiWantEditable);
+    } catch (e) { /* ignore */ }
+}
+
+window.getSubjectWeeklyAiHtml = function () {
+    if (!subjectWeeklyAiEditor) return '';
+    try {
+        if (typeof subjectWeeklyAiEditor.getHtml === 'function') {
+            return subjectWeeklyAiEditor.getHtml() || '';
+        }
+    } catch (e) { /* ignore */ }
+    return '';
+};
+
+window.setSubjectWeeklyAiEditable = function (on) {
+    subjectWeeklyAiWantEditable = !!on;
+    applySubjectWeeklyAiEditable();
+};
 
 window.renderSubjectWeeklyAiMarkdown = function (md) {
     var s = (md == null ? '' : String(md)).trim();
@@ -435,7 +719,7 @@ window.renderSubjectWeeklyAiMarkdown = function (md) {
         subjectWeeklyAiEditor.setEditable(true);
         if (s) subjectWeeklyAiEditor.setMarkdownContent(s);
         else subjectWeeklyAiEditor.setContent('<p></p>');
-        subjectWeeklyAiEditor.setEditable(false);
+        applySubjectWeeklyAiEditable();
         return;
     }
     var mount = document.getElementById('subject-weekly-ai-editor-mount');
@@ -445,13 +729,13 @@ window.renderSubjectWeeklyAiMarkdown = function (md) {
         ...opts,
         element: '#subject-weekly-ai-editor-mount',
         toolbarKeys: [],
-        placeholder: '',
+        placeholder: 'AI 总结正文，生成后可直接编辑…',
         theme: 'default',
         onCreated: function (editor) {
             editor.setEditable(true);
             if (s) editor.setMarkdownContent(s);
             else editor.setContent('<p></p>');
-            editor.setEditable(false);
+            applySubjectWeeklyAiEditable();
         }
     });
 };

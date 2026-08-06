@@ -224,9 +224,9 @@
                 <thead class="ant-table-thead">
                     <tr>
                         <th class="ant-table-cell">任务名称</th>
-                        <th class="ant-table-cell">子任务数量</th>
-                        <th class="ant-table-cell">计划投入时长</th>
-                        <th class="ant-table-cell">已投入时长</th>
+                        <th class="ant-table-cell">子任务数量<br><span class="th-sub">本周 / 历史</span></th>
+                        <th class="ant-table-cell">计划投入时长<br><span class="th-sub">本周 / 历史</span></th>
+                        <th class="ant-table-cell">已投入时长<br><span class="th-sub">本周 / 历史</span></th>
                         <th class="ant-table-cell">进度状态</th>
                         <th class="ant-table-cell">操作</th>
                     </tr>
@@ -237,9 +237,27 @@
                         <td class="ant-table-cell">
                             <a href="{% url 'courses:chapter_detail' pk=chapter.id %}">{{ chapter.title }}</a>
                         </td>
-                        <td class="ant-table-cell">{{ chapter.knowledge_points_count }}</td>
-                        <td class="ant-table-cell">{{ chapter.estimated_hours|default:0 }}</td>
-                        <td class="ant-table-cell">{{ chapter.actual_hours|default:0 }}</td>
+                        <td class="ant-table-cell">
+                            <span class="stat-dual" title="本周 / 历史">
+                                <span class="stat-dual__week">{{ chapter.week_plan_task_count|default:0 }}</span>
+                                <span class="stat-dual__sep">/</span>
+                                <span class="stat-dual__hist">{{ chapter.hist_plan_task_count_display|default:0 }}</span>
+                            </span>
+                        </td>
+                        <td class="ant-table-cell">
+                            <span class="stat-dual" title="本周 / 历史（小时）">
+                                <span class="stat-dual__week">{{ chapter.week_planned_hours|floatformat:2 }}</span>
+                                <span class="stat-dual__sep">/</span>
+                                <span class="stat-dual__hist">{{ chapter.hist_planned_hours_display|floatformat:2 }}</span>
+                            </span>
+                        </td>
+                        <td class="ant-table-cell">
+                            <span class="stat-dual" title="本周 / 历史（小时）">
+                                <span class="stat-dual__week">{{ chapter.week_actual_hours|floatformat:2 }}</span>
+                                <span class="stat-dual__sep">/</span>
+                                <span class="stat-dual__hist">{{ chapter.hist_actual_hours_display|floatformat:2 }}</span>
+                            </span>
+                        </td>
                         <td class="ant-table-cell">{{ chapter.progress_status|default:'进行中' }}</td>
                         <td class="ant-table-cell">
                             <button type="button" class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href='{% url 'courses:chapter_detail' pk=chapter.id %}'">
@@ -263,9 +281,27 @@
                         <td class="ant-table-cell">
                             <a href="{% url 'courses:chapter_detail' pk=chapter.id %}">{{ chapter.title }}</a>
                         </td>
-                        <td class="ant-table-cell">{{ chapter.knowledge_points_count }}</td>
-                        <td class="ant-table-cell">{{ chapter.estimated_hours|default:0 }}</td>
-                        <td class="ant-table-cell">{{ chapter.actual_hours|default:0 }}</td>
+                        <td class="ant-table-cell">
+                            <span class="stat-dual" title="本周 / 历史">
+                                <span class="stat-dual__week">{{ chapter.week_plan_task_count|default:0 }}</span>
+                                <span class="stat-dual__sep">/</span>
+                                <span class="stat-dual__hist">{{ chapter.hist_plan_task_count_display|default:0 }}</span>
+                            </span>
+                        </td>
+                        <td class="ant-table-cell">
+                            <span class="stat-dual" title="本周 / 历史（小时）">
+                                <span class="stat-dual__week">{{ chapter.week_planned_hours|floatformat:2 }}</span>
+                                <span class="stat-dual__sep">/</span>
+                                <span class="stat-dual__hist">{{ chapter.hist_planned_hours_display|floatformat:2 }}</span>
+                            </span>
+                        </td>
+                        <td class="ant-table-cell">
+                            <span class="stat-dual" title="本周 / 历史（小时）">
+                                <span class="stat-dual__week">{{ chapter.week_actual_hours|floatformat:2 }}</span>
+                                <span class="stat-dual__sep">/</span>
+                                <span class="stat-dual__hist">{{ chapter.hist_actual_hours_display|floatformat:2 }}</span>
+                            </span>
+                        </td>
                         <td class="ant-table-cell">{{ chapter.progress_status|default:'完成' }}</td>
                         <td class="ant-table-cell">
                             <button type="button" class="ant-btn ant-btn-text ant-btn-sm" onclick="window.location.href='{% url 'courses:chapter_detail' pk=chapter.id %}'">

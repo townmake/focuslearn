@@ -11,8 +11,8 @@
         <h2>已关闭项目</h2>
         <div class="subject-counts">
             <span class="subject-count">共 <span class="subject-length-value">{{ total_subject_count }}</span> 个</span>
-            <span class="subject-total-hours">预计：<span class="total-hours-value">{{ total_hours }}</span>小时</span>
-            <span class="subject-total-actual-hours">已投：<span class="total-actual-hours-value">{{ total_actual_hours }}</span>小时</span>
+            <span class="subject-total-hours">本周计划：<span class="total-hours-value">{{ total_hours }}</span>小时</span>
+            <span class="subject-total-actual-hours">本周已投：<span class="total-actual-hours-value">{{ total_actual_hours }}</span>小时</span>
         </div>
         <div class="header-actions">
             <a href="{% url 'courses:subject_list' %}" class="ant-btn ant-btn-primary header-action-btn" style="display:inline-flex;align-items:center;text-decoration:none;">
@@ -27,8 +27,8 @@
                 <tr>
                     <th class="ant-table-cell">项目名称</th>
                     <th class="ant-table-cell">分类</th>
-                    <th class="ant-table-cell">任务数</th>
-                    <th class="ant-table-cell">未完任务</th>
+                    <th class="ant-table-cell">任务数<br><span class="th-sub">本周计划</span></th>
+                    <th class="ant-table-cell">未完任务<br><span class="th-sub">本周计划</span></th>
                     <th class="ant-table-cell">本周计划时长</th>
                     <th class="ant-table-cell">本周已投时长</th>
                     <th class="ant-table-cell">操作</th>
@@ -41,10 +41,10 @@
                         <a href="{% url 'courses:subject_detail' subject.id %}">{{ subject.name }}</a>
                     </td>
                     <td class="ant-table-cell">{% if subject.category %}{{ subject.category.name }}{% else %}未分类{% endif %}</td>
-                    <td class="ant-table-cell">{{ subject.Chapters_count }}</td>
-                    <td class="ant-table-cell">{{ subject.unfinished_tasks_count }}</td>
-                    <td class="ant-table-cell">{{ subject.estimated_hours }}</td>
-                    <td class="ant-table-cell">{{ subject.actual_study_hours }}</td>
+                    <td class="ant-table-cell">{{ subject.week_task_count|default:0 }}</td>
+                    <td class="ant-table-cell">{{ subject.week_unfinished_task_count|default:0 }}</td>
+                    <td class="ant-table-cell">{{ subject.week_planned_hours|floatformat:2 }}</td>
+                    <td class="ant-table-cell">{{ subject.week_actual_hours|floatformat:2 }}</td>
                     <td class="ant-table-cell">
                         <button class="ant-btn ant-btn-text ant-btn-sm" type="button"
                                 onclick="window.location.href=`{% url 'courses:subject_detail' subject.id %}`">

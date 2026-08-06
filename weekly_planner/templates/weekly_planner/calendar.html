@@ -63,6 +63,8 @@ main.main--embed {
                     <div><strong>任务：</strong> <span id="taskChapter"></span>
                                                 <span id="taskChapterID" style="display: none;"></span></div>
                     <div><strong>时间：</strong> <span id="taskTime"></span></div>
+                    <div><strong>紧急程度：</strong> <span id="taskUrgencyDisplay"></span></div>
+                    <div><strong>重要程度：</strong> <span id="taskImportanceDisplay"></span></div>
                     <div id="descriptionRow" style="display: none;"><strong>描述：</strong> <span id="taskDescription"></span></div>
                 </div>
             </div>
@@ -240,14 +242,42 @@ main.main--embed {
                             <textarea class="form-control" id="description" rows="2"></textarea>
                         </div>
                     </div>
+                    <input type="hidden" id="taskUnscheduled" value="0">
                     <div class="mb-3 row align-items-center">
                         <div class="col-3">
-                            <label class="form-label mb-0">待安排</label>
+                            <span class="form-label mb-0">紧急程度</span>
                         </div>
                         <div class="col-9">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="taskUnscheduled">
-                                <label class="form-check-label" for="taskUnscheduled">暂不排入周历</label>
+                            <input type="hidden" id="urgencyLevel" value="low">
+                            <div class="task-level-meter" data-level-target="urgencyLevel" data-level="low" data-level-index="0">
+                                <div class="task-level-meter__row">
+                                    <div class="task-level-meter__bar">
+                                        <div class="task-level-meter__track">
+                                            <div class="task-level-meter__fill" style="width:25%"></div>
+                                        </div>
+                                        <input type="range" class="task-level-meter__range" min="0" max="3" step="1" value="0" aria-label="紧急程度">
+                                    </div>
+                                    <span class="task-level-meter__text">不紧急</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3 row align-items-center">
+                        <div class="col-3">
+                            <span class="form-label mb-0">重要程度</span>
+                        </div>
+                        <div class="col-9">
+                            <input type="hidden" id="importanceLevel" value="low">
+                            <div class="task-level-meter" data-level-target="importanceLevel" data-level="low" data-level-index="0">
+                                <div class="task-level-meter__row">
+                                    <div class="task-level-meter__bar">
+                                        <div class="task-level-meter__track">
+                                            <div class="task-level-meter__fill" style="width:25%"></div>
+                                        </div>
+                                        <input type="range" class="task-level-meter__range" min="0" max="3" step="1" value="0" aria-label="重要程度">
+                                    </div>
+                                    <span class="task-level-meter__text">不重要</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -906,11 +936,105 @@ function recordCalendarTitle(r) {
         });
     });
 
-    function syncUnscheduledRepeatUi() {
+    var URGENCY_LABELS = { low: '不紧急', medium: '中', high: '高', critical: '紧急' };
+    var IMPORTANCE_LABELS = { low: '不重要', medium: '中', high: '高', critical: '重要' };
+    var LEVEL_VALUES = ['low', 'medium', 'high', 'critical'];
+
+    function urgencyLabel(v) {
+        return URGENCY_LABELS[v] || URGENCY_LABELS.low;
+    }
+    function importanceLabel(v) {
+        return IMPORTANCE_LABELS[v] || IMPORTANCE_LABELS.low;
+    }
+    function normalizeLevel(v, fallback) {
+        var s = (v == null || v === '') ? '' : String(v);
+        if (LEVEL_VALUES.indexOf(s) >= 0) return s;
+        return fallback || 'low';
+    }
+    function levelIndex(v) {
+        var i = LEVEL_VALUES.indexOf(normalizeLevel(v, 'low'));
+        return i >= 0 ? i : 0;
+    }
+    function levelValueFromIndex(idx) {
+        var i = parseInt(idx, 10);
+        if (isNaN(i)) i = 0;
+        i = Math.max(0, Math.min(LEVEL_VALUES.length - 1, i));
+        return LEVEL_VALUES[i];
+    }
+    function setLevelPickValue(inputId, value) {
+        var v = normalizeLevel(value, 'low');
+        var idx = levelIndex(v);
+        var input = document.getElementById(inputId);
+        if (input) input.value = v;
+        var meter = document.querySelector('.task-level-meter[data-level-target="' + inputId + '"]');
+        if (!meter) return;
+        meter.setAttribute('data-level', v);
+        meter.setAttribute('data-level-index', String(idx));
+        var fill = meter.querySelector('.task-level-meter__fill');
+        if (fill) fill.style.width = (((idx + 1) / LEVEL_VALUES.length) * 100) + '%';
+        var range = meter.querySelector('.task-level-meter__range');
+        if (range) range.value = String(idx);
+        var text = meter.querySelector('.task-level-meter__text');
+        if (text) {
+            text.textContent = inputId === 'importanceLevel' ? importanceLabel(v) : urgencyLabel(v);
+        }
+    }
+    function resetUrgencyImportanceFields() {
+        setLevelPickValue('urgencyLevel', 'low');
+        setLevelPickValue('importanceLevel', 'low');
+    }
+
+    function buildUtLevelMeter(kind, value) {
+        var v = normalizeLevel(value, 'low');
+        var idx = levelIndex(v);
+        var wrap = document.createElement('div');
+        wrap.className = 'ut-meter';
+        wrap.setAttribute('data-level', v);
+        wrap.setAttribute('data-level-index', String(idx));
+        wrap.title = (kind === 'urgency' ? '紧急：' + urgencyLabel(v) : '重要：' + importanceLabel(v));
+        var lab = document.createElement('span');
+        lab.className = 'ut-meter__label';
+        lab.textContent = kind === 'urgency' ? '急' : '重';
+        var track = document.createElement('div');
+        track.className = 'ut-meter__track';
+        var fill = document.createElement('div');
+        fill.className = 'ut-meter__fill';
+        fill.style.width = (((idx + 1) / LEVEL_VALUES.length) * 100) + '%';
+        track.appendChild(fill);
+        wrap.appendChild(lab);
+        wrap.appendChild(track);
+        return wrap;
+    }
+
+    (function initTaskLevelMeters() {
+        document.querySelectorAll('.task-level-meter').forEach(function (meter) {
+            var target = meter.getAttribute('data-level-target');
+            var range = meter.querySelector('.task-level-meter__range');
+            if (!range || !target) return;
+            setLevelPickValue(target, document.getElementById(target) && document.getElementById(target).value);
+            range.addEventListener('input', function () {
+                setLevelPickValue(target, levelValueFromIndex(range.value));
+            });
+            range.addEventListener('change', function () {
+                setLevelPickValue(target, levelValueFromIndex(range.value));
+            });
+        });
+    })();
+
+    function isTaskUnscheduledChecked() {
         var u = document.getElementById('taskUnscheduled');
+        return !!(u && String(u.value) === '1');
+    }
+    function setTaskUnscheduledChecked(flag) {
+        var u = document.getElementById('taskUnscheduled');
+        if (u) u.value = flag ? '1' : '0';
+        syncUnscheduledRepeatUi();
+    }
+
+    function syncUnscheduledRepeatUi() {
         var rep = document.getElementById('repeatType');
-        if (!u || !rep) return;
-        if (u.checked) {
+        if (!rep) return;
+        if (isTaskUnscheduledChecked()) {
             rep.value = 'none';
             rep.disabled = true;
             var ro = document.getElementById('repeatOptions');
@@ -922,7 +1046,71 @@ function recordCalendarTitle(r) {
         }
     }
 
-    document.getElementById('taskUnscheduled').addEventListener('change', syncUnscheduledRepeatUi);
+    function getUnscheduledCollapsedMap() {
+        try {
+            var raw = localStorage.getItem('calendar_unscheduled_collapsed');
+            if (!raw) return {};
+            var obj = JSON.parse(raw);
+            return obj && typeof obj === 'object' ? obj : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function setUnscheduledCollapsed(sid, collapsed) {
+        var map = getUnscheduledCollapsedMap();
+        if (collapsed) {
+            map[sid] = true;
+        } else {
+            delete map[sid];
+        }
+        try {
+            localStorage.setItem('calendar_unscheduled_collapsed', JSON.stringify(map));
+        } catch (e) { /* ignore quota */ }
+    }
+
+    function applyUnscheduledGroupCollapsed(wrap, sid, collapsed) {
+        var toggle = wrap.querySelector('.unscheduled-subject-toggle');
+        var label = wrap.querySelector('.unscheduled-subject-toggle__label');
+        var listEl = wrap.querySelector('.unscheduled-subject-tasks');
+        if (collapsed) {
+            wrap.classList.add('is-collapsed');
+            if (listEl) {
+                listEl.style.display = 'none';
+                listEl.setAttribute('hidden', 'hidden');
+            }
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.title = '展开该项目任务';
+            }
+            if (label) label.textContent = '展开';
+        } else {
+            wrap.classList.remove('is-collapsed');
+            if (listEl) {
+                listEl.style.display = '';
+                listEl.removeAttribute('hidden');
+            }
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', 'true');
+                toggle.title = '收起该项目任务';
+            }
+            if (label) label.textContent = '收起';
+        }
+        setUnscheduledCollapsed(sid, collapsed);
+    }
+
+    function hexToRgba(hex, alpha) {
+        var h = String(hex || '').replace('#', '');
+        if (h.length === 3) {
+            h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        }
+        if (h.length !== 6) return 'rgba(107, 114, 128, ' + alpha + ')';
+        var r = parseInt(h.slice(0, 2), 16);
+        var g = parseInt(h.slice(2, 4), 16);
+        var b = parseInt(h.slice(4, 6), 16);
+        if (isNaN(r) || isNaN(g) || isNaN(b)) return 'rgba(107, 114, 128, ' + alpha + ')';
+        return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    }
 
     function refreshUnscheduledTasksPanel() {
         var box = document.getElementById('unscheduledTasksList');
@@ -940,6 +1128,7 @@ function recordCalendarTitle(r) {
                     box.innerHTML = '<div class="unscheduled-tasks-empty">暂无待安排任务<br><span style="font-size:12px;color:#999;">创建时勾选「待安排」即可加入</span></div>';
                     return;
                 }
+                var collapsedMap = getUnscheduledCollapsedMap();
                 var order = [];
                 var byKey = {};
                 rows.forEach(function (t) {
@@ -964,25 +1153,58 @@ function recordCalendarTitle(r) {
                     var g = byKey[sid];
                     var wrap = document.createElement('div');
                     wrap.className = 'unscheduled-subject-group';
-                    var head;
-                    var hasSubject = sid !== '_none' && g.subjectId != null && g.subjectId !== '';
-                    if (hasSubject) {
-                        head = document.createElement('a');
-                        head.className = 'unscheduled-subject-heading unscheduled-subject-heading--link';
-                        head.href = '/courses/subject/' + encodeURIComponent(String(g.subjectId)) + '/plan-review/';
-                        head.title = '进入「' + g.subjectName + '」的安排与回顾';
-                    } else {
-                        head = document.createElement('div');
-                        head.className = 'unscheduled-subject-heading';
-                    }
-                    head.textContent = g.subjectName;
+                    wrap.setAttribute('data-subject-key', sid);
+
+                    var bar = document.createElement('div');
+                    bar.className = 'unscheduled-subject-heading-bar';
                     var bg = g.color;
-                    if (!bg || !bg.startsWith('#') || bg.length !== 7) {
+                    if (!bg || !bg.startsWith('#') || (bg.length !== 7 && bg.length !== 4)) {
                         bg = '#6b7280';
                     }
-                    head.style.backgroundColor = bg;
-                    head.style.color = getContrastYIQ(bg);
-                    wrap.appendChild(head);
+                    bar.style.backgroundColor = hexToRgba(bg, 0.12);
+                    bar.style.borderColor = hexToRgba(bg, 0.28);
+                    bar.style.borderLeftColor = bg;
+
+                    var titleEl;
+                    var hasSubject = sid !== '_none' && g.subjectId != null && g.subjectId !== '';
+                    if (hasSubject) {
+                        titleEl = document.createElement('a');
+                        titleEl.className = 'unscheduled-subject-title';
+                        titleEl.href = '/courses/subject/' + encodeURIComponent(String(g.subjectId)) + '/plan-review/';
+                        titleEl.title = '进入「' + g.subjectName + '」的安排与回顾';
+                    } else {
+                        titleEl = document.createElement('span');
+                        titleEl.className = 'unscheduled-subject-title';
+                    }
+                    titleEl.textContent = g.subjectName;
+
+                    var countEl = document.createElement('span');
+                    countEl.className = 'unscheduled-subject-count';
+                    countEl.textContent = String(g.tasks.length);
+                    countEl.title = g.tasks.length + ' 条待安排';
+
+                    var toggle = document.createElement('button');
+                    toggle.type = 'button';
+                    toggle.className = 'unscheduled-subject-toggle';
+                    toggle.innerHTML =
+                        '<span class="unscheduled-subject-toggle__chev" aria-hidden="true">▾</span>' +
+                        '<span class="unscheduled-subject-toggle__label">收起</span>';
+                    toggle.setAttribute('aria-expanded', 'true');
+                    toggle.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        applyUnscheduledGroupCollapsed(
+                            wrap,
+                            sid,
+                            !wrap.classList.contains('is-collapsed')
+                        );
+                    });
+
+                    bar.appendChild(titleEl);
+                    bar.appendChild(countEl);
+                    bar.appendChild(toggle);
+                    wrap.appendChild(bar);
+
                     var listEl = document.createElement('div');
                     listEl.className = 'unscheduled-subject-tasks';
                     g.tasks.forEach(function (t) {
@@ -997,8 +1219,13 @@ function recordCalendarTitle(r) {
                         meta.textContent = (t.chapter_name && String(t.chapter_name).trim())
                             ? t.chapter_name
                             : '未指定任务';
+                        var badges = document.createElement('div');
+                        badges.className = 'ut-meters';
+                        badges.appendChild(buildUtLevelMeter('urgency', t.urgency_level));
+                        badges.appendChild(buildUtLevelMeter('importance', t.importance_level));
                         div.appendChild(title);
                         div.appendChild(meta);
+                        div.appendChild(badges);
                         div.addEventListener('click', function () {
                             openEditTaskById(String(t.id));
                         });
@@ -1006,6 +1233,8 @@ function recordCalendarTitle(r) {
                     });
                     wrap.appendChild(listEl);
                     box.appendChild(wrap);
+
+                    applyUnscheduledGroupCollapsed(wrap, sid, !!collapsedMap[sid]);
                 });
             })
             .catch(function () {
@@ -1037,7 +1266,11 @@ function recordCalendarTitle(r) {
                         repeat_type: task.repeat_type,
                         repeat_ends: task.repeat_ends,
                         has_important_reminder: task.has_important_reminder,
-                        is_unscheduled: task.is_unscheduled
+                        is_unscheduled: task.is_unscheduled,
+                        urgency_level: task.urgency_level,
+                        importance_level: task.importance_level,
+                        parent_series: task.parent_series,
+                        repeat_type: task.repeat_type
                     }
                 };
                 openEditTaskForm(fakeEvent);
@@ -1079,11 +1312,9 @@ function recordCalendarTitle(r) {
         loadTaskFormSubjects();
         var syncEl = document.getElementById('syncImportantReminder');
         if (syncEl) syncEl.checked = false;
-        var tu = document.getElementById('taskUnscheduled');
-        if (tu) tu.checked = false;
-        var rep = document.getElementById('repeatType');
-        if (rep) rep.disabled = false;
-        syncUnscheduledRepeatUi();
+        setTaskUnscheduledChecked(false);
+        resetUrgencyImportanceFields();
+        window._editingTaskIsRepeating = false;
         var delForm = document.getElementById('taskFormDeleteBtn');
         if (delForm) delForm.classList.add('d-none');
     });
@@ -1303,6 +1534,8 @@ function recordCalendarTitle(r) {
                                 chapter_name: task.chapter_name,
                                 focus_level: task.focus_level,
                                 energy_level: task.energy_level,
+                                urgency_level: task.urgency_level,
+                                importance_level: task.importance_level,
                                 is_completed: task.is_completed,
                                 subject_id: task.subject,
                                 chapter_id: task.chapter,
@@ -1311,6 +1544,7 @@ function recordCalendarTitle(r) {
                                 repeat_type: task.repeat_type,
                                 repeat_ends: task.repeat_ends,
                                 is_unscheduled: task.is_unscheduled,
+                                parent_series: task.parent_series,
                             }
                         };
                     });
@@ -1470,11 +1704,9 @@ function recordCalendarTitle(r) {
         document.getElementById('repeatType').value = 'none';
         loadTaskFormSubjects();
         document.getElementById('syncImportantReminder').checked = false;
-        var tuSel = document.getElementById('taskUnscheduled');
-        if (tuSel) tuSel.checked = false;
-        var repEl = document.getElementById('repeatType');
-        if (repEl) repEl.disabled = false;
-        syncUnscheduledRepeatUi();
+        setTaskUnscheduledChecked(false);
+        resetUrgencyImportanceFields();
+        window._editingTaskIsRepeating = false;
 
         
         // 存储选中的日期，用于后续提交
@@ -1567,6 +1799,10 @@ function recordCalendarTitle(r) {
             document.getElementById('taskChapter').textContent = event.extendedProps.chapter_name;
             document.getElementById('taskChapterID').textContent = event.extendedProps.chapter_id;
             document.getElementById('taskTime').textContent = formatDateTimeRange(event.start, event.end);
+            document.getElementById('taskUrgencyDisplay').textContent =
+                urgencyLabel(normalizeLevel(event.extendedProps.urgency_level, 'low'));
+            document.getElementById('taskImportanceDisplay').textContent =
+                importanceLabel(normalizeLevel(event.extendedProps.importance_level, 'low'));
 
             // 处理描述行的显示/隐藏
             const description = event.extendedProps.description;
@@ -1669,11 +1905,9 @@ function recordCalendarTitle(r) {
         document.getElementById('repeatType').value = 'none';
         loadTaskFormSubjects();
         document.getElementById('syncImportantReminder').checked = false;
-        var tu = document.getElementById('taskUnscheduled');
-        if (tu) tu.checked = true;
-        var rep = document.getElementById('repeatType');
-        if (rep) rep.disabled = true;
-        syncUnscheduledRepeatUi();
+        setTaskUnscheduledChecked(true);
+        resetUrgencyImportanceFields();
+        window._editingTaskIsRepeating = false;
         var d = calendar.getDate();
         window.selectedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         initializeTimeSelectors();
@@ -1686,7 +1920,9 @@ function recordCalendarTitle(r) {
         if (!unscheduledListEl) return;
         unscheduledListEl.addEventListener('click', function (e) {
             if (e.target.closest('.unscheduled-task-item')) return;
-            if (e.target.closest('.unscheduled-subject-heading')) return;
+            if (e.target.closest('.unscheduled-subject-title')) return;
+            if (e.target.closest('.unscheduled-subject-toggle')) return;
+            if (e.target.closest('.unscheduled-subject-heading-bar')) return;
             openCreateTaskModalFromPanel();
         });
         if (typeof FullCalendar !== 'undefined' && FullCalendar.Draggable) {
@@ -1728,11 +1964,9 @@ function recordCalendarTitle(r) {
             document.getElementById('repeatType').value = 'none';
             document.getElementById('repeatOptions').style.display = 'none';
             document.getElementById('repeatEnds').value = '';
-            var tuNew = document.getElementById('taskUnscheduled');
-            if (tuNew) tuNew.checked = false;
-            var repNew = document.getElementById('repeatType');
-            if (repNew) repNew.disabled = false;
-            syncUnscheduledRepeatUi();
+            setTaskUnscheduledChecked(false);
+            resetUrgencyImportanceFields();
+            window._editingTaskIsRepeating = false;
             loadTaskFormSubjects();
             initializeTimeSelectors();
             window.selectedDate = dateOk ? dateStr : new Date().toISOString().split('T')[0];
@@ -2125,7 +2359,15 @@ function recordCalendarTitle(r) {
         const repeatType = document.getElementById('repeatType').value;
         const repeatEnds = document.getElementById('repeatEnds').value;
         const syncImportantReminder = document.getElementById('syncImportantReminder').checked;
-        const taskUnscheduled = document.getElementById('taskUnscheduled').checked;
+        const taskUnscheduled = isTaskUnscheduledChecked();
+        const urgency_level = normalizeLevel(
+            document.getElementById('urgencyLevel') && document.getElementById('urgencyLevel').value,
+            'low'
+        );
+        const importance_level = normalizeLevel(
+            document.getElementById('importanceLevel') && document.getElementById('importanceLevel').value,
+            'low'
+        );
         
         // 验证表单
         if (!title || !subject || !chapter || !start_time || !end_time || !repeatType) {
@@ -2160,7 +2402,9 @@ function recordCalendarTitle(r) {
             repeat_type: taskUnscheduled ? 'none' : repeatType,
             repeat_ends: taskUnscheduled ? '' : repeatEnds,
             sync_important_reminder: syncImportantReminder,
-            is_unscheduled: taskUnscheduled
+            is_unscheduled: taskUnscheduled,
+            urgency_level: urgency_level,
+            importance_level: importance_level
         };
 
         
@@ -2186,80 +2430,20 @@ function recordCalendarTitle(r) {
         }
 
         if (taskId) {
+            var isRepeatingEdit = !!window._editingTaskIsRepeating;
+            if (!isRepeatingEdit) {
+                taskData.update_scope = 'this';
+                submitTaskUpdate(taskId, taskData, null);
+                return;
+            }
 
-            //隐藏模态框taskFormModal
-            //taskFormModal.hide(); 
-            // 显示更新范围选择模态框
             const updateScopeModal = new bootstrap.Modal(document.getElementById('updateScopeModal'));
             updateScopeModal.show();
 
-            // 监听确认按钮,待修改弹窗逻辑
             document.getElementById('confirmUpdateScope').onclick = function() {
-                // 获取选择的更新范围
                 const updateScope = document.querySelector('input[name="updateScope"]:checked').value;
-                
-                // 将更新范围添加到任务数据中
                 taskData.update_scope = updateScope;
-
-                // 发送更新请求
-                fetch(`/planner/api/tasks/${taskId}/`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrftoken
-                    },
-                    body: JSON.stringify(taskData)
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(errorData => {
-                            throw new Error(JSON.stringify(errorData));
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Task updated:', data);
-                    
-                    // 尝试隐藏所有可能的模态框
-                    try {
-                        // 使用 jQuery 方式（如果使用 jQuery）
-                        $('#taskFormModal').modal('hide');
-                        $('#updateScopeModal').modal('hide');
-                        
-                        // 使用 Bootstrap 原生 JavaScript 方式
-                        const taskFormModal = document.getElementById('taskFormModal');
-                        const updateScopeModal = document.getElementById('updateScopeModal');
-                        
-                        if (taskDetailsModal) {
-                            const modalInstance = bootstrap.Modal.getInstance(taskFormModal);
-                            if (modalInstance) {
-                                modalInstance.hide();
-                            } else {
-                                // 如果没有实例，尝试创建并隐藏
-                                new bootstrap.Modal(taskFormModal).hide();
-                            }
-                        }
-                        
-                        if (updateScopeModal) {
-                            const modalInstance = bootstrap.Modal.getInstance(updateScopeModal);
-                            if (modalInstance) {
-                                modalInstance.hide();
-                            } else {
-                                new bootstrap.Modal(updateScopeModal).hide();
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error hiding modals:', error);
-                    }
-                    // 刷新日历或执行其他操作
-                    calendar.refetchEvents();
-                    refreshUnscheduledTasksPanel();
-                })
-                .catch(error => {
-                    console.error('Error saving task:', error);
-                    updateScopeModal.hide();
-                });
+                submitTaskUpdate(taskId, taskData, updateScopeModal);
             };
         } else {
             // 创建新任务的原有逻辑
@@ -2281,39 +2465,20 @@ function recordCalendarTitle(r) {
             })
             .then(data => {
                 console.log('Task created:', data);
-                // 刷新日历或执行其他操作
-                                    // 尝试隐藏所有可能的模态框
                 try {
-                    // 使用 jQuery 方式（如果使用 jQuery）
                     $('#taskFormModal').modal('hide');
-                    $('#updateScopeModal').modal('hide');
-                    
-                    // 使用 Bootstrap 原生 JavaScript 方式
-                    const taskFormModal = document.getElementById('taskFormModal');
-                    const updateScopeModal = document.getElementById('updateScopeModal');
-                    
-                    if (taskDetailsModal) {
-                        const modalInstance = bootstrap.Modal.getInstance(taskFormModal);
+                    const taskFormModalEl = document.getElementById('taskFormModal');
+                    if (taskFormModalEl) {
+                        const modalInstance = bootstrap.Modal.getInstance(taskFormModalEl);
                         if (modalInstance) {
                             modalInstance.hide();
                         } else {
-                            // 如果没有实例，尝试创建并隐藏
-                            new bootstrap.Modal(taskFormModal).hide();
-                        }
-                    }
-                    
-                    if (updateScopeModal) {
-                        const modalInstance = bootstrap.Modal.getInstance(updateScopeModal);
-                        if (modalInstance) {
-                            modalInstance.hide();
-                        } else {
-                            new bootstrap.Modal(updateScopeModal).hide();
+                            new bootstrap.Modal(taskFormModalEl).hide();
                         }
                     }
                 } catch (error) {
                     console.error('Error hiding modals:', error);
                 }
-                // 关闭模态框
                 calendar.refetchEvents();
                 refreshUnscheduledTasksPanel();
             })
@@ -2323,6 +2488,60 @@ function recordCalendarTitle(r) {
         }
         
  }
+
+    function hideTaskFormModals() {
+        try {
+            $('#taskFormModal').modal('hide');
+            $('#updateScopeModal').modal('hide');
+            var taskFormModalEl = document.getElementById('taskFormModal');
+            var updateScopeModalEl = document.getElementById('updateScopeModal');
+            if (taskFormModalEl) {
+                var tf = bootstrap.Modal.getInstance(taskFormModalEl);
+                if (tf) tf.hide();
+            }
+            if (updateScopeModalEl) {
+                var us = bootstrap.Modal.getInstance(updateScopeModalEl);
+                if (us) us.hide();
+            }
+        } catch (error) {
+            console.error('Error hiding modals:', error);
+        }
+    }
+
+    function submitTaskUpdate(taskId, taskData, updateScopeModalInstance) {
+        fetch(`/planner/api/tasks/${taskId}/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(taskData)
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.json().then(function (errorData) {
+                        throw new Error(JSON.stringify(errorData));
+                    });
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                console.log('Task updated:', data);
+                hideTaskFormModals();
+                if (updateScopeModalInstance && typeof updateScopeModalInstance.hide === 'function') {
+                    try { updateScopeModalInstance.hide(); } catch (e) { /* ignore */ }
+                }
+                calendar.refetchEvents();
+                refreshUnscheduledTasksPanel();
+            })
+            .catch(function (error) {
+                console.error('Error saving task:', error);
+                if (updateScopeModalInstance && typeof updateScopeModalInstance.hide === 'function') {
+                    try { updateScopeModalInstance.hide(); } catch (e) { /* ignore */ }
+                }
+                alert('保存失败，请重试');
+            });
+    }
 
     /** 删除确认：不重复则 confirm；重复任务则弹出范围选择（与任务详情一致） */
     function promptDeletePlannerTask(taskId, repeatType) {
@@ -2521,11 +2740,18 @@ function recordCalendarTitle(r) {
                 repeatEnds.value = '';
             }
             document.getElementById('repeatType').dispatchEvent(new Event('change'));
-            var uSch = document.getElementById('taskUnscheduled');
-            if (uSch) {
-                uSch.checked = !!(task && task.is_unscheduled);
-                syncUnscheduledRepeatUi();
-            }
+            setTaskUnscheduledChecked(!!(task && task.is_unscheduled));
+            setLevelPickValue(
+                'urgencyLevel',
+                (task && task.urgency_level) || event.extendedProps.urgency_level
+            );
+            setLevelPickValue(
+                'importanceLevel',
+                (task && task.importance_level) || event.extendedProps.importance_level
+            );
+            var rt = (task && task.repeat_type) || event.extendedProps.repeat_type || 'none';
+            var parentSeries = (task && task.parent_series) || event.extendedProps.parent_series;
+            window._editingTaskIsRepeating = !!(parentSeries || (rt && rt !== 'none'));
             setTaskFormDeleteVisible(true);
             taskFormModal.show();
         }
@@ -2544,7 +2770,11 @@ function recordCalendarTitle(r) {
                     chapter: event.extendedProps.chapter_id,
                     subject_category_id: event.extendedProps.subject_category_id,
                     has_important_reminder: event.extendedProps.has_important_reminder,
-                    is_unscheduled: event.extendedProps.is_unscheduled
+                    is_unscheduled: event.extendedProps.is_unscheduled,
+                    urgency_level: event.extendedProps.urgency_level,
+                    importance_level: event.extendedProps.importance_level,
+                    repeat_type: event.extendedProps.repeat_type,
+                    parent_series: event.extendedProps.parent_series
                 });
             });
     }

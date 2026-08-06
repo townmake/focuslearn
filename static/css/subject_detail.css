@@ -224,3 +224,27 @@
 .chapter-link:hover {
     color: #1890ff;
 }
+
+.chapter-list-section .th-sub {
+    font-size: 12px;
+    font-weight: 400;
+    color: #8c8c8c;
+}
+.chapter-list-section .stat-dual {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    white-space: nowrap;
+}
+.chapter-list-section .stat-dual__week {
+    color: rgba(0, 0, 0, 0.85);
+    font-variant-numeric: tabular-nums;
+}
+.chapter-list-section .stat-dual__sep {
+    color: #bfbfbf;
+}
+.chapter-list-section .stat-dual__hist {
+    color: #8c8c8c;
+    font-variant-numeric: tabular-nums;
+}
+

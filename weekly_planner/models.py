@@ -48,6 +48,33 @@ class Task(models.Model):
     # 添加专注力和体力要求
     focus_level = models.IntegerField(default=50, help_text="专注力要求 (0-100)")
     energy_level = models.IntegerField(default=50, help_text="体力要求 (0-100)")
+
+    class UrgencyLevel(models.TextChoices):
+        LOW = "low", "低"
+        MEDIUM = "medium", "中"
+        HIGH = "high", "高"
+        CRITICAL = "critical", "紧急"
+
+    class ImportanceLevel(models.TextChoices):
+        LOW = "low", "低"
+        MEDIUM = "medium", "中"
+        HIGH = "high", "高"
+        CRITICAL = "critical", "重要"
+
+    urgency_level = models.CharField(
+        max_length=16,
+        choices=UrgencyLevel.choices,
+        default=UrgencyLevel.LOW,
+        verbose_name="紧急程度",
+        db_index=True,
+    )
+    importance_level = models.CharField(
+        max_length=16,
+        choices=ImportanceLevel.choices,
+        default=ImportanceLevel.LOW,
+        verbose_name="重要程度",
+        db_index=True,
+    )
     
     title = models.CharField(max_length=200, default="未命名任务")
     description = models.TextField(null=True, blank=True)

@@ -163,6 +163,12 @@ class Subject(models.Model):
     videos_count = models.PositiveIntegerField(default=0, verbose_name="视频总数")
     comments_count = models.PositiveIntegerField(default=0, verbose_name="评论总数")
     total_video_duration = models.PositiveIntegerField(default=0, verbose_name="视频总时长(分钟)")
+    hist_stats_rolled_week_start = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="历史统计已累加周起始",
+        help_text="最近一次把本周统计写入各任务历史字段时的周一日期；同周重复插入总结不会重复累加",
+    )
     
     class Meta:
         verbose_name = "科目"
@@ -243,6 +249,47 @@ class Chapter(models.Model):
     documents_count = models.PositiveIntegerField(default=0)
     videos_count = models.PositiveIntegerField(default=0)
     comments_count = models.PositiveIntegerField(default=0)
+
+    # 安排与回顾：写入「总结」时把当周统计累加进历史（避免每次扫全量历史）
+    hist_plan_task_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="历史子任务数量",
+        help_text="各周写入总结时累加的计划子任务数",
+    )
+    hist_planned_hours = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="历史计划投入时长(小时)",
+    )
+    hist_actual_hours = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="历史已投入时长(小时)",
+    )
+    # 最近一次写入总结时「本周贡献」快照，同周再次写入时用最新值替换而非跳过
+    last_roll_week_start = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="最近累加的周起始",
+    )
+    last_roll_plan_task_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="最近一周累加的子任务数",
+    )
+    last_roll_planned_hours = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="最近一周累加的计划时长",
+    )
+    last_roll_actual_hours = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="最近一周累加的已投入时长",
+    )
     
     def save(self, *args, **kwargs):
         # 仅保存基础数据，统计字段由信号处理器更新

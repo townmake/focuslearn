@@ -238,6 +238,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                         chapter=task.chapter,
                         focus_level=task.focus_level,
                         energy_level=task.energy_level,
+                        urgency_level=task.urgency_level,
+                        importance_level=task.importance_level,
                         start_time=task.start_time,
                         end_time=task.end_time,
                         start_date=instance_start,

@@ -124,32 +124,56 @@ def weekly_ai_summary_status(request, pk: int):
 @require_POST
 def weekly_ai_summary_update_body(request, pk: int):
     """
-    首页周总结正文手动修订（Markdown 存库）。
-    仅允许当前用户、scope=home、且已完成的记录。
+    周总结手动修订（Markdown 正文；可选标题/概述）。
+    仅允许当前用户、且已完成的记录（首页或项目 scope 均可）。
     """
     s = get_object_or_404(WeeklyAiSummary, pk=pk, user=request.user)
-    if s.scope_key != WeeklyAiSummary.SCOPE_HOME:
-        return JsonResponse(
-            {"ok": False, "error": "仅支持首页范围的周总结。"},
-            status=403,
-        )
     if s.status != WeeklyAiSummary.STATUS_COMPLETED:
         return JsonResponse(
-            {"ok": False, "error": "仅已完成的总结可保存正文。"},
+            {"ok": False, "error": "仅已完成的总结可保存。"},
             status=400,
         )
     try:
         payload = json.loads(request.body.decode() or "{}")
     except json.JSONDecodeError:
         return JsonResponse({"ok": False, "error": "无效 JSON"}, status=400)
-    body = payload.get("body")
-    if body is None:
-        return JsonResponse({"ok": False, "error": "缺少 body"}, status=400)
-    if not isinstance(body, str):
-        return JsonResponse({"ok": False, "error": "body 须为字符串"}, status=400)
-    s.body = body
-    s.save(update_fields=["body", "updated_at"])
-    return JsonResponse({"ok": True, "id": s.id})
+
+    update_fields = ["updated_at"]
+    if "body" in payload:
+        body = payload.get("body")
+        if not isinstance(body, str):
+            return JsonResponse({"ok": False, "error": "body 须为字符串"}, status=400)
+        s.body = body
+        update_fields.append("body")
+    if "title" in payload:
+        title = payload.get("title")
+        if not isinstance(title, str):
+            return JsonResponse({"ok": False, "error": "title 须为字符串"}, status=400)
+        s.title = title.strip()[:300]
+        update_fields.append("title")
+    if "overview" in payload:
+        overview = payload.get("overview")
+        if not isinstance(overview, str):
+            return JsonResponse({"ok": False, "error": "overview 须为字符串"}, status=400)
+        s.overview = overview.strip()[:200]
+        update_fields.append("overview")
+
+    if len(update_fields) == 1:
+        return JsonResponse(
+            {"ok": False, "error": "请提供 body、title 或 overview"},
+            status=400,
+        )
+
+    s.save(update_fields=update_fields)
+    return JsonResponse(
+        {
+            "ok": True,
+            "id": s.id,
+            "title": s.title,
+            "overview": s.overview,
+            "body": s.body,
+        }
+    )
 
 
 @login_required

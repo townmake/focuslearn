@@ -236,6 +236,19 @@
         flex-grow: 1; /* 标题占据剩余空间 */
     }
 
+    /* 与 detail-header 标题左缘对齐 */
+    .embedded-container .right-column .detail-content {
+        padding: 0 10px;
+    }
+    .embedded-container .right-column #kp-title {
+        margin: 0;
+        padding: 0;
+        text-align: left;
+    }
+    .embedded-container .right-column .basic-info {
+        padding: 0;
+    }
+
     .embedded-container .chapter-title-heading {
         cursor: default;
     }
@@ -537,4 +550,159 @@
 }
 .kp-content-section.has-annotations .kp-editor-AI {
   flex: 3;
+}
+
+/* 章节关联附件 */
+.chapter-attachments {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+}
+.chapter-attach-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.chapter-attach-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 10px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.chapter-attach-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+}
+.chapter-attach-list li:last-child {
+    border-bottom: none;
+}
+.chapter-attach-list a.chapter-attach-name {
+    flex: 1;
+    min-width: 0;
+    color: #1890ff;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+.chapter-attach-list a.chapter-attach-name:hover {
+    text-decoration: underline;
+}
+.chapter-attach-meta {
+    flex-shrink: 0;
+    color: #8c8c8c;
+    font-size: 12px;
+}
+.chapter-attach-empty {
+    color: #999;
+    padding: 12px 0 !important;
+    border-bottom: none !important;
+    text-align: left;
+}
+.chapter-attach-del {
+    flex-shrink: 0;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: #ff4d4f;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+}
+.chapter-attach-del:hover,
+.chapter-attach-del:focus {
+    color: #cf1322;
+    background: transparent;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    text-decoration: none;
+}
+.chapter-attach-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.chapter-attach-modal[hidden] {
+    display: none !important;
+}
+.chapter-attach-modal__mask {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+}
+.chapter-attach-modal__dialog {
+    position: relative;
+    z-index: 1;
+    width: min(480px, 100%);
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+}
+.chapter-attach-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f0;
+}
+.chapter-attach-modal__header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+.chapter-attach-modal__close {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    color: #8c8c8c;
+    cursor: pointer;
+    line-height: 1;
+}
+.chapter-attach-modal__body {
+    padding: 16px;
+}
+.chapter-attach-field {
+    margin-bottom: 14px;
+}
+.chapter-attach-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #595959;
+}
+.chapter-attach-field input[type="text"],
+.chapter-attach-field input[type="file"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.chapter-attach-field input[type="text"]:focus {
+    outline: none;
+    border-color: #40a9ff;
+}
+.chapter-attach-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid #f0f0f0;
 }

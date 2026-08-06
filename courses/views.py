@@ -244,8 +244,13 @@ def subjectListView(request):  # 处理GET请求
     归属「是否显示=否」的分类的科目不在本页展示（入口隐藏）；「其他」仅含未分类科目。
     仅展示「开启」状态的项目。
     支持 ?q= 统一搜索：项目 / 任务 / 任务下文章（知识点）。
+    列表四列（任务数/未完任务/本周计划/本周已投）均为本周实时统计。
     """
     from .subject_search import search_subjects_tasks_articles
+    from .subject_weekly_stats import (
+        aggregate_subjects_week_list_stats,
+        attach_subject_week_list_stats,
+    )
 
     search_q = (request.GET.get('q') or '').strip()
     search_results = search_subjects_tasks_articles(search_q) if search_q else None
@@ -255,16 +260,10 @@ def subjectListView(request):  # 处理GET请求
         Q(category__isnull=True) | Q(category__is_visible=True)
     )
 
-    unfinished_chapters_sq = Count(
-        'chapters',
-        filter=~Q(chapters__progress_status=Chapter.ProgressStatus.DONE),
-    )
-
-    def subjects_with_unfinished_qs(base_q):
+    def subjects_qs(base_q):
         return (
             Subject.objects.filter(base_q)
             .select_related('category')
-            .annotate(unfinished_tasks_count=unfinished_chapters_sq)
             .order_by('order', 'name')
         )
 
@@ -273,23 +272,38 @@ def subjectListView(request):  # 处理GET请求
     )
 
     category_blocks = []
+    all_listed_subjects = []
     if not search_q:
         for cat in visible_categories:
-            subs = list(subjects_with_unfinished_qs(listed_q & Q(category=cat)))
+            subs = list(subjects_qs(listed_q & Q(category=cat)))
             if subs:
                 category_blocks.append({'title': cat.name, 'subjects': subs})
+                all_listed_subjects.extend(subs)
 
         other_subjects = list(
-            subjects_with_unfinished_qs(
-                Q(open_status=Subject.OpenStatus.OPEN, category__isnull=True)
-            )
+            subjects_qs(Q(open_status=Subject.OpenStatus.OPEN, category__isnull=True))
         )
         if other_subjects:
             category_blocks.append({'title': '其他', 'subjects': other_subjects})
+            all_listed_subjects.extend(other_subjects)
+
+        week_stats = aggregate_subjects_week_list_stats(
+            request.user, [s.id for s in all_listed_subjects]
+        )
+        for block in category_blocks:
+            block['subjects'] = attach_subject_week_list_stats(block['subjects'], week_stats)
+
+        total_hours = sum(
+            float(getattr(s, 'week_planned_hours', 0) or 0) for s in all_listed_subjects
+        )
+        total_actual_hours = sum(
+            float(getattr(s, 'week_actual_hours', 0) or 0) for s in all_listed_subjects
+        )
+    else:
+        total_hours = 0
+        total_actual_hours = 0
 
     queryset = Subject.objects.filter(listed_q)
-    total_hours = queryset.aggregate(Sum('estimated_hours'))['estimated_hours__sum'] or 0
-    total_actual_hours = queryset.aggregate(Sum('actual_study_hours'))['actual_study_hours__sum'] or 0
     subject_categories = SubjectCategory.objects.all().order_by('-display_weight', 'name')
     closed_count = Subject.objects.filter(open_status=Subject.OpenStatus.CLOSED).count()
 
@@ -300,8 +314,8 @@ def subjectListView(request):  # 处理GET请求
             'category_blocks': category_blocks,
             'total_subject_count': queryset.count(),
             'subject_categories': subject_categories,
-            'total_hours': total_hours,
-            'total_actual_hours': total_actual_hours,
+            'total_hours': round(total_hours, 2),
+            'total_actual_hours': round(total_actual_hours, 2),
             'closed_count': closed_count,
             'is_closed_list': False,
             'search_q': search_q,
@@ -312,27 +326,33 @@ def subjectListView(request):  # 处理GET请求
 
 @login_required
 def subjectClosedListView(request):
-    """已关闭项目列表。"""
-    unfinished_chapters_sq = Count(
-        'chapters',
-        filter=~Q(chapters__progress_status=Chapter.ProgressStatus.DONE),
+    """已关闭项目列表。四列同为「本周」实时统计。"""
+    from .subject_weekly_stats import (
+        aggregate_subjects_week_list_stats,
+        attach_subject_week_list_stats,
     )
-    subjects = (
+
+    subjects = list(
         Subject.objects.filter(open_status=Subject.OpenStatus.CLOSED)
         .select_related('category')
-        .annotate(unfinished_tasks_count=unfinished_chapters_sq)
         .order_by('order', 'name')
     )
-    total_hours = subjects.aggregate(Sum('estimated_hours'))['estimated_hours__sum'] or 0
-    total_actual_hours = (
-        subjects.aggregate(Sum('actual_study_hours'))['actual_study_hours__sum'] or 0
+    week_stats = aggregate_subjects_week_list_stats(
+        request.user, [s.id for s in subjects]
+    )
+    subjects = attach_subject_week_list_stats(subjects, week_stats)
+    total_hours = round(
+        sum(float(getattr(s, 'week_planned_hours', 0) or 0) for s in subjects), 2
+    )
+    total_actual_hours = round(
+        sum(float(getattr(s, 'week_actual_hours', 0) or 0) for s in subjects), 2
     )
     return render(
         request,
         'courses/subject_closed_list.html',
         {
             'subjects': subjects,
-            'total_subject_count': subjects.count(),
+            'total_subject_count': len(subjects),
             'total_hours': total_hours,
             'total_actual_hours': total_actual_hours,
         },
@@ -422,10 +442,22 @@ def subject_refresh(request, pk):
 
 @login_required
 def subject_detail(request, pk):
+    from .subject_weekly_stats import (
+        aggregate_chapters_week_plan_record_stats,
+        attach_chapter_plan_record_stats,
+    )
+
     subject = get_object_or_404(Subject.objects.select_related('category'), pk=pk)
     chapters_qs = subject.chapters.all().order_by('order')
-    chapters_incomplete = chapters_qs.exclude(progress_status=Chapter.ProgressStatus.DONE)
-    chapters_completed = chapters_qs.filter(progress_status=Chapter.ProgressStatus.DONE)
+    week_stats = aggregate_chapters_week_plan_record_stats(request.user, subject)
+    chapters_incomplete = attach_chapter_plan_record_stats(
+        list(chapters_qs.exclude(progress_status=Chapter.ProgressStatus.DONE)),
+        week_stats,
+    )
+    chapters_completed = attach_chapter_plan_record_stats(
+        list(chapters_qs.filter(progress_status=Chapter.ProgressStatus.DONE)),
+        week_stats,
+    )
     subject_categories = SubjectCategory.objects.all().order_by('-display_weight', 'name')
     return render(request, 'courses/subject_detail.html', {
         'subject': subject,
@@ -716,7 +748,9 @@ class SubjectPlanSummaryListCreateAPI(APIView):
         return Response({'data': data})
 
     def post(self, request, subject_pk):
-        get_object_or_404(Subject, pk=subject_pk)
+        from .subject_weekly_stats import rollup_subject_week_stats_into_history
+
+        subject = get_object_or_404(Subject, pk=subject_pk)
         title = (request.data.get('title') or '').strip()
         if not title:
             return Response({'detail': '标题必填'}, status=status.HTTP_400_BAD_REQUEST)
@@ -727,6 +761,7 @@ class SubjectPlanSummaryListCreateAPI(APIView):
             overview=(request.data.get('overview') or '').strip(),
             body=request.data.get('body') or '',
         )
+        rollup = rollup_subject_week_stats_into_history(request.user, subject)
         return Response(
             {
                 'id': s.id,
@@ -735,6 +770,7 @@ class SubjectPlanSummaryListCreateAPI(APIView):
                 'body': s.body,
                 'created_at': s.created_at.isoformat(),
                 'updated_at': s.updated_at.isoformat(),
+                'hist_rollup': rollup,
             },
             status=status.HTTP_201_CREATED,
         )

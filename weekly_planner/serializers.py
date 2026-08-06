@@ -108,7 +108,9 @@ class TaskSerializer(serializers.ModelSerializer):
             'end',    # 新增字段，用于 FullCalendar
             'repeat_type', 'repeat_ends','subject', 'chapter', 'subject_name', 'chapter_name',
             'subject_category_id', 'has_important_reminder',
-            'focus_level', 'energy_level', 'created_at', 'updated_at',
+            'focus_level', 'energy_level',
+            'urgency_level', 'importance_level',
+            'created_at', 'updated_at',
             'subject_color', 'parent_series', 'is_exception', 'original_date'
         ]
         read_only_fields = ['user', 'created_at', 'updated_at']
@@ -156,7 +158,9 @@ class TaskBulkSerializer(serializers.ModelSerializer):
             'user', 'title', 'description', 'is_completed',
             'start_date', 'start_time', 'end_date', 'end_time', 
             'repeat_type', 'repeat_ends','subject', 'chapter', 
-            'focus_level', 'energy_level', 'parent_series'
+            'focus_level', 'energy_level',
+            'urgency_level', 'importance_level',
+            'parent_series'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     def create(self, validated_data):

@@ -230,8 +230,12 @@ class TaskListAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('title', 'user', 'subject', 'chapter', 'is_completed', 'start_datetime', 'focus_level', 'energy_level')
-    list_filter = ('is_completed', 'user', 'subject')
+    list_display = (
+        'title', 'user', 'subject', 'chapter', 'is_completed',
+        'urgency_level', 'importance_level', 'start_datetime',
+        'focus_level', 'energy_level',
+    )
+    list_filter = ('is_completed', 'urgency_level', 'importance_level', 'user', 'subject')
     search_fields = ('title', 'description')
 
 
