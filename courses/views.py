@@ -6,7 +6,7 @@ from rest_framework import permissions
 from django.db.models import Count, Q, Sum
 from django.views.generic import ListView, DetailView
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views import View
 from django.core.paginator import Paginator, EmptyPage
 from rest_framework.views import APIView
@@ -29,8 +29,64 @@ from rest_framework import serializers
 import json
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.decorators.http import require_POST
+from django.utils import timezone as dj_timezone
+from django.views.decorators.http import require_GET, require_POST
 import logging
+
+
+def _study_record_queryset_for_request(request):
+    """与列表 API 相同的筛选条件（不含分页）。"""
+    created_date_start = request.GET.get('created_date_start')
+    created_date_end = request.GET.get('created_date_end')
+    page_type = request.GET.get('page_type')
+    content_search = (request.GET.get('content_search') or '').strip()
+    if not content_search:
+        content_search = (request.GET.get('learning_content') or '').strip()
+    task_content = (request.GET.get('task_content') or '').strip()
+    chapter_id = request.GET.get('chapter')
+    subject_id = request.GET.get('subject')
+
+    queryset = StudyRecord.objects.filter(user=request.user)
+
+    if created_date_start and created_date_end:
+        queryset = queryset.filter(created_date__range=[created_date_start, created_date_end])
+    if page_type:
+        queryset = queryset.filter(page_type=page_type)
+    if task_content:
+        queryset = queryset.filter(
+            Q(learning_content__icontains=task_content)
+            | Q(description__icontains=task_content)
+        )
+    if not task_content and content_search:
+        queryset = queryset.filter(
+            Q(learning_content__icontains=content_search)
+            | Q(description__icontains=content_search)
+            | Q(chapter_name__icontains=content_search)
+        )
+    if subject_id:
+        try:
+            queryset = queryset.filter(chapter__subject_id=int(subject_id))
+        except (TypeError, ValueError):
+            pass
+    if chapter_id:
+        queryset = queryset.filter(chapter_id=chapter_id)
+
+    return queryset.order_by('-created_date', '-start_time')
+
+
+def _format_study_record_export_line(record):
+    start = dj_timezone.localtime(record.start_time).strftime('%Y-%m-%d %H:%M')
+    end = dj_timezone.localtime(record.end_time).strftime('%Y-%m-%d %H:%M')
+    content = (record.learning_content or '').replace('\r', ' ').replace('\n', ' ').strip()
+    return ' | '.join([
+        start,
+        end,
+        record.subject_name or '',
+        record.chapter_name or '',
+        record.duration_display,
+        record.get_page_type_display(),
+        content,
+    ])
 
 
 
@@ -152,56 +208,15 @@ class BaseStudyRecordListView(StudyRecordListView):
 #学习视图 API
 class StudyRecordsAPIView(APIView):
     def get(self, request):
-        # 获取查询参数
-        created_date_start = request.GET.get('created_date_start')
-        created_date_end = request.GET.get('created_date_end')
-        page_type = request.GET.get('page_type')
-        content_search = (request.GET.get('content_search') or '').strip()
-        if not content_search:
-            content_search = (request.GET.get('learning_content') or '').strip()
-        task_content = (request.GET.get('task_content') or '').strip()
-        chapter_id = request.GET.get('chapter')
-        subject_id = request.GET.get('subject')
         page = request.GET.get('page', 1)
         page_size = request.GET.get('page_size', 10)
-        
-        # 获取当前用户的记录
-        queryset = StudyRecord.objects.filter(user=request.user)
-        
-        # 应用过滤条件
-        if created_date_start and created_date_end:
-            queryset = queryset.filter(created_date__range=[created_date_start, created_date_end])
-        if page_type:
-            queryset = queryset.filter(page_type=page_type)
-        if task_content:
-            queryset = queryset.filter(
-                Q(learning_content__icontains=task_content)
-                | Q(description__icontains=task_content)
-            )
-        if not task_content and content_search:
-            queryset = queryset.filter(
-                Q(learning_content__icontains=content_search)
-                | Q(description__icontains=content_search)
-                | Q(chapter_name__icontains=content_search)
-            )
-        if subject_id:
-            try:
-                queryset = queryset.filter(chapter__subject_id=int(subject_id))
-            except (TypeError, ValueError):
-                pass
-        if chapter_id:
-            queryset = queryset.filter(chapter_id=chapter_id)
-            
-        # 排序和分页
-        queryset = queryset.order_by('-created_date', '-start_time')
+
+        queryset = _study_record_queryset_for_request(request)
         total_count = queryset.count()
         records = queryset[(int(page)-1)*int(page_size):int(page)*int(page_size)]
-        page_types = StudyRecord.PAGE_TYPE_CHOICES
 
-        
-        # 序列化数据
         serializer = StudyRecordSerializer(records, many=True)
-        
+
         return Response({
             'data': serializer.data,
             'pagination': {
@@ -212,6 +227,21 @@ class StudyRecordsAPIView(APIView):
                 }
             }
         )
+
+
+@login_required
+@require_GET
+def study_record_export(request):
+    """按当前筛选条件导出学习记录：纯文本，每条一行。"""
+    queryset = _study_record_queryset_for_request(request)
+    lines = [_format_study_record_export_line(r) for r in queryset.iterator()]
+    body = '\n'.join(lines)
+    if body:
+        body += '\n'
+    filename = f"study_records_{dj_timezone.localdate().strftime('%Y%m%d')}.txt"
+    response = HttpResponse(body, content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 class KnowledgePointListView(LoginRequiredMixin, ListView):
     model = KnowledgePoint

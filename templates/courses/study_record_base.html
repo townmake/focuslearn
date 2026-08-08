@@ -45,13 +45,6 @@ window.__FIXED_PLAN_REVIEW_CHAPTER = {% if fixed_chapter_id %}{{ fixed_chapter_i
                     <input type="hidden" name="chapter" id="chapterValue" value="{% if fixed_chapter_id %}{{ fixed_chapter_id }}{% endif %}">
                     {% endif %}
 
-                    <!-- 任务类型选择器 -->
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <label class="ant-form-item-label" style="margin-bottom: 0; white-space: nowrap;">任务类型</label>
-                        <div id="page-type-selector"></div>
-                        <input type="hidden" name="page_type" id="pageTypeValue">
-                    </div>
-
                     <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 140px;">
                         <label class="ant-form-item-label" style="margin-bottom: 0; white-space: nowrap;">内容</label>
                         <input type="text" class="ant-input" name="content_search" id="contentSearchInput"
@@ -60,6 +53,7 @@ window.__FIXED_PLAN_REVIEW_CHAPTER = {% if fixed_chapter_id %}{{ fixed_chapter_i
 
                     <!-- 操作按钮 -->
                     <button type="button" class="ant-btn ant-btn-primary" onclick="loadStudyRecords()">查询</button>
+                    <button type="button" class="ant-btn" onclick="exportStudyRecords()">导出</button>
                     <button type="button" class="ant-btn" onclick="resetSearch()">重置</button>
                     <button type="button" class="ant-btn ant-btn-primary" onclick="openManualRecordModal()">记录</button>
                 </form>
@@ -252,36 +246,45 @@ const studyRecordColumns = [
     }
 ];
 
-// 加载记录数据
-function loadStudyRecords(params = {}) {
-    forceRerender(); // 强制重新渲染表格组件
-    const container = document.getElementById('study-records-table');
-    container.innerHTML = '<div class="loading-spinner">加载中...</div>';
-    
-    // 获取表单数据
+function getStudyRecordFilterParams(extra = {}) {
     const subEl = document.getElementById('subjectValue');
     const chapEl = document.getElementById('chapterValue');
     const fixedSub = typeof window.__FIXED_PLAN_REVIEW_SUBJECT !== 'undefined' ? String(window.__FIXED_PLAN_REVIEW_SUBJECT) : '';
     const fixedCh = (typeof window.__FIXED_PLAN_REVIEW_CHAPTER !== 'undefined' && window.__FIXED_PLAN_REVIEW_CHAPTER != null)
         ? String(window.__FIXED_PLAN_REVIEW_CHAPTER) : '';
-    const formData = {
+    return {
         created_date_start: document.getElementById('createdDateStart').value,
         created_date_end: document.getElementById('createdDateEnd').value,
         subject: (subEl && subEl.value) ? subEl.value : fixedSub,
         chapter: (chapEl && chapEl.value) ? chapEl.value : fixedCh,
-        page_type: document.getElementById('pageTypeValue').value,
         content_search: (document.getElementById('contentSearchInput') && document.getElementById('contentSearchInput').value) || '',
-        ...params
+        ...extra
     };
-    
-    // 构建查询参数
+}
+
+function buildStudyRecordQueryParams(formData) {
     const queryParams = new URLSearchParams();
     for (const key in formData) {
         if (formData[key]) {
             queryParams.append(key, formData[key]);
         }
     }
-    
+    return queryParams;
+}
+
+function exportStudyRecords() {
+    const queryParams = buildStudyRecordQueryParams(getStudyRecordFilterParams());
+    window.location.href = `{% url 'courses:study_record_export' %}?${queryParams.toString()}`;
+}
+
+// 加载记录数据
+function loadStudyRecords(params = {}) {
+    forceRerender(); // 强制重新渲染表格组件
+    const container = document.getElementById('study-records-table');
+    container.innerHTML = '<div class="loading-spinner">加载中...</div>';
+
+    const formData = getStudyRecordFilterParams(params);
+    const queryParams = buildStudyRecordQueryParams(formData);
 
     fetch(`{% url 'courses:study_record_list' %}?${queryParams.toString()}`, {
         headers: {
@@ -372,10 +375,8 @@ function resetSearch() {
         document.getElementById('subjectValue').value = '';
         document.getElementById('chapterValue').value = '';
     }
-    document.getElementById('pageTypeValue').value = '';
     const cs = document.getElementById('contentSearchInput');
     if (cs) cs.value = '';
-    initPageTypeSelector();
     loadStudyRecords();
 }
 
@@ -785,28 +786,6 @@ function initCascader() {
     });
 }
 
-// 初始化任务类型选择器
-function initPageTypeSelector() {
-    const options = [
-        { value: '', label: '所有类型' },
-        {% for type in page_types %}
-        { value: '{{ type.0 }}', label: '{{ type.1 }}' },
-        {% endfor %}
-    ];
-    
-    ReactDOM.render(
-        React.createElement(antd.Select, {
-            style: { width: 168 },
-            options: options,
-            defaultValue: '',
-            onChange: (value) => {
-                document.getElementById('pageTypeValue').value = value;
-            }
-        }),
-        document.getElementById('page-type-selector')
-    );
-}
-
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('study-records-table')) {
@@ -834,7 +813,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
                 .catch(() => { manualRecordSubjectTree = []; });
         }
-        initPageTypeSelector();
         loadStudyRecords();
     }
 });

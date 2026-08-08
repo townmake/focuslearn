@@ -40,6 +40,7 @@ from .views import (
     BaseStudyRecordListView,
     StudyRecordListView,
     StudyRecordsAPIView,
+    study_record_export,
     SubjectPlanSummaryListCreateAPI,
     SubjectPlanSummaryDetailAPI,
     subject_plan_review,
@@ -83,6 +84,7 @@ urlpatterns = [
 
     path('study-records/', StudyRecordListView.as_view(), name='study_records'),
     path('study-records/list/', StudyRecordsAPIView.as_view(), name='study_record_list'),
+    path('study-records/export/', study_record_export, name='study_record_export'),
     path('base_study_record/', BaseStudyRecordListView.as_view(), name='base_study_record'),
     path('subject-chapter-options/', subject_chapter_options, name='subject_chapter_options'),
 
