@@ -610,35 +610,303 @@ a.unscheduled-subject-title:focus-visible {
     background-color: rgba(25, 118, 210, 0.05) !important;
 }
 
-/* 已完成任务样式 */
+/* 已完成任务样式：透明底 + 浅灰字 */
 .task-completed {
-    text-decoration: line-through rgba(102, 102, 102, 0.8) !important;
-    background-color: #808080 !important;
-    border-color: #808080 !important;
-    opacity: 0.7 !important;
-    color: #333 !important;
+    text-decoration: none !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    opacity: 1 !important;
+    color: #b0b6be !important;
 }
 
 .fc-list-event.task-completed .fc-list-event-dot {
-    border-color: #808080 !important;
+    border-color: #b0b6be !important;
+}
+
+.fc-list-event.calendar-study-record .fc-list-event-dot {
+    border-color: #e53935 !important;
+}
+
+.fc-list-event.calendar-plan-task:not(.task-completed) .fc-list-event-dot {
+    border-color: #2e7d32 !important;
 }
 
 .fc-list-event.task-completed .fc-list-event-title,
 .fc-list-event.task-completed .fc-list-event-time {
-    color: #333 !important;
-    text-decoration: line-through rgba(102, 102, 102, 0.8) !important;
+    color: #b0b6be !important;
+    text-decoration: none !important;
+}
+
+.fc-timegrid-event.task-completed,
+.fc-daygrid-event.task-completed,
+.fc-timegrid-event.task-completed .fc-event-main,
+.fc-daygrid-event.task-completed .fc-event-main {
+    background-color: transparent !important;
+    background-image: none !important;
+    color: #b0b6be !important;
 }
 
 .fc-timegrid-event.task-completed .fc-event-title,
 .fc-daygrid-event.task-completed .fc-event-title,
 .fc-daygrid-event.task-completed .fc-event-time,
-.fc-timegrid-event.task-completed .fc-event-time {
-    text-decoration: line-through rgba(102, 102, 102, 0.8) !important;
-    color: #333 !important;
+.fc-timegrid-event.task-completed .fc-event-time,
+.fc-timegrid-event.task-completed .cal-event-title,
+.fc-daygrid-event.task-completed .cal-event-title,
+.fc-timegrid-event.task-completed .cal-event-time,
+.fc-daygrid-event.task-completed .cal-event-time,
+.fc-timegrid-event.task-completed .cal-event-title-main,
+.fc-daygrid-event.task-completed .cal-event-title-main,
+.fc-timegrid-event.task-completed .cal-event-project,
+.fc-daygrid-event.task-completed .cal-event-project,
+.fc-timegrid-event.task-completed .cal-event-sep,
+.fc-daygrid-event.task-completed .cal-event-sep {
+    text-decoration: none !important;
+    color: #b0b6be !important;
 }
 
 .fc-daygrid-event.task-completed .fc-daygrid-event-dot {
-    border-color: #808080 !important;
+    border-color: #b0b6be !important;
+}
+
+/* 状态小点：待办绿 / 完成灰 / 插入记录红 */
+.cal-status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+.cal-status-todo {
+    background-color: #2e7d32;
+}
+
+.cal-status-done {
+    background-color: #9e9e9e;
+}
+
+.cal-status-record {
+    background-color: #e53935;
+}
+
+/* 日/周/月：先内容后时间 */
+.cal-event-inner.cal-event-content-first {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 6px;
+    line-height: 1.3;
+    padding: 1px 2px;
+}
+
+.cal-event-inner .cal-event-title {
+    word-break: break-word;
+}
+
+.cal-event-inner .cal-event-time {
+    opacity: 0.9;
+    white-space: nowrap;
+}
+
+.cal-event-inner.cal-event-list {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+}
+
+/*
+ * 日视图：内容与时间同一行连续排布（内容在前）
+ */
+.fc-timeGridDay-view .fc-timegrid-event .fc-event-main-frame,
+.fc-timeGridDay-view .fc-v-event .fc-event-main-frame {
+    display: block !important;
+    flex-direction: unset !important;
+    line-height: 1.35;
+    padding: 1px 2px;
+}
+
+.fc-daygrid-event .cal-event-inner.cal-event-content-first {
+    display: inline-flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
+/* ========== 周 / 月：紧凑「项目 › 标题」 ========== */
+.cal-event-inner.cal-event-compact {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    line-height: 1.25;
+}
+
+.cal-event-inner.cal-event-compact .cal-status-dot {
+    width: 6px;
+    height: 6px;
+    margin-right: 0;
+    box-shadow: 0 0 0 1px rgba(31, 41, 51, 0.12);
+}
+
+.cal-event-inner.cal-event-compact .cal-event-title {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.cal-event-inner.cal-event-compact .cal-event-title-main {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 62%;
+    flex-shrink: 1;
+}
+
+.cal-event-inner.cal-event-compact .cal-event-sep {
+    opacity: 0.55;
+    flex-shrink: 0;
+    font-weight: 400;
+}
+
+.cal-event-inner.cal-event-compact .cal-event-project {
+    opacity: 0.82;
+    font-weight: 400;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+/* 周视图：块内更紧凑，短事件也能读出标题 */
+.fc-timeGridWeek-view .fc-timegrid-event {
+    border-radius: 3px !important;
+    overflow: hidden;
+}
+
+.fc-timeGridWeek-view .fc-timegrid-event .fc-event-main {
+    padding: 0 !important;
+}
+
+.fc-timeGridWeek-view .fc-timegrid-event .fc-event-main-frame,
+.fc-timeGridWeek-view .fc-v-event .fc-event-main-frame {
+    display: flex !important;
+    align-items: flex-start !important;
+    padding: 2px 4px !important;
+    line-height: 1.25;
+}
+
+.fc-timeGridWeek-view .cal-event-inner.cal-event-week {
+    padding: 0;
+}
+
+.fc-timeGridWeek-view .fc-timegrid-event {
+    border-left: 3px solid #2e7d32 !important;
+    border-top: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    background: transparent !important;
+}
+
+.fc-timeGridWeek-view .fc-timegrid-event.calendar-study-record {
+    border-left-color: #e53935 !important;
+}
+
+.fc-timeGridWeek-view .fc-timegrid-event.task-completed {
+    opacity: 1 !important;
+    color: #b0b6be !important;
+    border-left-color: #9e9e9e !important;
+}
+
+.fc-timeGridWeek-view .fc-timegrid-event .cal-event-title {
+    white-space: nowrap;
+}
+
+/* 月视图：透明条 + 左边线 + 单行省略 */
+.fc-dayGridMonth-view .fc-daygrid-event {
+    margin: 1px 2px !important;
+    padding: 0 !important;
+    border-radius: 3px !important;
+    border: none !important;
+    background: transparent !important;
+    background-image: none !important;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-event .fc-event-main {
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-dot-event {
+    align-items: center;
+    padding: 1px 0;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-event-dot {
+    display: none !important;
+}
+
+.fc-dayGridMonth-view .cal-event-inner.cal-event-month {
+    padding: 2px 6px 2px 5px;
+    border-radius: 3px;
+    background: transparent;
+    border-left: 3px solid #2e7d32;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-event.calendar-study-record .cal-event-inner.cal-event-month {
+    border-left-color: #e53935;
+    background: transparent;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-event.task-completed .cal-event-inner.cal-event-month {
+    border-left-color: #9e9e9e;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-event.task-completed {
+    opacity: 1 !important;
+    color: #b0b6be !important;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-event.task-completed .cal-event-title-main,
+.fc-dayGridMonth-view .fc-daygrid-event.task-completed .cal-event-project,
+.fc-dayGridMonth-view .fc-daygrid-event.task-completed .cal-event-sep {
+    color: #b0b6be !important;
+    text-decoration: none;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-day-events {
+    margin-top: 2px;
+}
+
+.fc-dayGridMonth-view .fc-daygrid-event-harness + .fc-daygrid-event-harness {
+    margin-top: 1px;
+}
+
+.fc-dayGridMonth-view .cal-event-inner.cal-event-month .cal-event-title {
+    font-size: 11.5px;
+}
+
+@media (max-width: 900px) {
+    .fc-timeGridWeek-view .cal-event-inner.cal-event-compact .cal-event-title,
+    .fc-dayGridMonth-view .cal-event-inner.cal-event-month .cal-event-title {
+        font-size: 11px;
+    }
+
+    .cal-event-inner.cal-event-compact .cal-event-title-main {
+        max-width: 70%;
+    }
 }
 
 /* 任务详情样式 */
@@ -695,62 +963,55 @@ body.modal-open .modal-backdrop {
     align-items: center;
 }
 
-/* 日历上的学习/任务记录：夕阳金色；叠放顺序由 .fc-timegrid-event-harness:has(...) 的 z-index 控制 */
+/* 日历事件统一透明底，靠状态点 / 左边线区分 */
+.fc-event.calendar-plan-task,
+.fc-event.calendar-study-record,
+.fc-event.calendar-plan-task .fc-event-main,
+.fc-event.calendar-study-record .fc-event-main,
+.fc-event.calendar-plan-task .fc-event-main-frame,
+.fc-event.calendar-study-record .fc-event-main-frame {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+
+.fc-event.calendar-plan-task {
+    color: #1f2933 !important;
+}
+
 .fc-event.calendar-study-record {
     z-index: 14 !important;
-    border-width: 2px !important;
-    border-style: solid !important;
-    box-shadow: 0 1px 3px rgba(139, 90, 43, 0.35);
-    background-image: linear-gradient(
-        160deg,
-        #f0c9a0 0%,
-        #e8b888 35%,
-        #d4a574 70%,
-        #c9956c 100%
-    ) !important;
-    background-color: #d4a574 !important;
+    color: #1f2933 !important;
 }
 
 .fc-event.calendar-study-record .fc-event-main {
     background: transparent !important;
 }
 
-/* 多行展示「项目 > 任务 > 描述」时换行，避免单行被裁切 */
-.fc-timegrid-event .fc-event-title,
-.fc-timegrid-event .fc-event-title-container {
+/* 日视图也保持透明底；左边装饰条与状态点同色 */
+.fc-timeGridDay-view .fc-timegrid-event {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-left: 3px solid #2e7d32 !important;
+    border-top: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+}
+
+.fc-timeGridDay-view .fc-timegrid-event.calendar-study-record {
+    border-left-color: #e53935 !important;
+}
+
+.fc-timeGridDay-view .fc-timegrid-event.task-completed {
+    color: #b0b6be !important;
+    border-left-color: #9e9e9e !important;
+}
+
+/* 多行展示「项目 > 任务 > 描述」时换行，避免单行被裁切（日视图） */
+.fc-timeGridDay-view .fc-timegrid-event .fc-event-title,
+.fc-timeGridDay-view .fc-timegrid-event .fc-event-title-container,
+.fc-timeGridDay-view .fc-timegrid-event .cal-event-title {
     white-space: normal;
     line-height: 1.25;
-}
-
-/*
- * 日视图：时间与文案同一行连续排布，放不下再换行
- * （默认 FC 为纵向：时间在上、标题在下；含已完成任务、学习记录）
- */
-.fc-timeGridDay-view .fc-timegrid-event .fc-event-main-frame,
-.fc-timeGridDay-view .fc-v-event .fc-event-main-frame {
-    display: block !important;
-    flex-direction: unset !important;
-    line-height: 1.35;
-    padding: 1px 2px;
-}
-
-.fc-timeGridDay-view .fc-timegrid-event .fc-event-time,
-.fc-timeGridDay-view .fc-timegrid-event .fc-event-title-container,
-.fc-timeGridDay-view .fc-timegrid-event .fc-event-title,
-.fc-timeGridDay-view .fc-timegrid-event.task-completed .fc-event-time,
-.fc-timeGridDay-view .fc-timegrid-event.task-completed .fc-event-title,
-.fc-timeGridDay-view .fc-timegrid-event.calendar-study-record .fc-event-time,
-.fc-timeGridDay-view .fc-timegrid-event.calendar-study-record .fc-event-title-container,
-.fc-timeGridDay-view .fc-timegrid-event.calendar-study-record .fc-event-title {
-    display: inline !important;
-    white-space: normal !important;
-    vertical-align: baseline;
-    padding: 0 !important;
-    margin: 0 !important;
-}
-
-.fc-timeGridDay-view .fc-timegrid-event .fc-event-time::after {
-    content: '\00a0';
 }
 
 /* 计划任务：与记录重叠时在下层（同上，不用 position:relative 以免破坏时间轴定位） */

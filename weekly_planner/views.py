@@ -121,8 +121,8 @@ def update_task_status(request):
             new_status = task.id in checked_ids
             if task.is_completed != new_status:
                 task.is_completed = new_status
-                task.completed_at = timezone.now() if new_status else None
-                task.save()
+                task.sync_status_from_completed()
+                task.save(update_fields=['is_completed', 'status', 'updated_at'])
         
         return redirect('home')
     except Exception as e:

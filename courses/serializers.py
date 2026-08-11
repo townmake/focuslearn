@@ -70,8 +70,9 @@ class StudyRecordSerializer(serializers.ModelSerializer):
             'chapter_name',
             'learning_content',
             'description',
+            'source',
         ]
-        read_only_fields = ['id', 'user', 'duration_display']
+        read_only_fields = ['id', 'user', 'duration_display', 'source']
         extra_kwargs = {
             'user': {'required': False},
         }

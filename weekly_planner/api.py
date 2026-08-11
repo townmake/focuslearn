@@ -370,7 +370,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         task = self.get_object()
         task.is_completed = not task.is_completed
-        task.save()
+        task.sync_status_from_completed()
+        task.save(update_fields=['is_completed', 'status', 'updated_at'])
         
         serializer = self.get_serializer(task)
         return Response(serializer.data)
@@ -442,9 +443,13 @@ class TaskViewSet(viewsets.ModelViewSet):
                 chapter_name=chapter_name,
                 learning_content=learning_content,
                 description=description,
+                source=StudyRecord.Source.PLAN,
             )
             if mark_complete:
-                Task.objects.filter(pk=task.pk, user=request.user).update(is_completed=True)
+                Task.objects.filter(pk=task.pk, user=request.user).update(
+                    is_completed=True,
+                    status=Task.Status.DONE,
+                )
 
         task.refresh_from_db()
         serializer = self.get_serializer(task)

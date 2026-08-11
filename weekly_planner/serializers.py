@@ -102,7 +102,7 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = [
-            'id', 'user', 'title', 'description', 'is_completed', 'is_unscheduled',
+            'id', 'user', 'title', 'description', 'is_completed', 'status', 'is_unscheduled',
             'start_date', 'start_time', 'end_date', 'end_time', 
             'start',  # 新增字段，用于 FullCalendar
             'end',    # 新增字段，用于 FullCalendar
@@ -113,7 +113,7 @@ class TaskSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'subject_color', 'parent_series', 'is_exception', 'original_date'
         ]
-        read_only_fields = ['user', 'created_at', 'updated_at']
+        read_only_fields = ['user', 'created_at', 'updated_at', 'status']
 
     def validate(self, data):
         """

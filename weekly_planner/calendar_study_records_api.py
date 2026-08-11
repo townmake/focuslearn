@@ -37,7 +37,7 @@ def calendar_study_records(request):
     type_labels = dict(StudyRecord.PAGE_TYPE_CHOICES)
 
     qs = (
-        StudyRecord.objects.filter(user=request.user)
+        StudyRecord.objects.filter(user=request.user, source=StudyRecord.Source.MANUAL)
         .filter(end_time__gte=range_start, start_time__lte=range_end)
         .order_by("start_time")
     )

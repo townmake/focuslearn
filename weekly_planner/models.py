@@ -79,6 +79,19 @@ class Task(models.Model):
     title = models.CharField(max_length=200, default="未命名任务")
     description = models.TextField(null=True, blank=True)
     is_completed = models.BooleanField(default=False)
+
+    class Status(models.TextChoices):
+        TODO = "todo", "待办"
+        DONE = "done", "完成"
+
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.TODO,
+        verbose_name="状态",
+        db_index=True,
+        help_text="待办 / 完成；与 is_completed 保持同步",
+    )
     is_unscheduled = models.BooleanField(
         default=False,
         verbose_name="待安排",
@@ -114,6 +127,19 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+    def sync_status_from_completed(self):
+        """以 is_completed 为准，同步 status 文案字段。"""
+        self.status = self.Status.DONE if self.is_completed else self.Status.TODO
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None:
+            self.sync_status_from_completed()
+        elif "is_completed" in update_fields:
+            self.sync_status_from_completed()
+            kwargs["update_fields"] = list(set(update_fields) | {"status"})
+        super().save(*args, **kwargs)
 
     @property
     def start_datetime(self):

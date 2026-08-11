@@ -503,6 +503,62 @@ function recordCalendarTitle(r) {
     );
 }
 
+function escapeCalendarHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/** 待办绿点 / 完成灰点 / 插入记录红点 */
+function calendarStatusDotClass(extendedProps) {
+    const xp = extendedProps || {};
+    if (xp.kind === 'study_record') return 'cal-status-record';
+    const status = xp.status || (xp.is_completed ? 'done' : 'todo');
+    return status === 'done' ? 'cal-status-done' : 'cal-status-todo';
+}
+
+/** 周/月视图：仅「项目 › 标题」 */
+function planWeekMonthTitle(xp) {
+    const t = (xp.task_raw_title && String(xp.task_raw_title).trim())
+        ? String(xp.task_raw_title).trim()
+        : '';
+    const subj = (xp.subject_name && String(xp.subject_name).trim())
+        ? String(xp.subject_name).trim()
+        : '';
+    return {
+        main: truncateCalendarLabel(subj || '（无项目）', 28),
+        project: truncateCalendarLabel(t || '（无）', 36)
+    };
+}
+
+/** 周/月视图插入记录：项目 › 内容 */
+function recordWeekMonthTitle(xp) {
+    const desc = (xp.learning_content && String(xp.learning_content).trim())
+        ? String(xp.learning_content).trim()
+        : '（无描述）';
+    const subj = (xp.subject_name && String(xp.subject_name).trim())
+        ? String(xp.subject_name).trim()
+        : '';
+    return {
+        main: truncateCalendarLabel(subj || '（无项目）', 28),
+        project: truncateCalendarLabel(desc, 36)
+    };
+}
+
+function buildCompactEventTitleHtml(parts) {
+    const main = escapeCalendarHtml(parts.main || '');
+    const project = escapeCalendarHtml(parts.project || '');
+    let html = '<span class="cal-event-title-main">' + main + '</span>';
+    if (project) {
+        html += '<span class="cal-event-sep" aria-hidden="true">›</span>' +
+            '<span class="cal-event-project">' + project + '</span>';
+    }
+    return html;
+}
+
     document.addEventListener('DOMContentLoaded', function() {
     /* 将模态框挂到 body，避免在 <main> / flex 布局内受 overflow、transform 等影响导致 fixed 遮罩无法铺满视口 */
     ['taskDetailsModal', 'studyRecordDetailsModal', 'planRecordModal', 'taskFormModal', 'updateScopeModal', 'batchUnscheduledModal'].forEach(function (mid) {
@@ -1467,6 +1523,42 @@ function recordCalendarTitle(r) {
             minute: '2-digit',
             hour12: false
         },
+        /* 日：内容+时间；周/月：计划仅「项目 › 标题」、不显示时间 */
+        eventContent: function (arg) {
+            const xp = arg.event.extendedProps || {};
+            const timeText = arg.timeText || '';
+            const dotClass = calendarStatusDotClass(xp);
+            const viewType = (arg.view && arg.view.type) || '';
+            const isList = viewType.indexOf('list') === 0;
+            const isWeekOrMonth = viewType === 'timeGridWeek' || viewType === 'dayGridMonth';
+            const isMonth = viewType === 'dayGridMonth';
+
+            if (isWeekOrMonth) {
+                const parts = xp.kind === 'study_record'
+                    ? recordWeekMonthTitle(xp)
+                    : planWeekMonthTitle(xp);
+                const compactClass = isMonth ? 'cal-event-compact cal-event-month' : 'cal-event-compact cal-event-week';
+                return {
+                    html: '<div class="cal-event-inner ' + compactClass + '">' +
+                        '<span class="cal-status-dot ' + dotClass + '" aria-hidden="true"></span>' +
+                        '<span class="cal-event-title">' + buildCompactEventTitleHtml(parts) + '</span>' +
+                        '</div>'
+                };
+            }
+
+            const title = arg.event.title || '';
+            const titleHtml = '<span class="cal-status-dot ' + dotClass + '" aria-hidden="true"></span>' +
+                '<span class="cal-event-title">' + escapeCalendarHtml(title) + '</span>';
+            if (isList) {
+                return { html: '<div class="cal-event-inner cal-event-list">' + titleHtml + '</div>' };
+            }
+            const timeHtml = timeText
+                ? '<span class="cal-event-time">' + escapeCalendarHtml(timeText) + '</span>'
+                : '';
+            return {
+                html: '<div class="cal-event-inner cal-event-content-first">' + titleHtml + timeHtml + '</div>'
+            };
+        },
         /* 重叠时段：计划先排、记录后排，叠放时记录在上（与创建先后无关） */
         eventOrder: function (a, b) {
             const layer = (e) => (e.extendedProps && e.extendedProps.kind === 'study_record') ? 1 : 0;
@@ -1509,23 +1601,22 @@ function recordCalendarTitle(r) {
             Promise.all([tasksReq, recordsReq])
                 .then(([data, records]) => {
                     const recordList = Array.isArray(records) ? records : [];
-                    const sunsetGold = '#D4A574';
-                    const sunsetBorder = '#B8894A';
-                    const recordTextColor = getContrastYIQ(sunsetGold);
+                    const textColor = '#1f2933';
+                    const recordBorder = '#e53935';
 
                     const taskEvents = data.map(task => {
                         const color = task.subject_color || '#3498db';
-                        const textColor = getContrastYIQ(color);
+                        const taskStatus = task.status || (task.is_completed ? 'done' : 'todo');
                         return {
                             id: task.id,
                             title: planCalendarTitle(task),
                             start: task.start,
                             end: task.end,
                             allDay: false,
-                            backgroundColor: color,
+                            backgroundColor: 'transparent',
                             borderColor: color,
                             textColor: textColor,
-                            classNames: ['calendar-plan-task'].concat(task.is_completed ? ['task-completed'] : []),
+                            classNames: ['calendar-plan-task'].concat(task.is_completed || taskStatus === 'done' ? ['task-completed'] : []),
                             extendedProps: {
                                 kind: 'task',
                                 task_raw_title: task.title || '',
@@ -1537,6 +1628,7 @@ function recordCalendarTitle(r) {
                                 urgency_level: task.urgency_level,
                                 importance_level: task.importance_level,
                                 is_completed: task.is_completed,
+                                status: taskStatus,
                                 subject_id: task.subject,
                                 chapter_id: task.chapter,
                                 subject_category_id: task.subject_category_id,
@@ -1545,6 +1637,7 @@ function recordCalendarTitle(r) {
                                 repeat_ends: task.repeat_ends,
                                 is_unscheduled: task.is_unscheduled,
                                 parent_series: task.parent_series,
+                                subject_color: color,
                             }
                         };
                     });
@@ -1555,9 +1648,9 @@ function recordCalendarTitle(r) {
                         start: r.start,
                         end: r.end,
                         allDay: false,
-                        backgroundColor: sunsetGold,
-                        borderColor: sunsetBorder,
-                        textColor: recordTextColor,
+                        backgroundColor: 'transparent',
+                        borderColor: recordBorder,
+                        textColor: textColor,
                         classNames: ['calendar-study-record'],
                         editable: false,
                         startEditable: false,
@@ -1565,6 +1658,7 @@ function recordCalendarTitle(r) {
                         resourceEditable: false,
                         extendedProps: {
                             kind: 'study_record',
+                            status: 'record',
                             study_record_id: r.id,
                             learning_content: r.learning_content,
                             description: r.description,
@@ -1728,6 +1822,25 @@ function recordCalendarTitle(r) {
         }
     },
         
+        // 日/周装饰条颜色与状态点一致：绿待办 / 灰完成 / 红插入记录
+        eventDidMount: function (info) {
+            const el = info.el;
+            const xp = info.event.extendedProps || {};
+            const kind = xp.kind;
+            const status = xp.status || (xp.is_completed ? 'done' : 'todo');
+            let leftColor = '#2e7d32';
+            if (kind === 'study_record') {
+                leftColor = '#e53935';
+            } else if (status === 'done' || xp.is_completed) {
+                leftColor = '#9e9e9e';
+            }
+            el.style.setProperty('border-left-color', leftColor, 'important');
+            const compact = el.querySelector('.cal-event-inner.cal-event-month');
+            if (compact) {
+                compact.style.setProperty('border-left-color', leftColor, 'important');
+            }
+        },
+
         // 点击事件处理
         eventClick: function(info) {
             const event = info.event;

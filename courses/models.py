@@ -699,6 +699,19 @@ class StudyRecord(models.Model):
     )
     learning_content = models.TextField(verbose_name="学习内容")
     description = models.TextField(blank=True, verbose_name="学习描述")
+
+    class Source(models.TextChoices):
+        PLAN = "plan", "计划执行"
+        MANUAL = "manual", "手动插入"
+
+    source = models.CharField(
+        max_length=16,
+        choices=Source.choices,
+        default=Source.MANUAL,
+        verbose_name="来源",
+        db_index=True,
+        help_text="plan=周历计划完成/记录产生；manual=学习记录页手动插入（日历上显示红点）",
+    )
     
     class Meta:
         verbose_name = "记录"
