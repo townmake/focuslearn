@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "focuslearn": {
+      "command": "python",
+      "args": ["-m", "mcp_server"],
+      "cwd": "E:/focuslearn",
+      "env": {
+        "FOCUSLEARN_BASE_URL": "http://127.0.0.1:8001",
+        "FOCUSLEARN_USERNAME": "your_username",
+        "FOCUSLEARN_PASSWORD": "your_password"
+      }
+    }
+  }
+}
